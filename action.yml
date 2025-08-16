@@ -10,12 +10,13 @@ branding:
 inputs:
   lcov-file:
     description: The path to the lcov.info coverage report file
-    required: false
+    required: true
     default: ./coverage/lcov.info
   coverage-threshold:
     description: The minimum acceptable coverage percentage
-    required: false
+    required: true
     default: "80"
+
 
 runs:
   using: node24

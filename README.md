@@ -18,9 +18,8 @@ This targeted, granular approach ensures that developers can quickly pinpoint an
 
 | Name | Type | Required | Default | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `lcov-file` | `string` | `true` | `''` | The path to the `lcov.info` coverage report file. Example: `./coverage/my-app/lcov.info` |
-| `coverage-threshold` | `number` | `true` | `80` | The minimum acceptable coverage percentage for the files changed in the PR. |
-| `github-token` | `string` | `true` | `''` | The GITHUB\_TOKEN secret, used for interacting with the GitHub API to get PR diffs and post comments. |
+| `lcov-file` | `string` | `true` | `'coverage/lcov.info'` | The path to the `lcov.info` coverage report file. Example: `./coverage/my-app/lcov.info` |
+| `coverage-threshold` | `string` | `true` | `'80'` | The minimum acceptable coverage percentage for the files changed in the PR. |
 
 ## Outputs
 
