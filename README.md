@@ -76,14 +76,19 @@ flowchart TD
 
 ## Checkout Behavior
 
-This action automatically handles different checkout configurations:
+This action needs to calculate the changeset for the PR and therefore won't work with shallow clones. Set `fetch-depth: 0` or use the following snippet
+to calculate the minimal fetch depth required:
 
-  - **Default PR merge**: Works with GitHub Actions' default behavior that checks out `refs/remotes/pull/X/merge`
-  - **PR head checkout**: Compatible with actions that checkout the exact PR head commit
-  - **Shallow checkout**: Compatible with `fetch-depth: 0` or specific fetch depths
-  - **Custom checkout**: Adapts to any checkout configuration
+```yaml
+    - name: Determine fetch depth
+      id: base-depth
+      run: echo "base-depth=$(expr ${{ github.event.pull_request.commits }} + 1)" | tee -a $GITHUB_OUTPUT
 
-The action intelligently detects merge commits and extracts the actual PR head commit for accurate diff calculation.
+    - name: Checkout
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
+```
 
 ## Example Usage
 
@@ -107,8 +112,14 @@ jobs:
     name: "Build, Test and Check Coverage"
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout code"
-        uses: actions/checkout@v4
+      - name: Determine fetch depth
+        id: base-depth
+        run: echo "base-depth=$(expr ${{ github.event.pull_request.commits }} + 1)" | tee -a $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
 
       - name: "Setup Node.js"
         uses: actions/setup-node@v4
