@@ -5,15 +5,15 @@
     "helpers:pinGitHubActionDigests",
     "schedule:earlyMondays"
   ],
-  "vulnerabilityAlerts": {
-    "enabled": true
-  },
-  "timezone": "Europe/Berlin",
   "lockFileMaintenance": {
     "enabled": true,
     "extends": [
       "group:all",
       "schedule:weekly"
     ]
+  },
+  "timezone": "Europe/Berlin",
+  "vulnerabilityAlerts": {
+    "enabled": true
   }
 }
