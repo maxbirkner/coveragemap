@@ -4,7 +4,9 @@
     "declaration": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2024"],
+    "lib": [
+      "ES2024"
+    ],
     "module": "commonjs",
     "moduleResolution": "node",
     "noImplicitAny": true,
@@ -18,6 +20,13 @@
     "strictNullChecks": true,
     "target": "ES2024"
   },
-  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "tests"],
-  "include": ["src/**/*"]
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "tests"
+  ],
+  "include": [
+    "src/**/*"
+  ]
 }

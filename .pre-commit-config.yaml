@@ -1,53 +1,54 @@
 repos:
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
-  hooks:
-  - id: end-of-file-fixer
-  - id: trailing-whitespace
-  - id: check-json
-  - id: check-yaml
-  - id: check-added-large-files
-  - id: check-case-conflict
-  - id: pretty-format-json
-    args: [--autofix, --indent=2, --no-ensure-ascii]
-- repo: https://github.com/pre-commit/mirrors-prettier
-  rev: v3.1.0
-  hooks:
-  - id: prettier
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-json
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: pretty-format-json
+        args: [--autofix, --indent=2, --no-ensure-ascii]
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
 
-- repo: https://github.com/pre-commit/mirrors-eslint
-  rev: v9.30.1
-  hooks:
-  - id: eslint
+  - repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.30.1
+    hooks:
+      - id: eslint
 
-- repo: https://github.com/lalten/check-gha-pinning
-  rev: v1.3.0
-  hooks:
-  - id: check-gha-pinning
+  - repo: https://github.com/lalten/check-gha-pinning
+    rev: v1.3.0
+    hooks:
+      - id: check-gha-pinning
 
-- repo: https://github.com/igorshubovych/markdownlint-cli
-  rev: v0.45.0
-  hooks:
-  - id: markdownlint
-    args: [--fix]
-    exclude: |-
-      (?x)^(
-        package-lock.json
-      )
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+        exclude: |-
+          (?x)^(
+            package-lock.json
+          )
 
-- repo: https://github.com/renovatebot/pre-commit-hooks
-  rev: 38.118.0
-  hooks:
-  - id: renovate-config-validator
+  - repo: https://github.com/renovatebot/pre-commit-hooks
+    rev: 38.118.0
+    hooks:
+      - id: renovate-config-validator
 
-- repo: https://github.com/rhysd/actionlint
-  rev: v1.7.7
-  hooks:
-  - id: actionlint
-    additional_dependencies: ["github.com/wasilibs/go-shellcheck/cmd/shellcheck@v0.10.0"]
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.7
+    hooks:
+      - id: actionlint
+        additional_dependencies:
+          ["github.com/wasilibs/go-shellcheck/cmd/shellcheck@v0.10.0"]
 
-- repo: https://github.com/codespell-project/codespell
-  rev: v2.3.0
-  hooks:
-  - id: codespell
-    exclude: (?x)^( package-lock.json )
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        exclude: (?x)^( package-lock.json )
