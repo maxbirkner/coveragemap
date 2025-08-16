@@ -6,6 +6,7 @@
   },
   "description": "GitHub Action that analyzes code coverage for files changed in a pull request and generates a visual treemap",
   "devDependencies": {
+    "@eslint/js": "^9.10.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
@@ -39,5 +40,6 @@
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
+  "type": "module",
   "version": "1.0.0"
 }
