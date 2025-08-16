@@ -1,33 +1,10 @@
 {
-  "name": "coveragemap-action",
-  "version": "1.0.0",
-  "description": "GitHub Action that analyzes code coverage for files changed in a pull request and generates a visual treemap",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "tsc",
-    "test": "jest",
-    "test:coverage": "jest --coverage",
-    "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
-    "lint": "eslint src/**/*.ts",
-    "format": "prettier --write src/**/*.ts"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/maxbirkner/coveragemap.git"
-  },
-  "keywords": [
-    "github-action",
-    "coverage",
-    "lcov",
-    "treemap",
-    "testing"
-  ],
   "author": "maxbirkner",
-  "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0"
   },
+  "description": "GitHub Action that analyzes code coverage for files changed in a pull request and generates a visual treemap",
   "devDependencies": {
     "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
@@ -39,5 +16,28 @@
     "prettier": "^3.3.3",
     "ts-jest": "^29.2.5",
     "typescript": "^5.6.2"
-  }
+  },
+  "keywords": [
+    "github-action",
+    "coverage",
+    "lcov",
+    "treemap",
+    "testing"
+  ],
+  "license": "MIT",
+  "main": "dist/index.js",
+  "name": "coveragemap-action",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxbirkner/coveragemap.git"
+  },
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write src/**/*.ts",
+    "lint": "eslint src/**/*.ts",
+    "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "version": "1.0.0"
 }

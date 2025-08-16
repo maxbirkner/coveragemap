@@ -16,15 +16,15 @@ This targeted, granular approach ensures that developers can quickly pinpoint an
 
 ## Inputs
 
-| Name | Type | Required | Default | Description |
-| :--- | :--- | :--- | :--- | :--- |
-| `lcov-file` | `string` | `true` | `'coverage/lcov.info'` | The path to the `lcov.info` coverage report file. Example: `./coverage/my-app/lcov.info` |
-| `coverage-threshold` | `string` | `true` | `'80'` | The minimum acceptable coverage percentage for the files changed in the PR. |
+| Name                 | Type     | Required | Default                | Description                                                                              |
+| :------------------- | :------- | :------- | :--------------------- | :--------------------------------------------------------------------------------------- |
+| `lcov-file`          | `string` | `true`   | `'coverage/lcov.info'` | The path to the `lcov.info` coverage report file. Example: `./coverage/my-app/lcov.info` |
+| `coverage-threshold` | `string` | `true`   | `'80'`                 | The minimum acceptable coverage percentage for the files changed in the PR.              |
 
 ## Outputs
 
-| Name | Type | Description |
-| :--- | :--- | :--- |
+| Name              | Type      | Description                                                                            |
+| :---------------- | :-------- | :------------------------------------------------------------------------------------- |
 | `coverage-passed` | `boolean` | Returns `true` if the coverage threshold is met for the PR's files, otherwise `false`. |
 
 ## Workflow Logic
@@ -68,7 +68,7 @@ flowchart TD
 Here's how you would integrate this action into your CI workflow. It should run after your tests and coverage report have been generated.
 
 ```yaml
-name: 'PR Coverage Check'
+name: "PR Coverage Check"
 
 on:
   pull_request:
@@ -81,34 +81,34 @@ permissions:
 
 jobs:
   build-and-test:
-    name: 'Build, Test and Check Coverage'
+    name: "Build, Test and Check Coverage"
     runs-on: ubuntu-latest
     steps:
-      - name: 'Checkout code'
+      - name: "Checkout code"
         uses: actions/checkout@v4
 
-      - name: 'Setup Node.js'
+      - name: "Setup Node.js"
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
 
-      - name: 'Install dependencies'
+      - name: "Install dependencies"
         run: npm install
 
       # This step generates the lcov.info file
-      - name: 'Run tests and generate coverage'
+      - name: "Run tests and generate coverage"
         run: npm run test -- --no-watch --code-coverage
 
-      - name: 'Coverage Treemap Action'
+      - name: "Coverage Treemap Action"
         id: coverage_check
         uses: your-username/coverage-treemap-action@v1
         with:
-          lcov-file: './coverage/your-project-name/lcov.info'
+          lcov-file: "./coverage/your-project-name/lcov.info"
           coverage-threshold: 85
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 'Check Coverage Output'
+      - name: "Check Coverage Output"
         if: steps.coverage_check.outputs.coverage-passed == 'false'
         run: |
           echo "Coverage check failed. See the PR comment for details."
