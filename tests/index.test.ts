@@ -12,29 +12,33 @@ describe("getInputs", () => {
 
   it("should return inputs when they are provided", () => {
     mockedCore.getInput.mockImplementation((name: string) => {
-      if (name === "lcov-file") return "./coverage/lcov.info";
+      if (name === "lcov-file") return "./foo/bar.info";
       if (name === "coverage-threshold") return "85";
+      if (name === "target-branch") return "baz";
       return "";
     });
 
     const result = getInputs();
 
     expect(result).toEqual({
-      lcovFile: "./coverage/lcov.info",
+      lcovFile: "./foo/bar.info",
       coverageThreshold: "85",
+      targetBranch: "baz",
     });
     expect(mockedCore.getInput).toHaveBeenCalledWith("lcov-file");
     expect(mockedCore.getInput).toHaveBeenCalledWith("coverage-threshold");
+    expect(mockedCore.getInput).toHaveBeenCalledWith("target-branch");
   });
 
-  it("should return default messages when inputs are not provided", () => {
+  it("should return default values when inputs are not provided", () => {
     mockedCore.getInput.mockReturnValue("");
 
     const result = getInputs();
 
     expect(result).toEqual({
-      lcovFile: "No LCOV file specified",
-      coverageThreshold: "No threshold specified",
+      lcovFile: "coverage/lcov.info",
+      coverageThreshold: "80",
+      targetBranch: "main",
     });
   });
 
@@ -42,6 +46,7 @@ describe("getInputs", () => {
     mockedCore.getInput.mockImplementation((name: string) => {
       if (name === "lcov-file") return "./test/lcov.info";
       if (name === "coverage-threshold") return "";
+      if (name === "target-branch") return "develop";
       return "";
     });
 
@@ -49,7 +54,8 @@ describe("getInputs", () => {
 
     expect(result).toEqual({
       lcovFile: "./test/lcov.info",
-      coverageThreshold: "No threshold specified",
+      coverageThreshold: "80",
+      targetBranch: "develop",
     });
   });
 
@@ -57,14 +63,33 @@ describe("getInputs", () => {
     mockedCore.getInput.mockImplementation((name: string) => {
       if (name === "lcov-file") return "";
       if (name === "coverage-threshold") return "";
+      if (name === "target-branch") return "";
       return "";
     });
 
     const result = getInputs();
 
     expect(result).toEqual({
-      lcovFile: "No LCOV file specified",
-      coverageThreshold: "No threshold specified",
+      lcovFile: "coverage/lcov.info",
+      coverageThreshold: "80",
+      targetBranch: "main",
+    });
+  });
+
+  it("should handle custom target branch", () => {
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "lcov-file") return "coverage/lcov.info";
+      if (name === "coverage-threshold") return "90";
+      if (name === "target-branch") return "develop";
+      return "";
+    });
+
+    const result = getInputs();
+
+    expect(result).toEqual({
+      lcovFile: "coverage/lcov.info",
+      coverageThreshold: "90",
+      targetBranch: "develop",
     });
   });
 });
