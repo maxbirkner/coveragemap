@@ -1,59 +1,19 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "schedule:earlyMondays"
   ],
-  "schedule": [
-    "before 6am on Monday"
-  ],
-  "timezone": "UTC",
-  "labels": ["dependencies"],
-  "commitMessagePrefix": "chore:",
-  "commitMessageTopic": "update {{depName}}",
-  "commitMessageExtra": "to {{newVersion}}",
-  "prTitle": "{{commitMessagePrefix}} {{commitMessageTopic}} {{commitMessageExtra}}",
-  "packageRules": [
-    {
-      "matchPackagePatterns": ["*"],
-      "addLabels": ["dependencies"]
-    },
-    {
-      "matchDepTypes": ["devDependencies"],
-      "addLabels": ["dev-dependencies"]
-    },
-    {
-      "matchDepTypes": ["dependencies"],
-      "addLabels": ["runtime-dependencies"]
-    },
-    {
-      "groupName": "TypeScript and ESLint",
-      "matchPackagePatterns": [
-        "typescript",
-        "@typescript-eslint/*",
-        "eslint"
-      ]
-    },
-    {
-      "groupName": "Jest testing framework",
-      "matchPackagePatterns": [
-        "jest",
-        "@types/jest",
-        "ts-jest"
-      ]
-    },
-    {
-      "groupName": "GitHub Actions toolkit",
-      "matchPackagePatterns": [
-        "@actions/*"
-      ]
-    }
-  ],
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
+  "timezone": "Europe/Berlin",
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": [
-      "before 6am on Monday"
+    "extends": [
+      "group:all",
+      "schedule:weekly"
     ]
-  },
-  "prConcurrentLimit": 10,
-  "prHourlyLimit": 2
+  }
 }
