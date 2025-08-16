@@ -204,10 +204,13 @@ export class CoverageAnalyzer {
     functions: FunctionCoverage[];
   }> {
     return analysis.changedFiles
-      .filter((file) => file.coverage)
+      .filter(
+        (file): file is FileChangeWithCoverage & { coverage: FileCoverage } =>
+          !!file.coverage,
+      )
       .map((file) => ({
         file: file.path,
-        functions: file.coverage!.functions.filter((fn) => fn.hit === 0),
+        functions: file.coverage.functions.filter((fn) => fn.hit === 0),
       }))
       .filter((item) => item.functions.length > 0);
   }
@@ -220,11 +223,14 @@ export class CoverageAnalyzer {
     lines: number[];
   }> {
     return analysis.changedFiles
-      .filter((file) => file.coverage)
+      .filter(
+        (file): file is FileChangeWithCoverage & { coverage: FileCoverage } =>
+          !!file.coverage,
+      )
       .map((file) => ({
         file: file.path,
-        lines: file
-          .coverage!.lines.filter((line) => line.hit === 0)
+        lines: file.coverage.lines
+          .filter((line) => line.hit === 0)
           .map((line) => line.line),
       }))
       .filter((item) => item.lines.length > 0);

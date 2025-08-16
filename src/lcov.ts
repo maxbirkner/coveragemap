@@ -175,12 +175,16 @@ export class LcovParser {
     lines: LineCoverage[],
     branches: BranchCoverage[],
   ): FileCoverage {
+    if (file.path === undefined) {
+      throw new Error("File path is undefined in finalizeFileCoverage");
+    }
+
     const functionsHit = functions.filter((f) => f.hit > 0).length;
     const linesHit = lines.filter((l) => l.hit > 0).length;
     const branchesHit = branches.filter((b) => b.taken > 0).length;
 
     return {
-      path: file.path!,
+      path: file.path,
       functions,
       lines,
       branches,
