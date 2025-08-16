@@ -203,7 +203,7 @@ describe("GitUtils", () => {
         "test/file.test.ts",
       ]);
       expect(mockedExec).toHaveBeenCalledWith(
-        "git diff --name-only --diff-filter=AM abc123...HEAD",
+        "git diff --name-only --diff-filter=AM abc123..HEAD",
         expect.any(Function),
       );
       expect(mockedCore.info).toHaveBeenCalledWith(
@@ -236,7 +236,7 @@ describe("GitUtils", () => {
       await GitUtils.getChangedFiles("abc123");
 
       expect(mockedExec).toHaveBeenCalledWith(
-        "git diff --name-only --diff-filter=AM abc123...HEAD",
+        "git diff --name-only --diff-filter=AM abc123..HEAD",
         expect.any(Function),
       );
     });

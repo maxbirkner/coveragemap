@@ -37,8 +37,23 @@ jobs:
     name: Test Coverage Treemap Action
 
     steps:
+    - name: Determine fetch depth
+      id: base-depth
+      run: echo "base-depth=$(expr ${{ github.event.pull_request.commits }} + 1)" | tee -a $GITHUB_OUTPUT
+
     - name: Checkout
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+      with:
+        fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
+
+    - name: Dump Github context
+      run: |
+        set -x
+        echo '${{ toJSON(github) }}'
+        git log --oneline
+        echo "base-depth=${{ steps.base-depth.outputs.base-depth }}"
+        git diff ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+      shell: bash
 
     - name: Setup Node.js
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -57,7 +72,7 @@ jobs:
         mkdir -p dist
         npm run package
 
-    - name: Test Hello World action locally
+    - name: Run Coveragemap action
       uses: ./
       with:
         lcov-file: "./coverage/lcov.info"

@@ -2,12 +2,19 @@ import { GitUtils } from "./git";
 import { exec } from "child_process";
 import * as core from "@actions/core";
 
-// Mock child_process and @actions/core
+// Mock child_process, @actions/core, and @actions/github
 jest.mock("child_process");
 jest.mock("@actions/core");
+jest.mock("@actions/github", () => ({
+  context: {
+    payload: {},
+  },
+}));
 
 const mockedExec = exec as jest.MockedFunction<typeof exec>;
 const mockedCore = core as jest.Mocked<typeof core>;
+
+import { context } from "@actions/github";
 
 // Helper to mock exec with specific stdout/stderr
 const mockExecSuccess = (stdout: string, stderr: string = "") => {
@@ -64,14 +71,101 @@ describe("GitUtils", () => {
     beforeEach(() => {
       process.env = { ...originalEnv };
       delete process.env.GITHUB_SHA;
+      delete process.env.GITHUB_HEAD_SHA;
+      delete process.env.GITHUB_EVENT_HEAD_SHA;
+
+      // Reset GitHub context mock
+      (context as any).payload = {};
     });
 
     afterEach(() => {
       process.env = originalEnv;
     });
 
-    it("should use GITHUB_SHA when available", async () => {
+    it("should use GitHub context PR head when available", async () => {
+      // Mock GitHub context with PR payload
+      (context as any).payload = {
+        pull_request: {
+          head: {
+            sha: "context-pr-head-sha",
+          },
+        },
+      };
+
+      const result = await GitUtils.getPullRequestHead();
+
+      expect(result).toBe("context-pr-head-sha");
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📌 Using PR head from GitHub context: context-pr-head-sha",
+      );
+    });
+
+    it("should detect merge commit and return PR head even with GITHUB_SHA", async () => {
       process.env.GITHUB_SHA = "github-sha-123";
+
+      // Mock git rev-parse HEAD
+      mockedExec
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(null, { stdout: "merge-commit-sha", stderr: "" });
+        }) as any)
+        // Mock git rev-list --parents
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(null, {
+            stdout: "merge-commit-sha parent1-sha parent2-sha\n",
+            stderr: "",
+          });
+        }) as any);
+
+      const result = await GitUtils.getPullRequestHead();
+
+      expect(result).toBe("parent2-sha");
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "🔀 Detected merge commit with parents: parent1-sha, parent2-sha",
+      );
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📍 Using PR head commit: parent2-sha",
+      );
+    });
+
+    it("should use GitHub event head SHA when available in merge commit", async () => {
+      process.env.GITHUB_HEAD_SHA = "event-head-sha-123";
+
+      // Mock git rev-parse HEAD
+      mockedExec
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(null, { stdout: "merge-commit-sha", stderr: "" });
+        }) as any)
+        // Mock git rev-list --parents
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(null, {
+            stdout: "merge-commit-sha parent1-sha parent2-sha\n",
+            stderr: "",
+          });
+        }) as any);
+
+      const result = await GitUtils.getPullRequestHead();
+
+      expect(result).toBe("event-head-sha-123");
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📌 Using PR head from GitHub event: event-head-sha-123",
+      );
+    });
+
+    it("should use GITHUB_SHA when not a merge commit", async () => {
+      process.env.GITHUB_SHA = "github-sha-123";
+
+      // Mock git rev-parse HEAD
+      mockedExec
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(null, { stdout: "regular-commit-sha", stderr: "" });
+        }) as any)
+        // Mock git rev-list --parents (single parent)
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(null, {
+            stdout: "regular-commit-sha parent-sha\n",
+            stderr: "",
+          });
+        }) as any);
 
       const result = await GitUtils.getPullRequestHead();
 
@@ -188,6 +282,35 @@ describe("GitUtils", () => {
         ),
       );
     });
+
+    it("should fallback to alternative references when origin/main fails in CI", async () => {
+      const expectedSha = "abc123def456";
+
+      // First attempt with origin/main fails
+      mockedExec
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("No such ref"), { stdout: "", stderr: "" });
+        }) as any)
+        // Second attempt with main succeeds
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(null, { stdout: `${expectedSha}\n`, stderr: "" });
+        }) as any);
+
+      const result = await GitUtils.findMergeBase("origin/main", "HEAD");
+
+      expect(result).toBe(expectedSha);
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git merge-base origin/main HEAD",
+        expect.any(Function),
+      );
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git merge-base main HEAD",
+        expect.any(Function),
+      );
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📍 Merge base found with main: abc123def456",
+      );
+    });
   });
 
   describe("getChangedFiles", () => {
@@ -203,7 +326,7 @@ describe("GitUtils", () => {
         "test/file.test.ts",
       ]);
       expect(mockedExec).toHaveBeenCalledWith(
-        "git diff --name-only --diff-filter=AM abc123...HEAD",
+        "git diff --name-only --diff-filter=AM abc123..HEAD",
         expect.any(Function),
       );
       expect(mockedCore.info).toHaveBeenCalledWith(
@@ -236,7 +359,7 @@ describe("GitUtils", () => {
       await GitUtils.getChangedFiles("abc123");
 
       expect(mockedExec).toHaveBeenCalledWith(
-        "git diff --name-only --diff-filter=AM abc123...HEAD",
+        "git diff --name-only --diff-filter=AM abc123..HEAD",
         expect.any(Function),
       );
     });
@@ -284,7 +407,26 @@ describe("GitUtils", () => {
             stderr: "",
           });
         }) as any)
-        // Second call to fetch - succeeds
+        // Try alternative references - all fail
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("Reference not found"), {
+            stdout: "",
+            stderr: "",
+          });
+        }) as any)
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("Reference not found"), {
+            stdout: "",
+            stderr: "",
+          });
+        }) as any)
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("Reference not found"), {
+            stdout: "",
+            stderr: "",
+          });
+        }) as any)
+        // Fetch call - succeeds
         .mockImplementationOnce(((command: string, callback: any) => {
           callback(null, { stdout: "", stderr: "" });
         }) as any);
@@ -296,14 +438,14 @@ describe("GitUtils", () => {
         expect.any(Function),
       );
       expect(mockedExec).toHaveBeenCalledWith(
-        "git fetch origin main:origin-local-main",
+        "git fetch origin main",
         expect.any(Function),
       );
       expect(mockedCore.info).toHaveBeenCalledWith(
         "📥 Fetching main from origin",
       );
       expect(mockedCore.info).toHaveBeenCalledWith(
-        "✅ Successfully fetched origin/main",
+        "✅ Successfully fetched main from origin",
       );
     });
 
@@ -323,13 +465,13 @@ describe("GitUtils", () => {
       await GitUtils.ensureBaseRef("origin/feature/complex-branch");
 
       expect(mockedExec).toHaveBeenCalledWith(
-        "git fetch origin feature/complex-branch:origin-local-feature/complex-branch",
+        "git fetch origin feature/complex-branch",
         expect.any(Function),
       );
     });
 
     it("should handle fetch failure gracefully", async () => {
-      // First call fails, second also fails
+      // First call fails (rev-parse), subsequent alternatives fail, fetch calls also fail
       mockedExec
         .mockImplementationOnce(((command: string, callback: any) => {
           callback(new Error("Reference not found"), {
@@ -337,8 +479,32 @@ describe("GitUtils", () => {
             stderr: "",
           });
         }) as any)
+        // Alternative refs fail
         .mockImplementationOnce(((command: string, callback: any) => {
-          callback(new Error("Fetch failed"), { stdout: "", stderr: "" });
+          callback(new Error("Reference not found"), {
+            stdout: "",
+            stderr: "",
+          });
+        }) as any)
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("Reference not found"), {
+            stdout: "",
+            stderr: "",
+          });
+        }) as any)
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("Reference not found"), {
+            stdout: "",
+            stderr: "",
+          });
+        }) as any)
+        // First fetch fails
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("Git diff failed"), { stdout: "", stderr: "" });
+        }) as any)
+        // General fetch also fails
+        .mockImplementationOnce(((command: string, callback: any) => {
+          callback(new Error("Git diff failed"), { stdout: "", stderr: "" });
         }) as any);
 
       // Should not throw, but log warning
@@ -347,7 +513,7 @@ describe("GitUtils", () => {
       ).resolves.not.toThrow();
 
       expect(mockedCore.warning).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to fetch base reference origin/main"),
+        expect.stringContaining("Failed to fetch main from origin"),
       );
     });
 

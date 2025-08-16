@@ -78,9 +78,12 @@ flowchart TD
 
 This action automatically handles different checkout configurations:
 
-  - **Default behavior**: Works with GitHub Actions' default checkout which creates a merge commit with the target branch
+  - **Default PR merge**: Works with GitHub Actions' default behavior that checks out `refs/remotes/pull/X/merge`
+  - **PR head checkout**: Compatible with actions that checkout the exact PR head commit
   - **Shallow checkout**: Compatible with `fetch-depth: 0` or specific fetch depths
-  - **PR head checkout**: Works when checking out the exact PR head without merging
+  - **Custom checkout**: Adapts to any checkout configuration
+
+The action intelligently detects merge commits and extracts the actual PR head commit for accurate diff calculation.
 
 ## Example Usage
 

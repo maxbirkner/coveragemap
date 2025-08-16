@@ -7,6 +7,11 @@ import * as core from "@actions/core";
 jest.mock("../src/git");
 jest.mock("../src/changeset");
 jest.mock("@actions/core");
+jest.mock("@actions/github", () => ({
+  context: {
+    payload: {},
+  },
+}));
 
 const mockedGitUtils = GitUtils as jest.Mocked<typeof GitUtils>;
 const mockedChangesetUtils = ChangesetUtils as jest.Mocked<
@@ -14,9 +19,14 @@ const mockedChangesetUtils = ChangesetUtils as jest.Mocked<
 >;
 const mockedCore = core as jest.Mocked<typeof core>;
 
+// Import the mocked context
+import { context } from "@actions/github";
+
 describe("ChangesetService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // Reset GitHub context mock
+    (context as any).payload = {};
   });
 
   describe("detectChanges", () => {
@@ -47,10 +57,14 @@ describe("ChangesetService", () => {
       );
 
       expect(result).toBe(mockChangeset);
+      // Should call ensureBaseRef when GitHub context base SHA is not available
       expect(mockedGitUtils.ensureBaseRef).toHaveBeenCalledWith("origin/main");
       expect(mockedGitUtils.findMergeBase).toHaveBeenCalledWith(
         "origin/main",
         "HEAD",
+      );
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📍 Falling back to target branch reference: origin/main",
       );
       expect(mockedGitUtils.getChangedFiles).toHaveBeenCalledWith(
         mockMergeBase,
@@ -68,6 +82,52 @@ describe("ChangesetService", () => {
       expect(mockedCore.info).toHaveBeenCalledWith("🎯 Target branch: main");
       expect(mockedCore.info).toHaveBeenCalledWith(
         "✅ Changeset detection completed",
+      );
+    });
+
+    it("should use GitHub context base SHA when available", async () => {
+      const mockMergeBase = "abc123";
+      const mockChangedFiles = ["src/file1.ts", "src/file2.js"];
+      const contextBaseSha = "base-sha-from-context";
+      const mockChangeset = {
+        baseCommit: mockMergeBase,
+        headCommit: "HEAD",
+        targetBranch: "main",
+        files: [
+          { path: "src/file1.ts", status: "modified" as const },
+          { path: "src/file2.js", status: "modified" as const },
+        ],
+        totalFiles: 2,
+      };
+
+      // Mock GitHub context with PR payload
+      (context as any).payload = {
+        pull_request: {
+          base: {
+            sha: contextBaseSha,
+          },
+        },
+      };
+
+      mockedGitUtils.getChangedFiles.mockResolvedValue(mockChangedFiles);
+      mockedChangesetUtils.createChangeset.mockReturnValue(mockChangeset);
+      mockedChangesetUtils.getSummary.mockReturnValue(
+        "2 files changed compared to main",
+      );
+
+      const result = await ChangesetService.detectChanges("main");
+
+      expect(result).toBe(mockChangeset);
+      // Should NOT call ensureBaseRef when using context base SHA
+      expect(mockedGitUtils.ensureBaseRef).not.toHaveBeenCalled();
+      // Should NOT call findMergeBase when using context base SHA (direct commit)
+      expect(mockedGitUtils.findMergeBase).not.toHaveBeenCalled();
+      expect(mockedGitUtils.getChangedFiles).toHaveBeenCalledWith(
+        contextBaseSha,
+        "HEAD",
+      );
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        `📌 Using PR base from GitHub context: ${contextBaseSha}`,
       );
     });
 
