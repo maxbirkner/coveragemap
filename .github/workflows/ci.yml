@@ -13,7 +13,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    name: Test Hello World Action
+    name: Test Coverage Treemap Action
 
     steps:
       - name: Checkout
