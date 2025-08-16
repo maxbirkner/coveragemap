@@ -1,5 +1,8 @@
 import * as core from "@actions/core";
 import { ChangesetService } from "./changesetService";
+import { LcovParser, LcovReport } from "./lcov";
+import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
+import { Changeset } from "./changeset";
 
 export interface ActionInputs {
   lcovFile: string;
@@ -25,11 +28,59 @@ function printInputs(inputs: ActionInputs): void {
   core.info(`🌿 Target branch: ${inputs.targetBranch}`);
 }
 
-async function detectChangeset(targetBranch: string): Promise<void> {
+async function detectChangeset(targetBranch: string): Promise<Changeset> {
   core.startGroup("🕵️‍♂️ Determining changeset");
   const changeset = await ChangesetService.detectCodeChanges(targetBranch);
   ChangesetService.outputChangeset(changeset);
   core.endGroup();
+  return changeset;
+}
+
+async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
+  core.startGroup("📊 Parsing LCOV report");
+
+  core.info(`📂 Reading LCOV file: ${lcovFile}`);
+
+  const report = LcovParser.parseFile(lcovFile);
+
+  core.info(`✅ Parsed ${report.summary.totalFiles} files from LCOV report`);
+  core.info(
+    `📈 Overall coverage: ${report.summary.linesHit}/${report.summary.linesFound} lines, ${report.summary.functionsHit}/${report.summary.functionsFound} functions`,
+  );
+
+  core.endGroup();
+  return report;
+}
+
+async function analyzeCoverage(
+  changeset: Changeset,
+  lcovReport: LcovReport,
+  threshold: number,
+): Promise<CoverageAnalysis> {
+  core.startGroup("🔍 Analyzing coverage for changed files");
+
+  const analysis = CoverageAnalyzer.analyze(changeset, lcovReport);
+
+  core.info(CoverageAnalyzer.format(analysis));
+
+  const meetsThreshold = CoverageAnalyzer.meetsCoverageThreshold(
+    analysis,
+    threshold,
+  );
+  core.info(`🎯 Coverage threshold: ${threshold}%`);
+  core.info(`${meetsThreshold ? "✅" : "❌"} Threshold met: ${meetsThreshold}`);
+
+  // Output results for use in workflow
+  core.setOutput(
+    "coverage-percentage",
+    analysis.summary.overallCoverage.overallCoveragePercentage,
+  );
+  core.setOutput("meets-threshold", meetsThreshold);
+  core.setOutput("files-analyzed", analysis.summary.totalChangedFiles);
+  core.setOutput("files-with-coverage", analysis.summary.filesWithCoverage);
+
+  core.endGroup();
+  return analysis;
 }
 
 async function run(): Promise<void> {
@@ -37,12 +88,13 @@ async function run(): Promise<void> {
     const inputs = getInputs();
     printInputs(inputs);
 
-    await detectChangeset(inputs.targetBranch);
+    const changeset = await detectChangeset(inputs.targetBranch);
+    const lcovReport = await parseLcovReport(inputs.lcovFile);
+    const threshold = parseFloat(inputs.coverageThreshold);
+
+    await analyzeCoverage(changeset, lcovReport, threshold);
 
     // TODO: Next steps will be implemented in future iterations
-    // - Parse LCOV report for function data
-    // - Filter coverage for changed files & methods
-    // - Calculate coverage percentage
     // - Generate treemap visualization
     // - Post PR comment
 

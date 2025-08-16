@@ -1,4 +1,4 @@
-import { FileChange, Changeset, ChangesetUtils } from "./changeset";
+import { Changeset, ChangesetUtils } from "./changeset";
 
 describe("ChangesetUtils", () => {
   describe("createChangeset", () => {
