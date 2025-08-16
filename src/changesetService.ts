@@ -7,19 +7,22 @@ export class ChangesetService {
     try {
       core.info("🚀 Starting changeset detection");
       core.info(`🎯 Target branch: ${targetBranch}`);
-      core.info(`📦 Current commit: ${await GitUtils.getCurrentCommit()}`);
+
+      const prHead = await GitUtils.getPullRequestHead();
+      const headRef = prHead || "HEAD";
+      core.info(`📦 PR head commit: ${headRef}`);
 
       const baseRef = `origin/${targetBranch}`;
       await GitUtils.ensureBaseRef(baseRef);
 
-      const mergeBase = await GitUtils.findMergeBase(baseRef, "HEAD");
+      const mergeBase = await GitUtils.findMergeBase(baseRef, headRef);
 
-      const changedFiles = await GitUtils.getChangedFiles(mergeBase, "HEAD");
+      const changedFiles = await GitUtils.getChangedFiles(mergeBase, headRef);
 
       const changeset = ChangesetUtils.createChangeset(
         changedFiles,
         mergeBase,
-        "HEAD",
+        headRef,
         targetBranch,
       );
 

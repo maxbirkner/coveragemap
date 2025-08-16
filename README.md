@@ -74,6 +74,14 @@ flowchart TD
   H -- No --> J
 ```
 
+## Checkout Behavior
+
+This action automatically handles different checkout configurations:
+
+  - **Default behavior**: Works with GitHub Actions' default checkout which creates a merge commit with the target branch
+  - **Shallow checkout**: Compatible with `fetch-depth: 0` or specific fetch depths
+  - **PR head checkout**: Works when checking out the exact PR head without merging
+
 ## Example Usage
 
 Here's how you would integrate this action into your CI workflow. It should run

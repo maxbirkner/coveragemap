@@ -15,6 +15,43 @@ export class GitUtils {
     }
   }
 
+  static async getPullRequestHead(): Promise<string | null> {
+    try {
+      // Try to get the PR head from GitHub context first
+      const prHead = process.env.GITHUB_SHA;
+      if (prHead) {
+        core.info(`📌 Using GITHUB_SHA: ${prHead}`);
+        return prHead;
+      }
+
+      // Fallback: check if we're in a merge commit scenario
+      const currentCommit = await GitUtils.getCurrentCommit();
+      const { stdout: parents } = await execAsync(
+        `git rev-list --parents -n 1 ${currentCommit}`,
+      );
+      const parentCommits = parents.trim().split(" ").slice(1); // Remove the commit itself, keep parents
+
+      if (parentCommits.length === 2) {
+        core.info(
+          `🔀 Detected merge commit with parents: ${parentCommits.join(", ")}`,
+        );
+        // In a GitHub Actions merge scenario, the second parent is usually the PR head
+        const prHeadCandidate = parentCommits[1];
+        core.info(`📍 Using PR head commit: ${prHeadCandidate}`);
+        return prHeadCandidate;
+      }
+
+      // If not a merge commit, current HEAD is the PR head
+      core.info(`📍 Using current HEAD as PR head: ${currentCommit}`);
+      return currentCommit;
+    } catch (error) {
+      core.warning(
+        `⚠️ Failed to determine PR head, falling back to HEAD: ${error}`,
+      );
+      return null;
+    }
+  }
+
   static async findMergeBase(base: string, head: string): Promise<string> {
     try {
       core.info(`🔍 Finding merge base between ${base} and ${head}`);
