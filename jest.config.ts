@@ -12,7 +12,6 @@ module.exports = {
   coverageDirectory: "coverage",
   roots: ["<rootDir>/src"],
   testMatch: ["**/__tests__/**/*.ts", "**/?(*.)+(spec|test).ts"],
-  testSequencer: "<rootDir>/jest-sequencer.ts",
   transform: {
     "^.+\\.ts$": [
       "ts-jest",
