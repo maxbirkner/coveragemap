@@ -35,32 +35,42 @@ This targeted, granular approach ensures that developers can quickly pinpoint an
 ## Workflow Logic
 
 ```mermaid
-graph TD
-    subgraph Initialization
-        A[Read Inputs: lcov path, threshold]
-    end
+flowchart LR
+  subgraph Inputs
+    A1[/LCOV Report/]
+    A2[/Coverage Threshold/]
+    A3[(Git Repo)]
+  end
 
-    subgraph Analysis
-        B[Fetch Changed Files in PR]
-        C[Parse LCOV Report for Function Data]
-        D[Filter Coverage for Changed Files & Methods]
-        E[Calculate Overall Coverage %]
-    end
+  subgraph Analysis
+    B[Fetch Changed Files in PR]
+    C[Parse LCOV Report for Function Data]
+    D[Filter Coverage for Changed Files & Methods]
+    E[Calculate Coverage %]
+  end
 
-    subgraph Reporting
-        F[Generate Method-level Treemap Image]
-        G[Post Comment with Treemap & Summary]
-    end
+  subgraph Reporting
+    F[Generate Method-level Treemap Image]
+    G[/PR Comment with Treemap & Summary/]
+  end
 
-    subgraph Gating
-        H{Is Coverage >= Threshold?}
-        I[Set Output: coverage-passed = true]
-        J[Set Output: coverage-passed = false & Fail Action]
-    end
+  subgraph Gating
+    H{Is Coverage >= Threshold?}
+    I[Set Output: coverage-passed = true]
+    J[Set Output: coverage-passed = false & Fail Action]
+  end
 
-    A --> B --> C --> D --> E --> F --> G --> H
-    H -- Yes --> I
-    H -- No --> J
+  A1 --> C
+  A2 --> H
+  A3 --> B
+  B --> C --> D --> E --> F --> G --> H
+  H -- Yes --> I
+  H -- No --> J
+
+  %% Shapes legend:
+  %% /Parallelogram/ = Input/Output, (Cylinder) = Database/Git repo
+  %% G is the output parallelogram (PR comment with treemap)
+  %% A3 is the cylindrical Git repo node
 ```
 
 ## Example Usage
