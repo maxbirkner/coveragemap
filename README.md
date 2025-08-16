@@ -35,7 +35,7 @@ This targeted, granular approach ensures that developers can quickly pinpoint an
 ## Workflow Logic
 
 ```mermaid
-flowchart LR
+flowchart TD
   subgraph Inputs
     A1[/LCOV Report/]
     A2[/Coverage Threshold/]
@@ -66,11 +66,6 @@ flowchart LR
   B --> C --> D --> E --> F --> G --> H
   H -- Yes --> I
   H -- No --> J
-
-  %% Shapes legend:
-  %% /Parallelogram/ = Input/Output, (Cylinder) = Database/Git repo
-  %% G is the output parallelogram (PR comment with treemap)
-  %% A3 is the cylindrical Git repo node
 ```
 
 ## Example Usage
