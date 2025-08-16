@@ -74,6 +74,22 @@ flowchart TD
   H -- No --> J
 ```
 
+## Checkout Behavior
+
+This action needs to calculate the changeset for the PR and therefore won't work with shallow clones. Set `fetch-depth: 0` or use the following snippet
+to calculate the minimal fetch depth required:
+
+```yaml
+    - name: Determine fetch depth
+      id: base-depth
+      run: echo "base-depth=$(expr ${{ github.event.pull_request.commits }} + 1)" | tee -a $GITHUB_OUTPUT
+
+    - name: Checkout
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
+```
+
 ## Example Usage
 
 Here's how you would integrate this action into your CI workflow. It should run
@@ -96,8 +112,14 @@ jobs:
     name: "Build, Test and Check Coverage"
     runs-on: ubuntu-latest
     steps:
-      - name: "Checkout code"
-        uses: actions/checkout@v4
+      - name: Determine fetch depth
+        id: base-depth
+        run: echo "base-depth=$(expr ${{ github.event.pull_request.commits }} + 1)" | tee -a $GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
 
       - name: "Setup Node.js"
         uses: actions/setup-node@v4
