@@ -7,37 +7,18 @@ export class ChangesetService {
   static async detectChanges(targetBranch: string): Promise<Changeset> {
     try {
       core.info("🚀 Starting changeset detection");
-      core.info(`🎯 Target branch: ${targetBranch}`);
 
-      const prHead = await GitUtils.getPullRequestHead();
-      const headRef = prHead || "HEAD";
-      core.info(`📦 PR head commit: ${headRef}`);
+      const headRef = GitUtils.getPullRequestHead();
+      const baseRef = GitUtils.getPullRequestBase();
 
-      // Use GitHub context base SHA if available, otherwise fallback to target branch reference
-      let baseRef: string;
-      let needsMergeBase = false;
+      core.info(`📌 PR head: ${headRef}`);
+      core.info(`🎯 PR base: ${baseRef}`);
 
-      if (context.payload.pull_request?.base?.sha) {
-        baseRef = context.payload.pull_request.base.sha;
-        core.info(`📌 Using PR base from GitHub context: ${baseRef}`);
-        needsMergeBase = false; // We already have the exact base commit
-      } else {
-        baseRef = `origin/${targetBranch}`;
-        core.info(`📍 Falling back to target branch reference: ${baseRef}`);
-        await GitUtils.ensureBaseRef(baseRef);
-        needsMergeBase = true; // We need to find the merge base for branch references
-      }
-
-      // Only find merge base if we're using branch references, not commit SHAs
-      const compareBase = needsMergeBase
-        ? await GitUtils.findMergeBase(baseRef, headRef)
-        : baseRef;
-
-      const changedFiles = await GitUtils.getChangedFiles(compareBase, headRef);
+      const changedFiles = await GitUtils.getChangedFiles(baseRef, headRef);
 
       const changeset = ChangesetUtils.createChangeset(
         changedFiles,
-        compareBase,
+        baseRef,
         headRef,
         targetBranch,
       );
