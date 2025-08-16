@@ -1,0 +1,22 @@
+name: Coverage Map Action
+description: |
+  A GitHub Action that analyzes code coverage for files changed in a pull request,
+  generates a visual treemap of test gaps, and enforces a coverage threshold.
+author: maxbirkner
+branding:
+  icon: bar-chart-2
+  color: green
+
+inputs:
+  lcov-file:
+    description: The path to the lcov.info coverage report file
+    required: false
+    default: ./coverage/lcov.info
+  coverage-threshold:
+    description: The minimum acceptable coverage percentage
+    required: false
+    default: "80"
+
+runs:
+  using: node24
+  main: dist/index.js
