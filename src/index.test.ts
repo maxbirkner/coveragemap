@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import { getInputs, ActionInputs } from "../src/index";
+import { getInputs, ActionInputs } from "./index";
 
 // Mock the @actions/core module
 jest.mock("@actions/core");

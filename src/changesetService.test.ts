@@ -1,6 +1,6 @@
-import { ChangesetService } from "../src/changesetService";
-import { GitUtils } from "../src/git";
-import { ChangesetUtils } from "../src/changeset";
+import { ChangesetService } from "./changesetService";
+import { GitUtils } from "./git";
+import { ChangesetUtils } from "./changeset";
 import * as core from "@actions/core";
 
 // Mock dependencies
@@ -42,7 +42,9 @@ describe("ChangesetService", () => {
         "2 files changed compared to main",
       );
 
-      const result = await ChangesetService.detectChanges();
+      const result = await ChangesetService.detectChanges(
+        mockChangeset.targetBranch,
+      );
 
       expect(result).toBe(mockChangeset);
       expect(mockedGitUtils.ensureBaseRef).toHaveBeenCalledWith("origin/main");
@@ -111,7 +113,7 @@ describe("ChangesetService", () => {
       const error = new Error("Git operation failed");
       mockedGitUtils.ensureBaseRef.mockRejectedValue(error);
 
-      await expect(ChangesetService.detectChanges()).rejects.toThrow(
+      await expect(ChangesetService.detectChanges("main")).rejects.toThrow(
         "Failed to detect changes in pull request",
       );
 
@@ -125,7 +127,7 @@ describe("ChangesetService", () => {
       mockedGitUtils.ensureBaseRef.mockResolvedValue();
       mockedGitUtils.findMergeBase.mockRejectedValue(error);
 
-      await expect(ChangesetService.detectChanges()).rejects.toThrow(
+      await expect(ChangesetService.detectChanges("main")).rejects.toThrow(
         "Failed to detect changes in pull request",
       );
     });
@@ -136,7 +138,7 @@ describe("ChangesetService", () => {
       mockedGitUtils.findMergeBase.mockResolvedValue("abc123");
       mockedGitUtils.getChangedFiles.mockRejectedValue(error);
 
-      await expect(ChangesetService.detectChanges()).rejects.toThrow(
+      await expect(ChangesetService.detectChanges("main")).rejects.toThrow(
         "Failed to detect changes in pull request",
       );
     });
@@ -171,10 +173,14 @@ describe("ChangesetService", () => {
         filteredChangeset,
       );
 
-      const result = await ChangesetService.detectCodeChanges();
+      const result = await ChangesetService.detectCodeChanges(
+        originalChangeset.targetBranch,
+      );
 
       expect(result).toBe(filteredChangeset);
-      expect(ChangesetService.detectChanges).toHaveBeenCalledWith("main");
+      expect(ChangesetService.detectChanges).toHaveBeenCalledWith(
+        originalChangeset.targetBranch,
+      );
       expect(mockedChangesetUtils.filterByExtensions).toHaveBeenCalledWith(
         originalChangeset,
         [

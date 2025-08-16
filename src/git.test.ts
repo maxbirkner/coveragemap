@@ -1,4 +1,4 @@
-import { GitUtils } from "../src/git";
+import { GitUtils } from "./git";
 import { exec } from "child_process";
 import * as core from "@actions/core";
 

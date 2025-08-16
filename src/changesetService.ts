@@ -3,7 +3,7 @@ import { GitUtils } from "./git";
 import { Changeset, ChangesetUtils } from "./changeset";
 
 export class ChangesetService {
-  private static async detectChanges(targetBranch: string): Promise<Changeset> {
+  static async detectChanges(targetBranch: string): Promise<Changeset> {
     try {
       core.info("🚀 Starting changeset detection");
       core.info(`🎯 Target branch: ${targetBranch}`);
