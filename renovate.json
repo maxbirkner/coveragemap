@@ -1,0 +1,59 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "schedule": [
+    "before 6am on Monday"
+  ],
+  "timezone": "UTC",
+  "labels": ["dependencies"],
+  "commitMessagePrefix": "chore:",
+  "commitMessageTopic": "update {{depName}}",
+  "commitMessageExtra": "to {{newVersion}}",
+  "prTitle": "{{commitMessagePrefix}} {{commitMessageTopic}} {{commitMessageExtra}}",
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["*"],
+      "addLabels": ["dependencies"]
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "addLabels": ["dev-dependencies"]
+    },
+    {
+      "matchDepTypes": ["dependencies"],
+      "addLabels": ["runtime-dependencies"]
+    },
+    {
+      "groupName": "TypeScript and ESLint",
+      "matchPackagePatterns": [
+        "typescript",
+        "@typescript-eslint/*",
+        "eslint"
+      ]
+    },
+    {
+      "groupName": "Jest testing framework",
+      "matchPackagePatterns": [
+        "jest",
+        "@types/jest",
+        "ts-jest"
+      ]
+    },
+    {
+      "groupName": "GitHub Actions toolkit",
+      "matchPackagePatterns": [
+        "@actions/*"
+      ]
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 6am on Monday"
+    ]
+  },
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 2
+}

@@ -114,3 +114,17 @@ jobs:
           echo "Coverage check failed. See the PR comment for details."
           exit 1
 ```
+
+## Development & Maintenance
+
+### Automated Dependency Updates
+
+This project uses [Renovate](https://docs.renovatebot.com/) to automatically keep dependencies up to date. Renovate is configured to:
+
+- Run weekly on Monday mornings (UTC)
+- Group related dependencies together (e.g., TypeScript, ESLint, Jest, GitHub Actions toolkit)
+- Create pull requests with proper labels and assignees
+- Enable security vulnerability alerts
+- Maintain lock files automatically
+
+The Renovate configuration is defined in [`renovate.json`](./renovate.json).
