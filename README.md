@@ -121,7 +121,7 @@ jobs:
 
 This project uses [Renovate](https://docs.renovatebot.com/) to automatically keep dependencies up to date. Renovate is configured to:
 
-- Run weekly on Monday mornings (UTC)
+- Run weekly on Monday mornings (Europe/Berlin time)
 - Group related dependencies together (e.g., TypeScript, ESLint, Jest, GitHub Actions toolkit)
 - Create pull requests with proper labels and assignees
 - Enable security vulnerability alerts
