@@ -2,15 +2,33 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
   pull-requests: write
 
 jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files
+
   test:
     runs-on: ubuntu-latest
     name: Test Coverage Treemap Action
@@ -39,8 +57,8 @@ jobs:
       - name: Test Hello World action locally
         uses: ./
         with:
-          lcov-file: './coverage/lcov.info'
-          coverage-threshold: '80'
+          lcov-file: "./coverage/lcov.info"
+          coverage-threshold: "80"
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
