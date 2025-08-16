@@ -1,7 +1,3 @@
-Of course. The document is already in Markdown format. Here is the raw text for you to copy and use as needed.
-
------
-
 # Coverage Treemap Action
 
 A GitHub Action that analyzes code coverage for files changed in a pull request, generates a visual treemap of test gaps, and enforces a coverage threshold.
