@@ -40,6 +40,5 @@
     "test": "jest",
     "test:coverage": "jest --coverage"
   },
-  "type": "module",
   "version": "1.0.0"
 }

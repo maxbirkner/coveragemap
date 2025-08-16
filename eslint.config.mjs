@@ -26,6 +26,21 @@ export default [
     },
   },
   {
+    files: ["*.js"],
+    languageOptions: {
+      ecmaVersion: 2025,
+      sourceType: "commonjs",
+      globals: {
+        module: "readonly",
+        require: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        process: "readonly",
+        console: "readonly",
+      },
+    },
+  },
+  {
     ignores: ["dist/**", "node_modules/**", "coverage/**"],
   },
 ];
