@@ -274,4 +274,98 @@ describe("ChangesetService", () => {
       expect(mockedCore.setOutput).toHaveBeenCalledWith("changed-files", "");
     });
   });
+
+  describe("detectCodeChanges with patterns", () => {
+    it("should filter changeset by patterns when provided", async () => {
+      const mockChangeset = {
+        baseCommit: "base-sha",
+        headCommit: "head-sha",
+        targetBranch: "main",
+        files: [
+          { path: "src/file1.ts", status: "modified" as const },
+          { path: "src/file2.js", status: "modified" as const },
+        ],
+        totalFiles: 2,
+      };
+      const mockFilteredChangeset = {
+        ...mockChangeset,
+        files: [{ path: "src/file1.ts", status: "modified" as const }],
+        totalFiles: 1,
+      };
+
+      mockedGitUtils.getPullRequestHead.mockReturnValue("head-sha");
+      mockedGitUtils.getPullRequestBase.mockReturnValue("base-sha");
+      mockedGitUtils.getChangedFiles.mockResolvedValue([
+        "src/file1.ts",
+        "src/file2.js",
+      ]);
+      mockedChangesetUtils.createChangeset.mockReturnValue(mockChangeset);
+      mockedChangesetUtils.getSummary.mockReturnValue("summary");
+      mockedChangesetUtils.filterByPatterns.mockReturnValue(mockFilteredChangeset);
+
+      const result = await ChangesetService.detectCodeChanges(
+        "main",
+        undefined,
+        "src/**/*.ts",
+        "**/*.test.*"
+      );
+
+      expect(result).toBe(mockFilteredChangeset);
+      expect(mockedChangesetUtils.filterByPatterns).toHaveBeenCalledWith(
+        mockChangeset,
+        "src/**/*.ts",
+        "**/*.test.*"
+      );
+      expect(mockedChangesetUtils.filterByExtensions).not.toHaveBeenCalled();
+    });
+
+    it("should use extension filtering when no patterns provided", async () => {
+      const mockChangeset = {
+        baseCommit: "base-sha",
+        headCommit: "head-sha",
+        targetBranch: "main",
+        files: [
+          { path: "src/file1.ts", status: "modified" as const },
+          { path: "src/file2.js", status: "modified" as const },
+        ],
+        totalFiles: 2,
+      };
+      const mockFilteredChangeset = {
+        ...mockChangeset,
+        files: [{ path: "src/file1.ts", status: "modified" as const }],
+        totalFiles: 1,
+      };
+
+      mockedGitUtils.getPullRequestHead.mockReturnValue("head-sha");
+      mockedGitUtils.getPullRequestBase.mockReturnValue("base-sha");
+      mockedGitUtils.getChangedFiles.mockResolvedValue([
+        "src/file1.ts",
+        "src/file2.js",
+      ]);
+      mockedChangesetUtils.createChangeset.mockReturnValue(mockChangeset);
+      mockedChangesetUtils.getSummary.mockReturnValue("summary");
+      mockedChangesetUtils.filterByExtensions.mockReturnValue(mockFilteredChangeset);
+
+      const result = await ChangesetService.detectCodeChanges("main");
+
+      expect(result).toBe(mockFilteredChangeset);
+      expect(mockedChangesetUtils.filterByExtensions).toHaveBeenCalledWith(
+        mockChangeset,
+        [
+          ".ts",
+          ".js",
+          ".tsx",
+          ".jsx",
+          ".py",
+          ".java",
+          ".cs",
+          ".cpp",
+          ".c",
+          ".go",
+          ".rs",
+        ]
+      );
+      expect(mockedChangesetUtils.filterByPatterns).not.toHaveBeenCalled();
+    });
+  });
 });

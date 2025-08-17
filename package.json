@@ -2,13 +2,15 @@
   "author": "maxbirkner",
   "dependencies": {
     "@actions/core": "^1.11.1",
-    "@actions/github": "^6.0.1"
+    "@actions/github": "^6.0.1",
+    "picomatch": "^4.0.3"
   },
   "description": "GitHub Action that analyzes code coverage for files changed in a pull request and generates a visual treemap",
   "devDependencies": {
     "@eslint/js": "^9.33.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.3.0",
+    "@types/picomatch": "^4.0.2",
     "@typescript-eslint/eslint-plugin": "^8.6.0",
     "@typescript-eslint/parser": "^8.6.0",
     "@vercel/ncc": "^0.38.2",
