@@ -4,6 +4,7 @@ import { LcovParser, LcovReport } from "./lcov";
 import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
 import { Changeset } from "./changeset";
 import { PrCommentService } from "./prComment";
+import { CoverageGating, GatingResult } from "./coverageGating";
 
 export interface ActionInputs {
   lcovFile: string;
@@ -86,41 +87,39 @@ async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
   return report;
 }
 
-async function analyzeCoverage(
+async function analyzeCoverageAndGating(
   changeset: Changeset,
   lcovReport: LcovReport,
   threshold: number,
-): Promise<CoverageAnalysis> {
+): Promise<{ analysis: CoverageAnalysis; gatingResult: GatingResult }> {
   core.startGroup("🔍 Analyzing coverage for changed files");
 
   const analysis = CoverageAnalyzer.analyze(changeset, lcovReport);
 
   core.info(CoverageAnalyzer.format(analysis));
 
-  const meetsThreshold = CoverageAnalyzer.meetsCoverageThreshold(
-    analysis,
-    threshold,
-  );
-  core.info(`🎯 Coverage threshold: ${threshold}%`);
-  core.info(`${meetsThreshold ? "✅" : "❌"} Threshold met: ${meetsThreshold}`);
+  // Evaluate threshold gating
+  const gatingResult = CoverageGating.evaluate(analysis, lcovReport, threshold);
+
+  core.info(CoverageGating.format(gatingResult));
 
   // Output results for use in workflow
   core.setOutput(
     "coverage-percentage",
     analysis.summary.overallCoverage.overallCoveragePercentage,
   );
-  core.setOutput("meets-threshold", meetsThreshold);
+  core.setOutput("meets-threshold", gatingResult.meetsThreshold);
   core.setOutput("files-analyzed", analysis.summary.totalChangedFiles);
   core.setOutput("files-with-coverage", analysis.summary.filesWithCoverage);
 
   core.endGroup();
-  return analysis;
+  return { analysis, gatingResult };
 }
 
 async function postPrComment(
   analysis: CoverageAnalysis,
   lcovReport: LcovReport,
-  threshold: number,
+  gatingResult: GatingResult,
   githubToken: string,
   label?: string,
 ): Promise<void> {
@@ -132,7 +131,7 @@ async function postPrComment(
       label,
     });
 
-    await commentService.postComment(analysis, lcovReport, threshold);
+    await commentService.postComment(analysis, lcovReport, gatingResult);
 
     core.info("✅ PR comment posted successfully");
   } catch (error) {
@@ -162,18 +161,29 @@ async function run(): Promise<void> {
     const lcovReport = await parseLcovReport(inputs.lcovFile);
     const threshold = parseFloat(inputs.coverageThreshold);
 
-    const analysis = await analyzeCoverage(changeset, lcovReport, threshold);
+    const { analysis, gatingResult } = await analyzeCoverageAndGating(
+      changeset,
+      lcovReport,
+      threshold,
+    );
+
     await postPrComment(
       analysis,
       lcovReport,
-      threshold,
+      gatingResult,
       inputs.githubToken,
       inputs.label,
     );
 
+    if (!gatingResult.meetsThreshold) {
+      core.setFailed(gatingResult.errorMessage!);
+      return;
+    }
+
     core.info("✅ Coverage Treemap Action completed successfully!");
   } catch (error) {
-    core.setFailed(error instanceof Error ? error.message : String(error));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    core.setFailed(errorMessage);
   }
 }
 

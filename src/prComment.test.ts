@@ -1,6 +1,7 @@
 import { PrCommentService, CommentData } from "./prComment";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { LcovReport } from "./lcov";
+import { GatingResult } from "./coverageGating";
 
 describe("PrCommentService", () => {
   const mockLcovReport: LcovReport = {
@@ -209,13 +210,25 @@ describe("PrCommentService", () => {
         ],
       };
 
+      const gatingResult: GatingResult = {
+        meetsThreshold: true,
+        threshold: 75,
+        mode: "standard",
+        prCoveragePercentage: 80,
+        overallProjectCoveragePercentage: 75,
+        description: "✅ PR coverage (80%) meets or exceeds threshold (75%)",
+      };
+
       // Access private method for testing
       const generateCommentBody = (
         service as unknown as {
-          generateCommentBody: (data: CommentData, threshold: number) => string;
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+          ) => string;
         }
       ).generateCommentBody.bind(service);
-      const result = generateCommentBody(commentData, 75);
+      const result = generateCommentBody(commentData, gatingResult);
 
       expect(result).toContain("## Coveragemap Action: Test");
       expect(result).toContain("| **Total Coverage** | 80% | 800/1000 |");
@@ -237,16 +250,124 @@ describe("PrCommentService", () => {
         fileBreakdown: [],
       };
 
+      const gatingResult: GatingResult = {
+        meetsThreshold: false,
+        threshold: 75,
+        mode: "standard",
+        prCoveragePercentage: 60,
+        overallProjectCoveragePercentage: 80,
+        description: "❌ PR coverage (60%) is below threshold (75%)",
+        errorMessage:
+          "Coverage gating failed: PR changes coverage (60%) is below threshold (75%)",
+      };
+
       // Access private method for testing
       const generateCommentBody = (
         service as unknown as {
-          generateCommentBody: (data: CommentData, threshold: number) => string;
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+          ) => string;
         }
       ).generateCommentBody.bind(service);
-      const result = generateCommentBody(commentData, 75);
+      const result = generateCommentBody(commentData, gatingResult);
 
       expect(result).toContain("| **Threshold** | ❌ 75% | - |");
       expect(result).toContain("| **Difference** | 📉 -20% | - |");
+    });
+
+    test("should handle threshold = 0 (compare against project average)", () => {
+      const service = new PrCommentService({
+        githubToken: "test-token",
+      });
+
+      const commentData: CommentData = {
+        totalCoverage: { linesHit: 800, linesFound: 1000, percentage: 80 },
+        changedFilesCoverage: { linesHit: 40, linesFound: 50, percentage: 85 },
+        coverageDifference: 5,
+        fileBreakdown: [
+          {
+            filename: "src/example.ts",
+            linesHit: 40,
+            linesFound: 50,
+            percentage: 85,
+          },
+        ],
+      };
+
+      const gatingResult: GatingResult = {
+        meetsThreshold: true,
+        threshold: 0,
+        mode: "baseline",
+        prCoveragePercentage: 85,
+        overallProjectCoveragePercentage: 80,
+        description:
+          "✅ PR coverage (85%) meets or exceeds overall project coverage (80%)",
+      };
+
+      // Access private method for testing
+      const generateCommentBody = (
+        service as unknown as {
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+          ) => string;
+        }
+      ).generateCommentBody.bind(service);
+      const result = generateCommentBody(commentData, gatingResult);
+
+      expect(result).toContain(
+        "| **Threshold** | ✅ ≥ Project Avg (80%) | - |",
+      );
+      expect(result).toContain("✅ `src/example.ts` | 85% | 40/50");
+    });
+
+    test("should show failing threshold = 0 when PR coverage is below project average", () => {
+      const service = new PrCommentService({
+        githubToken: "test-token",
+      });
+
+      const commentData: CommentData = {
+        totalCoverage: { linesHit: 800, linesFound: 1000, percentage: 80 },
+        changedFilesCoverage: { linesHit: 30, linesFound: 50, percentage: 60 },
+        coverageDifference: -20,
+        fileBreakdown: [
+          {
+            filename: "src/example.ts",
+            linesHit: 30,
+            linesFound: 50,
+            percentage: 60,
+          },
+        ],
+      };
+
+      const gatingResult: GatingResult = {
+        meetsThreshold: false,
+        threshold: 0,
+        mode: "baseline",
+        prCoveragePercentage: 60,
+        overallProjectCoveragePercentage: 80,
+        description:
+          "❌ PR coverage (60%) is below overall project coverage (80%)",
+        errorMessage:
+          "Coverage gating failed: PR changes coverage (60%) is lower than overall project coverage (80%)",
+      };
+
+      // Access private method for testing
+      const generateCommentBody = (
+        service as unknown as {
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+          ) => string;
+        }
+      ).generateCommentBody.bind(service);
+      const result = generateCommentBody(commentData, gatingResult);
+
+      expect(result).toContain(
+        "| **Threshold** | ❌ ≥ Project Avg (80%) | - |",
+      );
+      expect(result).toContain("❌ `src/example.ts` | 60% | 30/50");
     });
   });
 });
