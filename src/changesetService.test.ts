@@ -301,20 +301,22 @@ describe("ChangesetService", () => {
       ]);
       mockedChangesetUtils.createChangeset.mockReturnValue(mockChangeset);
       mockedChangesetUtils.getSummary.mockReturnValue("summary");
-      mockedChangesetUtils.filterByPatterns.mockReturnValue(mockFilteredChangeset);
+      mockedChangesetUtils.filterByPatterns.mockReturnValue(
+        mockFilteredChangeset,
+      );
 
       const result = await ChangesetService.detectCodeChanges(
         "main",
         undefined,
         "src/**/*.ts",
-        "**/*.test.*"
+        "**/*.test.*",
       );
 
       expect(result).toBe(mockFilteredChangeset);
       expect(mockedChangesetUtils.filterByPatterns).toHaveBeenCalledWith(
         mockChangeset,
-        "src/**/*.ts",
-        "**/*.test.*"
+        ChangesetUtils.parsePatterns("src/**/*.ts"),
+        ChangesetUtils.parsePatterns("**/*.test.*"),
       );
       expect(mockedChangesetUtils.filterByExtensions).not.toHaveBeenCalled();
     });
@@ -344,7 +346,9 @@ describe("ChangesetService", () => {
       ]);
       mockedChangesetUtils.createChangeset.mockReturnValue(mockChangeset);
       mockedChangesetUtils.getSummary.mockReturnValue("summary");
-      mockedChangesetUtils.filterByExtensions.mockReturnValue(mockFilteredChangeset);
+      mockedChangesetUtils.filterByExtensions.mockReturnValue(
+        mockFilteredChangeset,
+      );
 
       const result = await ChangesetService.detectCodeChanges("main");
 
@@ -363,7 +367,7 @@ describe("ChangesetService", () => {
           ".c",
           ".go",
           ".rs",
-        ]
+        ],
       );
       expect(mockedChangesetUtils.filterByPatterns).not.toHaveBeenCalled();
     });

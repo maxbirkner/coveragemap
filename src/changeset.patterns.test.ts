@@ -26,11 +26,11 @@ describe("ChangesetUtils - Pattern Filtering", () => {
       const result = ChangesetUtils.filterByPatterns(sampleChangeset);
 
       expect(result.files).toHaveLength(4);
-      expect(result.files.map(f => f.path)).toEqual([
+      expect(result.files.map((f) => f.path)).toEqual([
         "src/main.ts",
-        "src/utils.js", 
+        "src/utils.js",
         "src/components/Button.tsx",
-        "lib/helper.py"
+        "lib/helper.py",
       ]);
       expect(result.totalFiles).toBe(4);
     });
@@ -38,69 +38,69 @@ describe("ChangesetUtils - Pattern Filtering", () => {
     it("should filter using custom source code patterns", () => {
       const result = ChangesetUtils.filterByPatterns(
         sampleChangeset,
-        "src/**/*.ts,src/**/*.tsx"
+        ChangesetUtils.parsePatterns("src/**/*.ts,src/**/*.tsx"),
       );
 
       expect(result.files).toHaveLength(2);
-      expect(result.files.map(f => f.path)).toEqual([
+      expect(result.files.map((f) => f.path)).toEqual([
         "src/main.ts",
-        "src/components/Button.tsx"
+        "src/components/Button.tsx",
       ]);
     });
 
     it("should exclude files matching test patterns", () => {
       const result = ChangesetUtils.filterByPatterns(
         sampleChangeset,
-        "**/*.ts,**/*.js,**/*.tsx",
-        "**/*.test.*,**/*.spec.*"
+        ChangesetUtils.parsePatterns("**/*.ts,**/*.js,**/*.tsx"),
+        ChangesetUtils.parsePatterns("**/*.test.*,**/*.spec.*"),
       );
 
       expect(result.files).toHaveLength(4);
-      expect(result.files.map(f => f.path)).toEqual([
+      expect(result.files.map((f) => f.path)).toEqual([
         "src/main.ts",
         "src/utils.js",
         "src/components/Button.tsx",
-        "src/components/Button.mock.ts" // .mock.ts is NOT excluded by the custom test patterns
+        "src/components/Button.mock.ts", // .mock.ts is NOT excluded by the custom test patterns
       ]);
     });
 
     it("should handle custom test patterns", () => {
       const result = ChangesetUtils.filterByPatterns(
         sampleChangeset,
-        "**/*.ts,**/*.js,**/*.tsx",
-        "**/*.mock.*,**/tests/**"
+        ChangesetUtils.parsePatterns("**/*.ts,**/*.js,**/*.tsx"),
+        ChangesetUtils.parsePatterns("**/*.mock.*,**/tests/**"),
       );
 
       expect(result.files).toHaveLength(6);
-      expect(result.files.map(f => f.path)).toEqual([
+      expect(result.files.map((f) => f.path)).toEqual([
         "src/main.ts",
         "src/utils.js",
         "src/components/Button.tsx",
-        "src/main.test.ts",  // .test.ts is NOT excluded by custom pattern
+        "src/main.test.ts", // .test.ts is NOT excluded by custom pattern
         "src/utils.spec.js", // .spec.js is NOT excluded by custom pattern
-        "__tests__/unit.test.ts" // __tests__ is NOT excluded by custom pattern (only tests/ is)
+        "__tests__/unit.test.ts", // __tests__ is NOT excluded by custom pattern (only tests/ is)
       ]);
     });
 
     it("should handle multiple comma-separated patterns", () => {
       const result = ChangesetUtils.filterByPatterns(
         sampleChangeset,
-        "src/**/*.ts, lib/**/*.py, src/**/*.tsx",  // with spaces
-        "**/*.test.*, **/*.spec.*, **/*.mock.*"
+        ChangesetUtils.parsePatterns("src/**/*.ts, lib/**/*.py, src/**/*.tsx"), // with spaces
+        ChangesetUtils.parsePatterns("**/*.test.*, **/*.spec.*, **/*.mock.*"),
       );
 
       expect(result.files).toHaveLength(3);
-      expect(result.files.map(f => f.path)).toEqual([
+      expect(result.files.map((f) => f.path)).toEqual([
         "src/main.ts",
         "src/components/Button.tsx",
-        "lib/helper.py"
+        "lib/helper.py",
       ]);
     });
 
     it("should return empty changeset when no files match source patterns", () => {
       const result = ChangesetUtils.filterByPatterns(
         sampleChangeset,
-        "nonexistent/**/*.xyz"
+        ChangesetUtils.parsePatterns("nonexistent/**/*.xyz"),
       );
 
       expect(result.files).toHaveLength(0);
@@ -108,7 +108,10 @@ describe("ChangesetUtils - Pattern Filtering", () => {
     });
 
     it("should preserve changeset metadata", () => {
-      const result = ChangesetUtils.filterByPatterns(sampleChangeset, "**/*.ts");
+      const result = ChangesetUtils.filterByPatterns(
+        sampleChangeset,
+        ChangesetUtils.parsePatterns("**/*.ts"),
+      );
 
       expect(result.baseCommit).toBe("base-sha");
       expect(result.headCommit).toBe("head-sha");
@@ -116,30 +119,36 @@ describe("ChangesetUtils - Pattern Filtering", () => {
     });
 
     it("should handle empty patterns gracefully", () => {
-      const result = ChangesetUtils.filterByPatterns(sampleChangeset, "", "");
+      // Test with empty arrays - this should match no files since an empty array means "match nothing"
+      const result = ChangesetUtils.filterByPatterns(
+        sampleChangeset,
+        [], // Empty source patterns = match nothing
+        [], // Empty test patterns = exclude nothing
+      );
 
-      // Should use default patterns
-      expect(result.files).toHaveLength(4);
-      expect(result.files.map(f => f.path)).toEqual([
-        "src/main.ts",
-        "src/utils.js",
-        "src/components/Button.tsx", 
-        "lib/helper.py"
-      ]);
+      // Empty source patterns should result in no matches
+      expect(result.files).toHaveLength(0);
     });
 
-    it("should handle whitespace-only patterns", () => {
-      const result = ChangesetUtils.filterByPatterns(sampleChangeset, "   ", "   ");
+    it("should use default patterns when no arguments provided", () => {
+      // Test the default behavior when no patterns are specified
+      const result = ChangesetUtils.filterByPatterns(sampleChangeset);
 
       // Should use default patterns
       expect(result.files).toHaveLength(4);
+      expect(result.files.map((f) => f.path)).toEqual([
+        "src/main.ts",
+        "src/utils.js",
+        "src/components/Button.tsx",
+        "lib/helper.py",
+      ]);
     });
   });
 
   describe("Pattern matching edge cases", () => {
     const edgeCaseChangeset: Changeset = {
       baseCommit: "base",
-      headCommit: "head", 
+      headCommit: "head",
       targetBranch: "main",
       files: [
         { path: "src/file.test.backup.ts", status: "modified" },
@@ -155,38 +164,42 @@ describe("ChangesetUtils - Pattern Filtering", () => {
     it("should handle complex file names and paths", () => {
       const result = ChangesetUtils.filterByPatterns(
         edgeCaseChangeset,
-        "**/*.ts,**/*.js,**/*.py",
-        "**/*.test.*"
+        ChangesetUtils.parsePatterns("**/*.ts,**/*.js,**/*.py"),
+        ChangesetUtils.parsePatterns("**/*.test.*"),
       );
 
       // Should exclude file.test.backup.ts but include others
       expect(result.files).toHaveLength(5);
-      expect(result.files.find(f => f.path.includes("test.backup"))).toBeUndefined();
+      expect(
+        result.files.find((f) => f.path.includes("test.backup")),
+      ).toBeUndefined();
     });
 
     it("should match deeply nested paths with **", () => {
       const result = ChangesetUtils.filterByPatterns(
         edgeCaseChangeset,
-        "src/**/*.ts"
+        ChangesetUtils.parsePatterns("src/**/*.ts"),
       );
 
       expect(result.files).toHaveLength(1);
-      expect(result.files.map(f => f.path)).toEqual([
-        "src/deeply/nested/path/file.ts" // file.test.backup.ts is excluded by default test patterns
+      expect(result.files.map((f) => f.path)).toEqual([
+        "src/deeply/nested/path/file.ts", // file.test.backup.ts is excluded by default test patterns
       ]);
     });
 
     it("should handle special characters in filenames", () => {
       const result = ChangesetUtils.filterByPatterns(
         edgeCaseChangeset,
-        "**/file-with-dashes.*,**/file_with_underscores.*,**/file.with.dots.*"
+        ChangesetUtils.parsePatterns(
+          "**/file-with-dashes.*,**/file_with_underscores.*,**/file.with.dots.*",
+        ),
       );
 
       expect(result.files).toHaveLength(3);
-      expect(result.files.map(f => f.path)).toEqual([
+      expect(result.files.map((f) => f.path)).toEqual([
         "file-with-dashes.js",
         "src/file_with_underscores.py",
-        "src/file.with.dots.js"
+        "src/file.with.dots.js",
       ]);
     });
   });

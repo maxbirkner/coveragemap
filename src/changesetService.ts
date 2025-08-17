@@ -40,16 +40,16 @@ export class ChangesetService {
     testCodePattern?: string,
   ): Promise<Changeset> {
     const changeset = await ChangesetService.detectChanges(targetBranch);
-    
+
     // If patterns are provided, use pattern-based filtering
     if (sourceCodePattern || testCodePattern) {
       return ChangesetUtils.filterByPatterns(
         changeset,
-        sourceCodePattern,
-        testCodePattern,
+        ChangesetUtils.parsePatterns(sourceCodePattern),
+        ChangesetUtils.parsePatterns(testCodePattern),
       );
     }
-    
+
     // Fall back to extension-based filtering
     const defaultExtensions = extensions || [
       ".ts",
@@ -64,7 +64,7 @@ export class ChangesetService {
       ".go",
       ".rs",
     ];
-    
+
     return ChangesetUtils.filterByExtensions(changeset, defaultExtensions);
   }
 
