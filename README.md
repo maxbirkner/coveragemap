@@ -4,7 +4,7 @@ A GitHub Action that analyzes code coverage for files changed in a pull
 request, generates a visual treemap of test gaps, and enforces a coverage
 threshold.
 
-![CoveragemapIcon](https://github.com/user-attachments/assets/9e73373d-e15e-4bf2-a08a-97d0ef3dfb0b)
+![Coverage Map Icon](https://github.com/user-attachments/assets/9e73373d-e15e-4bf2-a08a-97d0ef3dfb0b)
 
 ## Overview
 
