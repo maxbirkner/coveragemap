@@ -279,5 +279,238 @@ describe("ChecksService", () => {
 
       expect(annotations).toHaveLength(0);
     });
+
+    it("should group consecutive uncovered lines", () => {
+      const fileWithConsecutiveLines: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        coverage: {
+          path: "src/test.ts",
+          functions: [],
+          branches: [],
+          lines: [
+            { line: 1, hit: 1 },
+            { line: 2, hit: 0 },
+            { line: 3, hit: 0 },
+            { line: 4, hit: 0 },
+            { line: 5, hit: 1 },
+            { line: 6, hit: 0 },
+            { line: 8, hit: 0 },
+            { line: 9, hit: 0 },
+          ],
+          summary: {
+            functionsFound: 0,
+            functionsHit: 0,
+            linesFound: 8,
+            linesHit: 3,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 8,
+          coveredLines: 3,
+          totalFunctions: 0,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 37.5,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 37.5,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithConsecutiveLines],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 8,
+            coveredLines: 3,
+            totalFunctions: 0,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 37.5,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 37.5,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+
+      expect(annotations).toHaveLength(4); // 3 line groups + 1 low coverage notice
+      expect(annotations[0]).toEqual({
+        path: "src/test.ts",
+        start_line: 2,
+        end_line: 4,
+        annotation_level: "warning",
+        title: "Uncovered Lines",
+        message: "Lines 2-4 are not covered by tests",
+      });
+      expect(annotations[1]).toEqual({
+        path: "src/test.ts",
+        start_line: 6,
+        end_line: 6,
+        annotation_level: "warning",
+        title: "Uncovered Lines",
+        message: "Line 6 is not covered by tests",
+      });
+      expect(annotations[2]).toEqual({
+        path: "src/test.ts",
+        start_line: 8,
+        end_line: 9,
+        annotation_level: "warning",
+        title: "Uncovered Lines",
+        message: "Lines 8-9 are not covered by tests",
+      });
+    });
+
+    it("should handle files with no coverage lines", () => {
+      const fileWithNoLines: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        coverage: {
+          path: "src/test.ts",
+          functions: [],
+          branches: [],
+          lines: [],
+          summary: {
+            functionsFound: 0,
+            functionsHit: 0,
+            linesFound: 0,
+            linesHit: 0,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 0,
+          coveredLines: 0,
+          totalFunctions: 0,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 100,
+          functionsCoveragePercentage: 100,
+          branchesCoveragePercentage: 100,
+          overallCoveragePercentage: 100,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithNoLines],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 0,
+            coveredLines: 0,
+            totalFunctions: 0,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 100,
+            functionsCoveragePercentage: 100,
+            branchesCoveragePercentage: 100,
+            overallCoveragePercentage: 100,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+      expect(annotations).toHaveLength(0);
+    });
+
+    it("should handle annotations priority and sorting", () => {
+      const fileWithMixedIssues: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        coverage: {
+          path: "src/test.ts",
+          functions: [{ name: "func1", hit: 0, line: 10 }],
+          branches: [],
+          lines: [{ line: 5, hit: 0 }],
+          summary: {
+            functionsFound: 1,
+            functionsHit: 0,
+            linesFound: 2,
+            linesHit: 1,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 2,
+          coveredLines: 1,
+          totalFunctions: 1,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 50,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 50,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithMixedIssues],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 2,
+            coveredLines: 1,
+            totalFunctions: 1,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 50,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 50,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+
+      // Should have: 1 uncovered line + 1 uncovered function + 1 low coverage = 3 annotations
+      expect(annotations).toHaveLength(3);
+
+      // Verify all are warnings (priority should sort them correctly)
+      expect(
+        annotations.every(
+          (a) =>
+            a.annotation_level === "warning" || a.annotation_level === "notice",
+        ),
+      ).toBe(true);
+    });
   });
 });

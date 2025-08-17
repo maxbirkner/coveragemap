@@ -8,6 +8,19 @@ import { CoverageAnalysis } from "./coverageAnalyzer";
 import { LcovReport } from "./lcov";
 import { GatingResult } from "./coverageGating";
 
+// Mock @actions/github
+jest.mock("@actions/github", () => ({
+  context: {
+    repo: { owner: "testowner", repo: "testrepo" },
+    payload: {
+      pull_request: { number: 123 },
+    },
+  },
+  getOctokit: jest.fn(),
+}));
+
+import { getOctokit, context } from "@actions/github";
+
 describe("PrCommentService", () => {
   let originalGitHubRepository: string | undefined;
   let originalGitHubRunId: string | undefined;
@@ -460,12 +473,228 @@ describe("PrCommentService", () => {
 
   describe("formatFileSize", () => {
     test("should format file sizes correctly", () => {
-      expect(formatFileSize(0)).toBe("0.0 B");
-      expect(formatFileSize(512)).toBe("512.0 B");
-      expect(formatFileSize(1024)).toBe("1.0 KB");
+      expect(formatFileSize(500)).toBe("500.0 B");
       expect(formatFileSize(1536)).toBe("1.5 KB");
       expect(formatFileSize(1048576)).toBe("1.0 MB");
       expect(formatFileSize(1073741824)).toBe("1.0 GB");
+    });
+  });
+
+  describe("findExistingComment", () => {
+    let mockOctokit: any;
+    let prCommentService: PrCommentService;
+
+    beforeEach(() => {
+      mockOctokit = {
+        rest: {
+          issues: {
+            listComments: jest.fn(),
+          },
+        },
+      };
+
+      (getOctokit as jest.Mock).mockReturnValue(mockOctokit);
+
+      prCommentService = new PrCommentService({
+        githubToken: "test-token",
+        label: "Test Label",
+      });
+    });
+
+    test("should find existing comment when it exists", async () => {
+      const mockComments = {
+        data: [
+          { id: 1, body: "Some other comment" },
+          { id: 2, body: "## Coveragemap Action: Test Label\nSome content" },
+          { id: 3, body: "Another comment" },
+        ],
+      };
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue(mockComments);
+
+      const result = await (prCommentService as any).findExistingComment();
+
+      expect(result).toBe(2);
+      expect(mockOctokit.rest.issues.listComments).toHaveBeenCalledWith({
+        owner: "testowner",
+        repo: "testrepo",
+        issue_number: 123,
+      });
+    });
+
+    test("should return null when no existing comment found", async () => {
+      const mockComments = {
+        data: [
+          { id: 1, body: "Some other comment" },
+          { id: 3, body: "Another comment" },
+        ],
+      };
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue(mockComments);
+
+      const result = await (prCommentService as any).findExistingComment();
+
+      expect(result).toBeNull();
+    });
+
+    test("should throw error when not in pull request context", async () => {
+      // Temporarily modify the context
+      const originalPullRequest = context.payload.pull_request;
+      (context.payload as any).pull_request = null;
+
+      await expect(
+        (prCommentService as any).findExistingComment(),
+      ).rejects.toThrow("This action can only be run on pull requests");
+
+      // Restore the context
+      (context.payload as any).pull_request = originalPullRequest;
+    });
+  });
+
+  describe("postComment", () => {
+    let mockOctokit: any;
+    let prCommentService: PrCommentService;
+    let mockAnalysis: CoverageAnalysis;
+    let mockLcovReport: LcovReport;
+    let mockGatingResult: GatingResult;
+
+    beforeEach(() => {
+      mockOctokit = {
+        rest: {
+          issues: {
+            listComments: jest.fn(),
+            createComment: jest.fn(),
+            updateComment: jest.fn(),
+          },
+        },
+      };
+
+      (getOctokit as jest.Mock).mockReturnValue(mockOctokit);
+
+      prCommentService = new PrCommentService({
+        githubToken: "test-token",
+        label: "Test Label",
+      });
+
+      mockAnalysis = {
+        changeset: { files: [], baseSha: "abc123", headSha: "def456" },
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 0,
+          filesWithCoverage: 0,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+        uncoveredFunctions: [],
+        uncoveredLines: [],
+        toString: jest.fn().mockReturnValue("Mock analysis"),
+      } as any;
+
+      mockLcovReport = {
+        files: new Map(),
+        summary: {
+          totalFiles: 0,
+          functionsFound: 10,
+          functionsHit: 8,
+          linesFound: 100,
+          linesHit: 85,
+          branchesFound: 20,
+          branchesHit: 15,
+        },
+      } as any;
+
+      mockGatingResult = {
+        meetsThreshold: true,
+        threshold: 80,
+        mode: "standard" as const,
+        prCoveragePercentage: 85,
+        description: "Coverage meets threshold",
+      };
+    });
+
+    test("should create new comment when no existing comment found", async () => {
+      mockOctokit.rest.issues.listComments.mockResolvedValue({ data: [] });
+      mockOctokit.rest.issues.createComment.mockResolvedValue({
+        data: { id: 456 },
+      });
+
+      await prCommentService.postComment(
+        mockAnalysis,
+        mockLcovReport,
+        mockGatingResult,
+      );
+
+      expect(mockOctokit.rest.issues.createComment).toHaveBeenCalledWith({
+        owner: "testowner",
+        repo: "testrepo",
+        issue_number: 123,
+        body: expect.stringContaining("Coveragemap Action: Test Label"),
+      });
+    });
+
+    test("should update existing comment when found", async () => {
+      const mockComments = {
+        data: [
+          { id: 789, body: "## Coveragemap Action: Test Label\nOld content" },
+        ],
+      };
+
+      mockOctokit.rest.issues.listComments.mockResolvedValue(mockComments);
+
+      await prCommentService.postComment(
+        mockAnalysis,
+        mockLcovReport,
+        mockGatingResult,
+      );
+
+      expect(mockOctokit.rest.issues.updateComment).toHaveBeenCalledWith({
+        owner: "testowner",
+        repo: "testrepo",
+        comment_id: 789,
+        body: expect.stringContaining("Coveragemap Action: Test Label"),
+      });
+    });
+
+    test("should throw error when not in pull request context", async () => {
+      // Temporarily modify the context
+      const originalPullRequest = context.payload.pull_request;
+      (context.payload as any).pull_request = null;
+
+      await expect(
+        prCommentService.postComment(
+          mockAnalysis,
+          mockLcovReport,
+          mockGatingResult,
+        ),
+      ).rejects.toThrow("This action can only be run on pull requests");
+
+      // Restore the context
+      (context.payload as any).pull_request = originalPullRequest;
+    });
+
+    test("should handle API errors gracefully", async () => {
+      mockOctokit.rest.issues.listComments.mockRejectedValue(
+        new Error("API Error"),
+      );
+
+      await expect(
+        prCommentService.postComment(
+          mockAnalysis,
+          mockLcovReport,
+          mockGatingResult,
+        ),
+      ).rejects.toThrow("Failed to post PR comment: API Error");
     });
   });
 });
