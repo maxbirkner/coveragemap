@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { GitUtils } from "./git";
 import { exec } from "child_process";
 import * as core from "@actions/core";
@@ -17,7 +18,7 @@ const mockedCore = core as jest.Mocked<typeof core>;
 import { context } from "@actions/github";
 
 // Helper to mock exec with specific stdout/stderr
-const mockExecSuccess = (stdout: string, stderr: string = "") => {
+const mockExecSuccess = (stdout: string, stderr = "") => {
   mockedExec.mockImplementation(((command: string, callback: any) => {
     callback(null, { stdout, stderr });
   }) as any);

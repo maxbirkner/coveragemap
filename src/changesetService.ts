@@ -1,5 +1,4 @@
 import * as core from "@actions/core";
-import { context } from "@actions/github";
 import { GitUtils } from "./git";
 import { Changeset, ChangesetUtils } from "./changeset";
 

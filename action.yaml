@@ -16,6 +16,26 @@ inputs:
     description: The minimum acceptable coverage percentage
     required: true
     default: "80"
+  target-branch:
+    description: The target branch to compare changes against
+    required: false
+    default: main
+  github-token:
+    description: GitHub token to post PR comments
+    required: true
+  label:
+    description: Optional label for comment identification (enables multiple instances)
+    required: false
+
+outputs:
+  coverage-percentage:
+    description: The overall coverage percentage for changed files
+  meets-threshold:
+    description: Whether the coverage meets the specified threshold (true/false)
+  files-analyzed:
+    description: The number of changed files that were analyzed
+  files-with-coverage:
+    description: The number of changed files that have coverage data
 
 runs:
   using: node24

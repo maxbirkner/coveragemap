@@ -26,7 +26,7 @@ describe("ChangesetService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Reset GitHub context mock
-    (context as any).payload = {};
+    (context as unknown as { payload: object }).payload = {};
   });
 
   describe("detectChanges", () => {
@@ -199,7 +199,7 @@ describe("ChangesetService", () => {
       mockedChangesetUtils.getSummary.mockReturnValue("summary");
       mockedChangesetUtils.filterByExtensions.mockReturnValue(mockChangeset);
 
-      const result = await ChangesetService.detectCodeChanges("main", [".py"]);
+      await ChangesetService.detectCodeChanges("main", [".py"]);
 
       expect(mockedChangesetUtils.filterByExtensions).toHaveBeenCalledWith(
         mockChangeset,

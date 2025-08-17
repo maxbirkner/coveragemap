@@ -25,12 +25,33 @@ introduced in a pull request. It helps maintain code quality by:
 This targeted, granular approach ensures that developers can quickly pinpoint
 and address uncovered methods in their new contributions.
 
+## Features
+
+### PR Comment Integration
+
+The action automatically posts a comprehensive coverage report as a PR comment, including:
+
+  - **Total Coverage**: Overall coverage percentage for all executed tests
+  - **Changed Files Coverage**: Coverage percentage specifically for files modified in the PR
+  - **Coverage Difference**: Comparison between total coverage and changed files coverage
+  - **Detailed Breakdown**: File-by-file coverage analysis for changed files
+
+#### Comment Management
+
+  - **Smart Updates**: The action checks for existing comments and updates them instead of creating duplicates
+  - **Multi-Label Support**: Use the optional `label` input to run multiple instances of this action in the same PR
+    - Without label: Comment title is "Coveragemap Action"
+    - With label: Comment title is "Coveragemap Action: \<label\>"
+  - **Automatic Detection**: The action identifies and updates comments based on the title pattern
+
 ## Inputs
 
 | Name                 | Type     | Required | Default                | Description                       |
 | :------------------- | :------- | :------- | :--------------------- | :-------------------------------- |
 | `lcov-file`          | `string` | `true`   | `'coverage/lcov.info'` | Path to the lcov.info report     |
 | `coverage-threshold` | `string` | `true`   | `'80'`                 | Min coverage % for changed files |
+| `github-token`       | `string` | `true`   | -                      | GitHub token to post PR comments |
+| `label`              | `string` | `false`  | -                      | Optional label for comment identification |
 
 ## Outputs
 
@@ -147,4 +168,28 @@ jobs:
         run: |
           echo "Coverage check failed. See the PR comment for details."
           exit 1
+```
+
+### Example with Multiple Coverage Checks
+
+If you need to run multiple coverage checks (e.g., for different test suites), use the `label` input to distinguish between them:
+
+```yaml
+      # Frontend coverage check
+      - name: "Frontend Coverage Check"
+        uses: your-username/coverage-treemap-action@v1
+        with:
+          lcov-file: "./coverage/frontend/lcov.info"
+          coverage-threshold: 80
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          label: "Frontend"
+
+      # Backend coverage check
+      - name: "Backend Coverage Check"
+        uses: your-username/coverage-treemap-action@v1
+        with:
+          lcov-file: "./coverage/backend/lcov.info"
+          coverage-threshold: 85
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          label: "Backend"
 ```
