@@ -186,6 +186,7 @@ export class ChecksService {
   async postAnnotations(
     analysis: CoverageAnalysis,
     annotations: CheckAnnotation[],
+    prCommentUrl?: string,
   ): Promise<void> {
     if (!github.context.payload.pull_request) {
       core.warning(
@@ -254,6 +255,11 @@ export class ChecksService {
 
       core.info(`✅ Posted ${annotations.length} annotations to GitHub Checks`);
       core.info(`🔗 Check run: ${createCheckResponse.data.html_url}`);
+
+      // Add link to PR comment if provided
+      if (prCommentUrl) {
+        core.info(`💬 View PR comment: ${prCommentUrl}`);
+      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -334,8 +340,12 @@ export class ChecksService {
   async createAnnotationsArtifact(
     annotations: CheckAnnotation[],
   ): Promise<string> {
-    const annotationsPath = "./annotations.json";
+    const os = await import("node:os");
+    const path = await import("node:path");
     const fs = await import("node:fs");
+
+    const tempDir = os.tmpdir();
+    const annotationsPath = path.join(tempDir, "annotations.json");
 
     await fs.promises.writeFile(
       annotationsPath,

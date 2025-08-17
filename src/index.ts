@@ -192,7 +192,7 @@ export async function postPrComment(
   githubToken: string,
   label?: string,
   treemapArtifact?: ArtifactInfo,
-): Promise<void> {
+): Promise<string | null> {
   core.startGroup("💬 Posting PR comment");
 
   try {
@@ -201,7 +201,7 @@ export async function postPrComment(
       label,
     });
 
-    await commentService.postComment(
+    const commentUrl = await commentService.postComment(
       analysis,
       lcovReport,
       gatingResult,
@@ -209,6 +209,7 @@ export async function postPrComment(
     );
 
     core.info("✅ PR comment posted successfully");
+    return commentUrl;
   } catch (error) {
     core.warning(
       `Failed to post PR comment: ${
@@ -218,9 +219,10 @@ export async function postPrComment(
     core.info(
       "🔍 This might be because the action is not running in a PR context or lacks permissions",
     );
+    return null;
+  } finally {
+    core.endGroup();
   }
-
-  core.endGroup();
 }
 
 export async function postCheckAnnotations(
@@ -229,6 +231,7 @@ export async function postCheckAnnotations(
   coverageThreshold: number,
   githubAppId?: string,
   githubAppPrivateKey?: string,
+  prCommentUrl?: string,
 ): Promise<void> {
   if (!ChecksService.isEnabled(githubAppId, githubAppPrivateKey)) {
     core.info(
@@ -262,7 +265,7 @@ export async function postCheckAnnotations(
     const artifactName = `coverage-annotations-${Date.now()}`;
     await artifactService.uploadArtifact(artifactName, annotationsPath, 30);
 
-    await checksService.postAnnotations(analysis, annotations);
+    await checksService.postAnnotations(analysis, annotations, prCommentUrl);
 
     await artifactService.cleanupTempFiles([annotationsPath]);
 
@@ -302,7 +305,7 @@ export async function run(): Promise<void> {
 
     const treemapArtifact = await generateAndUploadTreemap(analysis);
 
-    await postPrComment(
+    const prCommentUrl = await postPrComment(
       analysis,
       lcovReport,
       gatingResult,
@@ -317,6 +320,7 @@ export async function run(): Promise<void> {
       threshold,
       inputs.githubAppId,
       inputs.githubAppPrivateKey,
+      prCommentUrl || undefined,
     );
 
     if (!gatingResult.meetsThreshold) {

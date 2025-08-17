@@ -1,9 +1,49 @@
-import { ChecksService, ChecksServiceConfig } from "./checksService";
+import {
+  ChecksService,
+  ChecksServiceConfig,
+  CheckAnnotation,
+} from "./checksService";
 import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
 import { ChangesetUtils } from "./changeset";
 
-// Mock createAppAuth
-jest.mock("@octokit/auth-app");
+// Mock @actions/core
+jest.mock("@actions/core", () => ({
+  info: jest.fn(),
+  debug: jest.fn(),
+  error: jest.fn(),
+  setFailed: jest.fn(),
+  warning: jest.fn(),
+}));
+
+// Mock @actions/github
+jest.mock("@actions/github", () => ({
+  context: {
+    repo: { owner: "testowner", repo: "testrepo" },
+    payload: {
+      pull_request: {
+        head: { sha: "test-head-sha" },
+        number: 123,
+      },
+    },
+    serverUrl: "https://github.com",
+  },
+  getOctokit: jest.fn(),
+}));
+
+// Mock @octokit/auth-app
+jest.mock("@octokit/auth-app", () => ({
+  createAppAuth: jest.fn(),
+}));
+
+import * as core from "@actions/core";
+import * as github from "@actions/github";
+import { createAppAuth } from "@octokit/auth-app";
+
+const mockedCore = core as jest.Mocked<typeof core>;
+const mockedGithub = github as jest.Mocked<typeof github>;
+const mockedCreateAppAuth = createAppAuth as jest.MockedFunction<
+  typeof createAppAuth
+>;
 
 describe("ChecksService", () => {
   let checksService: ChecksService;
@@ -511,6 +551,648 @@ describe("ChecksService", () => {
             a.annotation_level === "warning" || a.annotation_level === "notice",
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("generateCheckTitle", () => {
+    it("should generate correct title with coverage percentage", () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test1.ts", "src/test2.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 2,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 1,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const title = (checksService as any).generateCheckTitle(analysis);
+      expect(title).toBe("Coverage: 85% (1/2 files)");
+    });
+  });
+
+  describe("generateCheckSummary", () => {
+    it("should generate summary for files with coverage", () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [
+          {
+            path: "src/test.ts",
+            status: "modified",
+            coverage: {
+              path: "src/test.ts",
+              functions: [],
+              branches: [],
+              lines: [],
+              summary: {
+                functionsFound: 10,
+                functionsHit: 8,
+                linesFound: 100,
+                linesHit: 85,
+                branchesFound: 20,
+                branchesHit: 15,
+              },
+            },
+            analysis: {
+              totalLines: 100,
+              coveredLines: 85,
+              totalFunctions: 10,
+              coveredFunctions: 8,
+              totalBranches: 20,
+              coveredBranches: 15,
+              linesCoveragePercentage: 85,
+              functionsCoveragePercentage: 80,
+              branchesCoveragePercentage: 75,
+              overallCoveragePercentage: 85,
+            },
+          },
+        ],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const summary = (checksService as any).generateCheckSummary(analysis);
+
+      expect(summary).toContain("## Coverage Analysis Summary");
+      expect(summary).toContain("**Overall Coverage:** 85% (Threshold: 80%)");
+      expect(summary).toContain("**Total files:** 1");
+      expect(summary).toContain("**Files with coverage:** 1");
+      expect(summary).toContain("**Files without coverage:** 0");
+      expect(summary).toContain("**Lines:** 85/100 (85%)");
+      expect(summary).toContain("**Functions:** 8/10 (80%)");
+      expect(summary).toContain("**Branches:** 15/20 (75%)");
+    });
+
+    it("should include files without coverage section", () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test1.ts", "src/test2.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [
+          {
+            path: "src/test1.ts",
+            status: "modified",
+            coverage: {
+              path: "src/test1.ts",
+              functions: [],
+              branches: [],
+              lines: [],
+              summary: {
+                functionsFound: 10,
+                functionsHit: 8,
+                linesFound: 100,
+                linesHit: 85,
+                branchesFound: 20,
+                branchesHit: 15,
+              },
+            },
+            analysis: {
+              totalLines: 100,
+              coveredLines: 85,
+              totalFunctions: 10,
+              coveredFunctions: 8,
+              totalBranches: 20,
+              coveredBranches: 15,
+              linesCoveragePercentage: 85,
+              functionsCoveragePercentage: 80,
+              branchesCoveragePercentage: 75,
+              overallCoveragePercentage: 85,
+            },
+          },
+          {
+            path: "src/test2.ts",
+            status: "added",
+            coverage: undefined,
+            analysis: {
+              totalLines: 0,
+              coveredLines: 0,
+              totalFunctions: 0,
+              coveredFunctions: 0,
+              totalBranches: 0,
+              coveredBranches: 0,
+              linesCoveragePercentage: 0,
+              functionsCoveragePercentage: 0,
+              branchesCoveragePercentage: 0,
+              overallCoveragePercentage: 0,
+            },
+          },
+        ],
+        summary: {
+          totalChangedFiles: 2,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 1,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const summary = (checksService as any).generateCheckSummary(analysis);
+
+      expect(summary).toContain("### ⚠️ Files Without Coverage");
+      expect(summary).toContain(
+        "[src/test2.ts](https://github.com/testowner/testrepo/blob/test-head-sha/src/test2.ts)",
+      );
+    });
+  });
+
+  describe("determineCheckConclusion", () => {
+    it("should return success when coverage meets threshold", () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const conclusion = (checksService as any).determineCheckConclusion(
+        analysis,
+      );
+      expect(conclusion).toBe("success");
+    });
+
+    it("should return failure when coverage is below threshold", () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 70,
+            totalFunctions: 10,
+            coveredFunctions: 7,
+            totalBranches: 20,
+            coveredBranches: 14,
+            linesCoveragePercentage: 70,
+            functionsCoveragePercentage: 70,
+            branchesCoveragePercentage: 70,
+            overallCoveragePercentage: 70,
+          },
+        },
+      };
+
+      const conclusion = (checksService as any).determineCheckConclusion(
+        analysis,
+      );
+      expect(conclusion).toBe("failure");
+    });
+
+    it("should return success when coverage exactly meets threshold", () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 80,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 16,
+            linesCoveragePercentage: 80,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 80,
+            overallCoveragePercentage: 80,
+          },
+        },
+      };
+
+      const conclusion = (checksService as any).determineCheckConclusion(
+        analysis,
+      );
+      expect(conclusion).toBe("success");
+    });
+  });
+
+  describe("createAnnotationsArtifact", () => {
+    it("should return correct file path", async () => {
+      const annotations = [
+        {
+          path: "src/test.ts",
+          start_line: 1,
+          end_line: 1,
+          annotation_level: "warning" as const,
+          title: "Test",
+          message: "Test message",
+        },
+      ];
+
+      const result = await checksService.createAnnotationsArtifact(annotations);
+
+      expect(result).toMatch(/.*annotations\.json$/);
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📝 Created annotations.json with 1 annotations",
+      );
+    });
+  });
+
+  describe("postAnnotations", () => {
+    let mockOctokit: any;
+    let mockAppAuth: any;
+
+    beforeEach(() => {
+      mockOctokit = {
+        rest: {
+          apps: {
+            getRepoInstallation: jest.fn(),
+          },
+          checks: {
+            create: jest.fn(),
+          },
+        },
+      };
+
+      mockAppAuth = jest.fn();
+      mockedCreateAppAuth.mockReturnValue(mockAppAuth);
+      mockedGithub.getOctokit.mockReturnValue(mockOctokit);
+    });
+
+    it("should post annotations successfully", async () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const annotations = [
+        {
+          path: "src/test.ts",
+          start_line: 1,
+          end_line: 1,
+          annotation_level: "warning" as const,
+          title: "Test",
+          message: "Test message",
+        },
+      ];
+
+      // Mock GitHub App authentication flow
+      mockAppAuth
+        .mockResolvedValueOnce({ token: "app-token" })
+        .mockResolvedValueOnce({ token: "installation-token" });
+
+      mockOctokit.rest.apps.getRepoInstallation.mockResolvedValue({
+        data: { id: 12345 },
+      });
+
+      mockOctokit.rest.checks.create.mockResolvedValue({
+        data: { html_url: "https://github.com/owner/repo/runs/123" },
+      });
+
+      await checksService.postAnnotations(analysis, annotations);
+
+      expect(mockedCreateAppAuth).toHaveBeenCalledWith({
+        appId: "123456",
+        privateKey:
+          "-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----",
+      });
+      expect(mockAppAuth).toHaveBeenCalledWith({ type: "app" });
+      expect(mockAppAuth).toHaveBeenCalledWith({
+        type: "installation",
+        installationId: 12345,
+      });
+      expect(mockOctokit.rest.checks.create).toHaveBeenCalledWith({
+        owner: "testowner",
+        repo: "testrepo",
+        name: "Coverage Treemap Action",
+        head_sha: "test-head-sha",
+        status: "completed",
+        conclusion: "success",
+        details_url: "https://github.com/testowner/testrepo/pull/123",
+        output: {
+          title: "Coverage: 85% (1/1 files)",
+          summary: expect.stringContaining("## Coverage Analysis Summary"),
+          annotations: annotations,
+        },
+      });
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📊 Check conclusion: success",
+      );
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "📈 Coverage: 85% (Threshold: 80%)",
+      );
+    });
+
+    it("should handle authentication errors", async () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      mockAppAuth.mockRejectedValue(new Error("Authentication failed"));
+
+      await expect(checksService.postAnnotations(analysis, [])).rejects.toThrow(
+        "Authentication failed",
+      );
+
+      expect(mockedCore.warning).toHaveBeenCalledWith(
+        "Failed to post check annotations: Authentication failed",
+      );
+    });
+
+    it("should limit annotations to maxAnnotations", async () => {
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      // Create 60 annotations (more than maxAnnotations = 50)
+      const annotations = Array(60)
+        .fill(null)
+        .map((_, i) => ({
+          path: "src/test.ts",
+          start_line: i + 1,
+          end_line: i + 1,
+          annotation_level: "warning" as const,
+          title: "Test",
+          message: `Test message ${i}`,
+        }));
+
+      // Mock GitHub App authentication flow
+      mockAppAuth
+        .mockResolvedValueOnce({ token: "app-token" })
+        .mockResolvedValueOnce({ token: "installation-token" });
+
+      mockOctokit.rest.apps.getRepoInstallation.mockResolvedValue({
+        data: { id: 12345 },
+      });
+
+      mockOctokit.rest.checks.create.mockResolvedValue({
+        data: { html_url: "https://github.com/owner/repo/runs/123" },
+      });
+
+      await checksService.postAnnotations(analysis, annotations);
+
+      const createCallArgs = mockOctokit.rest.checks.create.mock.calls[0][0];
+      expect(createCallArgs.output.annotations).toHaveLength(50); // Limited to maxAnnotations
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "✅ Posted 60 annotations to GitHub Checks",
+      );
+    });
+
+    it("should log PR comment URL when provided", async () => {
+      const prCommentUrl =
+        "https://github.com/owner/repo/pull/123#issuecomment-456";
+      const annotations: CheckAnnotation[] = [
+        {
+          path: "src/test.ts",
+          start_line: 1,
+          end_line: 1,
+          annotation_level: "warning",
+          message: "Test annotation",
+        },
+      ];
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      mockAppAuth
+        .mockResolvedValueOnce({ token: "app-token" })
+        .mockResolvedValueOnce({ token: "installation-token" });
+
+      mockOctokit.rest.apps.getRepoInstallation.mockResolvedValue({
+        data: { id: 12345 },
+      });
+
+      mockOctokit.rest.checks.create.mockResolvedValue({
+        data: { html_url: "https://github.com/owner/repo/runs/123" },
+      });
+
+      await checksService.postAnnotations(analysis, annotations, prCommentUrl);
+
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        `💬 View PR comment: ${prCommentUrl}`,
+      );
+    });
+
+    it("should not log PR comment URL when not provided", async () => {
+      const annotations: CheckAnnotation[] = [
+        {
+          path: "src/test.ts",
+          start_line: 1,
+          end_line: 1,
+          annotation_level: "warning",
+          message: "Test annotation",
+        },
+      ];
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      mockAppAuth
+        .mockResolvedValueOnce({ token: "app-token" })
+        .mockResolvedValueOnce({ token: "installation-token" });
+
+      mockOctokit.rest.apps.getRepoInstallation.mockResolvedValue({
+        data: { id: 12345 },
+      });
+
+      mockOctokit.rest.checks.create.mockResolvedValue({
+        data: { html_url: "https://github.com/owner/repo/runs/123" },
+      });
+
+      await checksService.postAnnotations(analysis, annotations);
+
+      expect(mockedCore.info).not.toHaveBeenCalledWith(
+        expect.stringContaining("💬 View PR comment:"),
+      );
     });
   });
 });
