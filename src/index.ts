@@ -5,6 +5,8 @@ import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
 import { Changeset } from "./changeset";
 import { PrCommentService } from "./prComment";
 import { CoverageGating, GatingResult } from "./coverageGating";
+import { TreemapGenerator } from "./treemapGenerator";
+import { ArtifactService, ArtifactInfo } from "./artifactService";
 
 export interface ActionInputs {
   lcovFile: string;
@@ -116,12 +118,71 @@ export async function analyzeCoverageAndGating(
   return { analysis, gatingResult };
 }
 
+export async function generateAndUploadTreemap(
+  analysis: CoverageAnalysis,
+): Promise<ArtifactInfo | null> {
+  core.startGroup("🗺️ Generating coverage treemap");
+
+  try {
+    const filesWithCoverage = analysis.changedFiles.filter((f) => f.coverage);
+    if (filesWithCoverage.length === 0) {
+      core.info("⏭️ Skipping treemap generation - no files with coverage data");
+      core.endGroup();
+      return null;
+    }
+
+    core.info("🎨 Generating treemap visualization...");
+
+    try {
+      const treemapPath = await TreemapGenerator.generatePNG(analysis, {
+        width: 1200,
+        height: 800,
+        outputPath: "./coverage-treemap.png",
+      });
+
+      core.info(`✅ Treemap generated: ${treemapPath}`);
+      const artifactService = new ArtifactService();
+      const artifactName = artifactService.generateTreemapArtifactName();
+
+      core.info("📤 Uploading treemap as artifact...");
+      const artifactInfo = await artifactService.uploadArtifact(
+        artifactName,
+        treemapPath,
+        30, // 30 days retention
+      );
+
+      await artifactService.cleanupTempFiles([treemapPath]);
+
+      core.info("✅ Treemap uploaded successfully");
+      core.endGroup();
+      return artifactInfo;
+    } catch (error) {
+      core.warning(
+        `Failed to generate treemap: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      core.endGroup();
+      return null;
+    }
+  } catch (error) {
+    core.warning(
+      `Failed to generate treemap: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    core.endGroup();
+    return null;
+  }
+}
+
 export async function postPrComment(
   analysis: CoverageAnalysis,
   lcovReport: LcovReport,
   gatingResult: GatingResult,
   githubToken: string,
   label?: string,
+  treemapArtifact?: ArtifactInfo,
 ): Promise<void> {
   core.startGroup("💬 Posting PR comment");
 
@@ -131,7 +192,12 @@ export async function postPrComment(
       label,
     });
 
-    await commentService.postComment(analysis, lcovReport, gatingResult);
+    await commentService.postComment(
+      analysis,
+      lcovReport,
+      gatingResult,
+      treemapArtifact,
+    );
 
     core.info("✅ PR comment posted successfully");
   } catch (error) {
@@ -167,12 +233,16 @@ export async function run(): Promise<void> {
       threshold,
     );
 
+    // Generate treemap visualization
+    const treemapArtifact = await generateAndUploadTreemap(analysis);
+
     await postPrComment(
       analysis,
       lcovReport,
       gatingResult,
       inputs.githubToken,
       inputs.label,
+      treemapArtifact || undefined,
     );
 
     if (!gatingResult.meetsThreshold) {
