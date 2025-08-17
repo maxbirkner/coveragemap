@@ -1,4 +1,4 @@
-import { TreemapGenerator, TreemapNode, TreemapData } from "./treemapGenerator";
+import { TreemapGenerator } from "./treemapGenerator";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import * as fs from "fs";
 
@@ -47,7 +47,7 @@ jest.mock("d3-hierarchy", () => ({
     })),
   })),
   treemap: jest.fn(() => {
-    const mockTreemap: any = jest.fn();
+    const mockTreemap: Record<string, any> = jest.fn();
     mockTreemap.size = jest.fn().mockReturnValue(mockTreemap);
     mockTreemap.padding = jest.fn().mockReturnValue(mockTreemap);
     return mockTreemap;
@@ -62,8 +62,8 @@ describe("TreemapGenerator", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock global assignments
-    (global as any).document = {};
-    (global as any).window = {};
+    (global as Record<string, any>).document = {};
+    (global as Record<string, any>).window = {};
   });
 
   describe("generateTreemapData", () => {

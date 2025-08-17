@@ -242,7 +242,7 @@ export async function run(): Promise<void> {
       gatingResult,
       inputs.githubToken,
       inputs.label,
-      treemapArtifact ?? undefined,
+      treemapArtifact || undefined,
     );
 
     if (!gatingResult.meetsThreshold) {
