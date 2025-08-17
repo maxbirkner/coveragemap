@@ -40,9 +40,22 @@ jest.mock("path", () => ({
 
 describe("ArtifactService", () => {
   let artifactService: ArtifactService;
+  let originalGitHubRepository: string | undefined;
+  let originalGitHubRunId: string | undefined;
+  let originalGitHubServerUrl: string | undefined;
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Store original environment variables
+    originalGitHubRepository = process.env.GITHUB_REPOSITORY;
+    originalGitHubRunId = process.env.GITHUB_RUN_ID;
+    originalGitHubServerUrl = process.env.GITHUB_SERVER_URL;
+
+    // Clear environment variables for consistent testing
+    delete process.env.GITHUB_REPOSITORY;
+    delete process.env.GITHUB_RUN_ID;
+    delete process.env.GITHUB_SERVER_URL;
 
     // Mock fs methods
     require("fs").existsSync = jest.fn().mockReturnValue(true);
@@ -50,6 +63,27 @@ describe("ArtifactService", () => {
     require("fs").statSync = jest.fn().mockReturnValue({ size: 1024 });
 
     artifactService = new ArtifactService();
+  });
+
+  afterEach(() => {
+    // Restore original environment variables
+    if (originalGitHubRepository !== undefined) {
+      process.env.GITHUB_REPOSITORY = originalGitHubRepository;
+    } else {
+      delete process.env.GITHUB_REPOSITORY;
+    }
+
+    if (originalGitHubRunId !== undefined) {
+      process.env.GITHUB_RUN_ID = originalGitHubRunId;
+    } else {
+      delete process.env.GITHUB_RUN_ID;
+    }
+
+    if (originalGitHubServerUrl !== undefined) {
+      process.env.GITHUB_SERVER_URL = originalGitHubServerUrl;
+    } else {
+      delete process.env.GITHUB_SERVER_URL;
+    }
   });
   describe("uploadArtifact", () => {
     it("uploads artifact successfully", async () => {
