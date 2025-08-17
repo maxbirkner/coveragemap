@@ -294,11 +294,15 @@ export function generateCommentBody(
     };
   }
 
-  return (service as any).generateCommentBody(
-    commentData,
-    gatingResult,
-    artifactInfo,
-  );
+  return (
+    service as unknown as {
+      generateCommentBody: (
+        data: CommentData,
+        gatingResult: GatingResult,
+        artifactInfo?: ArtifactInfo,
+      ) => string;
+    }
+  ).generateCommentBody(commentData, gatingResult, artifactInfo);
 }
 
 /**

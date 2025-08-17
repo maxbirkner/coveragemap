@@ -3,9 +3,9 @@ import * as path from "path";
 import sharp from "sharp";
 import { JSDOM } from "jsdom";
 import * as d3 from "d3";
-import { hierarchy, treemap } from "d3-hierarchy";
-import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
-import { FunctionCoverage } from "./lcov";
+import { hierarchy, treemap, HierarchyRectangularNode } from "d3-hierarchy";
+import { CoverageAnalysis } from "./coverageAnalyzer";
+import { FunctionCoverage, FileCoverage } from "./lcov";
 
 export interface TreemapNode {
   name: string;
@@ -134,7 +134,7 @@ export class TreemapGenerator {
     // Create a virtual DOM environment for D3
     const dom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
     global.document = dom.window.document;
-    global.window = dom.window as any;
+    global.window = dom.window as unknown as Window & typeof globalThis;
 
     // Create SVG element
     const svg = d3
@@ -152,11 +152,11 @@ export class TreemapGenerator {
       .attr("fill", this.COLORS.background);
 
     // Create D3 treemap layout
-    const root = hierarchy(data)
-      .sum((d: any) => d.value)
+    const root = hierarchy<TreemapData | TreemapNode>(data)
+      .sum((d) => (d as TreemapNode).value || 0)
       .sort((a, b) => (b.value || 0) - (a.value || 0));
 
-    const treemapLayout = treemap<any>()
+    const treemapLayout = treemap<TreemapData | TreemapNode>()
       .size([opts.width - 40, opts.height - 80]) // Leave margin for title
       .padding(2);
 
@@ -180,21 +180,22 @@ export class TreemapGenerator {
     const leaves = root.leaves();
     const leafGroup = svg.append("g").attr("class", "leaves");
 
-    for (const leaf of leaves) {
-      const leafWithCoords = leaf as any; // Type assertion for treemap coordinates
+    for (const leaf of leaves as HierarchyRectangularNode<
+      TreemapData | TreemapNode
+    >[]) {
       if (
-        !leafWithCoords.x0 ||
-        !leafWithCoords.y0 ||
-        !leafWithCoords.x1 ||
-        !leafWithCoords.y1
+        leaf.x0 === undefined ||
+        leaf.y0 === undefined ||
+        leaf.x1 === undefined ||
+        leaf.y1 === undefined
       )
         continue;
 
-      const node = leaf.data as any; // Type assertion for node data
-      const x = leafWithCoords.x0 + 20; // Account for margin
-      const y = leafWithCoords.y0 + 60; // Account for title and margin
-      const width = leafWithCoords.x1 - leafWithCoords.x0;
-      const height = leafWithCoords.y1 - leafWithCoords.y0;
+      const node = leaf.data as TreemapNode;
+      const x = leaf.x0 + 20; // Account for margin
+      const y = leaf.y0 + 60; // Account for title and margin
+      const width = leaf.x1 - leaf.x0;
+      const height = leaf.y1 - leaf.y0;
 
       const nodeGroup = leafGroup.append("g");
 
@@ -269,45 +270,13 @@ export class TreemapGenerator {
   }
 
   /**
-   * Draw legend for the treemap
+   * Draw SVG legend for the treemap
    */
-  private static drawLegend(
-    context: CanvasRenderingContext2D,
+  private static drawSVGLegend(
+    svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
     x: number,
     y: number,
   ): void {
-    const legendItems = [
-      { label: "Fully Covered", color: this.COLORS.full },
-      { label: "Partially Covered", color: this.COLORS.partial },
-      { label: "Not Covered", color: this.COLORS.none },
-    ];
-
-    context.font = "12px Arial, sans-serif";
-    context.textAlign = "left";
-
-    for (let i = 0; i < legendItems.length; i++) {
-      const item = legendItems[i];
-      const itemY = y + i * 20;
-
-      // Draw color square
-      context.fillStyle = item.color;
-      context.fillRect(x, itemY, 12, 12);
-
-      // Draw border
-      context.strokeStyle = this.COLORS.border;
-      context.lineWidth = 1;
-      context.strokeRect(x, itemY, 12, 12);
-
-      // Draw label
-      context.fillStyle = this.COLORS.text;
-      context.fillText(item.label, x + 18, itemY + 9);
-    }
-  }
-
-  /**
-   * Draw SVG legend for the treemap
-   */
-  private static drawSVGLegend(svg: any, x: number, y: number): void {
     const legendItems = [
       { label: "Fully Covered", color: this.COLORS.full },
       { label: "Partially Covered", color: this.COLORS.partial },
@@ -358,14 +327,12 @@ export class TreemapGenerator {
    */
   private static getFunctionLineCount(
     func: FunctionCoverage,
-    fileCoverage: any,
+    fileCoverage: FileCoverage,
   ): number {
     // Find the next function to determine the range
-    const functions = fileCoverage.functions.sort(
-      (a: any, b: any) => a.line - b.line,
-    );
+    const functions = fileCoverage.functions.sort((a, b) => a.line - b.line);
     const funcIndex = functions.findIndex(
-      (f: any) => f.name === func.name && f.line === func.line,
+      (f) => f.name === func.name && f.line === func.line,
     );
 
     if (funcIndex === -1) return 10; // Default fallback
@@ -378,7 +345,7 @@ export class TreemapGenerator {
     } else {
       // Last function - estimate based on file lines
       const maxLine = Math.max(
-        ...fileCoverage.lines.map((l: any) => l.line),
+        ...fileCoverage.lines.map((l) => l.line),
         currentFunc.line + 10,
       );
       return Math.max(maxLine - currentFunc.line, 1);
@@ -390,7 +357,7 @@ export class TreemapGenerator {
    */
   private static getFunctionCoveredLines(
     func: FunctionCoverage,
-    fileCoverage: any,
+    fileCoverage: FileCoverage,
   ): number {
     const functionLineCount = this.getFunctionLineCount(func, fileCoverage);
     const functionStartLine = func.line;

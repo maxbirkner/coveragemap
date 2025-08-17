@@ -14,9 +14,6 @@ export interface ArtifactInfo {
 export class ArtifactService {
   private artifactClient = artifact;
 
-  /**
-   * Upload a file as a GitHub Actions artifact
-   */
   async uploadArtifact(
     artifactName: string,
     filePath: string,
@@ -28,6 +25,12 @@ export class ArtifactService {
       }
 
       const stats = fs.statSync(filePath);
+      const dirPath = path.dirname(filePath);
+
+      if (!fs.existsSync(dirPath)) {
+        throw new Error(`Directory not found: ${dirPath}`);
+      }
+
       const uploadOptions = {
         continueOnError: false,
         retentionDays,
@@ -40,7 +43,7 @@ export class ArtifactService {
       const uploadResponse = await this.artifactClient.uploadArtifact(
         artifactName,
         [filePath],
-        path.dirname(filePath),
+        dirPath,
         uploadOptions,
       );
 
@@ -66,19 +69,13 @@ export class ArtifactService {
     }
   }
 
-  /**
-   * Generate a unique artifact name for the coverage treemap
-   */
   generateTreemapArtifactName(): string {
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const runId = process.env.GITHUB_RUN_ID || "local";
     return `coverage-treemap-${runId}-${timestamp}`;
   }
 
-  /**
-   * Get the download URL for an artifact (approximated for GitHub Actions)
-   */
-  getArtifactDownloadUrl(artifactInfo: ArtifactInfo): string {
+  getArtifactDownloadUrl(_artifactInfo: ArtifactInfo): string {
     const serverUrl = this.getGitHubServerUrl();
     const runId = process.env.GITHUB_RUN_ID || "unknown";
     const repository = process.env.GITHUB_REPOSITORY || "unknown/unknown";
@@ -86,9 +83,6 @@ export class ArtifactService {
     return `${serverUrl}/${repository}/actions/runs/${runId}/artifacts`;
   }
 
-  /**
-   * Get the GitHub server URL from environment or context
-   */
   private getGitHubServerUrl(): string {
     return (
       process.env.GITHUB_SERVER_URL ||
@@ -97,9 +91,6 @@ export class ArtifactService {
     );
   }
 
-  /**
-   * Format file size in human readable format
-   */
   private formatFileSize(bytes: number): string {
     const units = ["B", "KB", "MB", "GB"];
     let size = bytes;
@@ -113,9 +104,6 @@ export class ArtifactService {
     return `${size.toFixed(1)} ${units[unitIndex]}`;
   }
 
-  /**
-   * Clean up temporary files
-   */
   async cleanupTempFiles(filePaths: string[]): Promise<void> {
     for (const filePath of filePaths) {
       try {
