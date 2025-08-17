@@ -194,20 +194,27 @@ export class ChecksService {
     }
 
     try {
-      // Create GitHub App authenticated Octokit instance
       const appAuth = createAppAuth({
         appId: this.config.githubAppId,
         privateKey: this.config.githubAppPrivateKey,
       });
 
-      // Get installation ID from the current repository
+      const appOctokit = github.getOctokit(
+        (await appAuth({ type: "app" })).token,
+      );
+      const { owner, repo } = github.context.repo;
+      const { data: installation } =
+        await appOctokit.rest.apps.getRepoInstallation({
+          owner,
+          repo,
+        });
+
       const installationAuth = await appAuth({
         type: "installation",
-        installationId: github.context.payload.installation?.id,
+        installationId: installation.id,
       });
 
       const octokit = github.getOctokit(installationAuth.token);
-      const { owner, repo } = github.context.repo;
       const headSha = github.context.payload.pull_request.head.sha;
 
       const checkName = "Coverage Treemap Action";
