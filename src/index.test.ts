@@ -797,6 +797,27 @@ describe("run", () => {
     );
   });
 
+  it("should fail with fallback message when threshold is not met and errorMessage is undefined", async () => {
+    const mockGatingResult = {
+      meetsThreshold: false,
+      threshold: 80,
+      mode: "standard" as const,
+      prCoveragePercentage: 75,
+      description: "Coverage below threshold",
+      errorMessage: undefined,
+    };
+    mockedCoverageGating.evaluate.mockReturnValue(mockGatingResult);
+
+    await run();
+
+    expect(mockedCore.setFailed).toHaveBeenCalledWith(
+      "Coverage threshold not met.",
+    );
+    expect(mockedCore.info).not.toHaveBeenCalledWith(
+      "✅ Coverage Treemap Action completed successfully!",
+    );
+  });
+
   it("should handle exceptions gracefully", async () => {
     mockedChangesetService.detectCodeChanges.mockRejectedValue(
       new Error("Git error"),
