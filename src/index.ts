@@ -226,6 +226,7 @@ export async function postPrComment(
 export async function postCheckAnnotations(
   analysis: CoverageAnalysis,
   githubToken: string,
+  coverageThreshold: number,
   githubAppId?: string,
   githubAppPrivateKey?: string,
 ): Promise<void> {
@@ -243,9 +244,14 @@ export async function postCheckAnnotations(
       githubAppId: githubAppId!,
       githubAppPrivateKey: githubAppPrivateKey!,
       githubToken,
+      coverageThreshold,
     });
 
     const annotations = checksService.generateAnnotations(analysis);
+
+    // Print full annotations object for debugging
+    core.info("📝 Generated annotations:");
+    core.info(JSON.stringify(annotations, null, 2));
 
     if (annotations.length === 0) {
       core.info("ℹ️ No annotations to post - all files have good coverage");
@@ -312,6 +318,7 @@ export async function run(): Promise<void> {
     await postCheckAnnotations(
       analysis,
       inputs.githubToken,
+      threshold,
       inputs.githubAppId,
       inputs.githubAppPrivateKey,
     );

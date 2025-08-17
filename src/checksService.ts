@@ -17,6 +17,7 @@ export interface ChecksServiceConfig {
   githubAppId: string;
   githubAppPrivateKey: string;
   githubToken: string;
+  coverageThreshold: number;
 }
 
 export class ChecksService {
@@ -220,6 +221,12 @@ export class ChecksService {
       const checkName = "Coverage Treemap Action";
       const title = this.generateCheckTitle(analysis);
       const summary = this.generateCheckSummary(analysis);
+      const conclusion = this.determineCheckConclusion(analysis);
+
+      core.info(`📊 Check conclusion: ${conclusion}`);
+      core.info(
+        `📈 Coverage: ${analysis.summary.overallCoverage.overallCoveragePercentage}% (Threshold: ${this.config.coverageThreshold}%)`,
+      );
 
       const createCheckResponse = await octokit.rest.checks.create({
         owner,
@@ -227,7 +234,7 @@ export class ChecksService {
         name: checkName,
         head_sha: headSha,
         status: "completed",
-        conclusion: this.determineCheckConclusion(analysis),
+        conclusion,
         output: {
           title,
           summary,
@@ -256,11 +263,12 @@ export class ChecksService {
   private generateCheckSummary(analysis: CoverageAnalysis): string {
     const { summary } = analysis;
     const { overallCoverage } = summary;
+    const threshold = this.config.coverageThreshold;
 
     const lines = [
       "## Coverage Analysis Summary",
       "",
-      `**Overall Coverage:** ${overallCoverage.overallCoveragePercentage}%`,
+      `**Overall Coverage:** ${overallCoverage.overallCoveragePercentage}% (Threshold: ${threshold}%)`,
       "",
       "### Changed Files",
       `- **Total files:** ${summary.totalChangedFiles}`,
@@ -275,9 +283,15 @@ export class ChecksService {
 
     if (summary.filesWithoutCoverage > 0) {
       lines.push("", "### ⚠️ Files Without Coverage");
+      const { owner, repo } = github.context.repo;
+      const headSha = github.context.payload.pull_request?.head.sha;
+
       analysis.changedFiles
         .filter((f) => !f.coverage)
-        .forEach((f) => lines.push(`- ${f.path}`));
+        .forEach((f) => {
+          const fileUrl = `https://github.com/${owner}/${repo}/blob/${headSha}/${f.path}`;
+          lines.push(`- [${f.path}](${fileUrl})`);
+        });
     }
 
     return lines.join("\n");
@@ -286,14 +300,20 @@ export class ChecksService {
   private determineCheckConclusion(
     analysis: CoverageAnalysis,
   ): "success" | "failure" | "neutral" {
-    if (analysis.summary.filesWithoutCoverage > 0) {
-      return "neutral";
+    const coverage = analysis.summary.overallCoverage.overallCoveragePercentage;
+    const threshold = this.config.coverageThreshold;
+
+    // Fail if coverage is significantly below threshold
+    if (coverage < threshold) {
+      return "failure";
     }
 
-    if (analysis.summary.overallCoverage.overallCoveragePercentage >= 80) {
+    // Success if coverage meets or exceeds threshold
+    if (coverage >= threshold) {
       return "success";
     }
 
+    // Neutral for edge cases
     return "neutral";
   }
 

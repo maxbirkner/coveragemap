@@ -12,6 +12,7 @@ describe("ChecksService", () => {
     githubAppPrivateKey:
       "-----BEGIN PRIVATE KEY-----\ntest-key\n-----END PRIVATE KEY-----",
     githubToken: "ghp_token",
+    coverageThreshold: 80,
   };
 
   beforeEach(() => {
