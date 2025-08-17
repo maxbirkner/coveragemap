@@ -19,7 +19,9 @@ introduced in a pull request. It helps maintain code quality by:
    coverage (e.g., green for covered, red for uncovered).
 4. **Commenting on PRs:** Posts a comment directly on the pull request,
    embedding the treemap image and a summary of the coverage results.
-5. **Enforcing Quality Gates:** Fails the workflow run if the overall line
+5. **Inline Annotations:** When GitHub App credentials are provided, posts up to 50
+   targeted annotations highlighting uncovered lines and functions using the GitHub Checks API.
+6. **Enforcing Quality Gates:** Fails the workflow run if the overall line
    coverage for the changed files falls below a specified threshold.
 
 This targeted, granular approach ensures that developers can quickly pinpoint
@@ -65,6 +67,43 @@ source-code-pattern: "src/**/*.ts"
 test-code-pattern: "**/integration/**,**/*.mock.*"
 ```
 
+### GitHub Checks API Integration
+
+When GitHub App credentials are provided, the action automatically posts detailed annotations directly to the PR using the GitHub Checks API:
+
+  - **Smart Annotations**: Up to 50 targeted annotations highlighting uncovered lines and functions
+  - **Grouped Coverage Issues**: Consecutive uncovered lines are grouped for better readability
+  - **Coverage Artifacts**: Creates an `annotations.json` artifact containing all coverage annotations
+  - **Check Run Integration**: Posts a dedicated check run with coverage summary and annotations
+
+#### Setup Requirements
+
+To enable GitHub Checks API integration:
+
+1. **Create a GitHub App** with `checks:write` permission
+2. **Install the app** on your repository
+3. **Configure secrets** in your repository:
+   - `COVERAGEMAP_APP_CLIENT_ID`: Your GitHub App's Client ID
+   - `COVERAGEMAP_APP_CLIENT_SECRET`: Your GitHub App's Client Secret
+
+#### Annotation Features
+
+  - **Uncovered Lines**: Highlights lines not covered by tests with warning annotations
+  - **Uncovered Functions**: Marks functions without test coverage
+  - **File-Level Summaries**: Provides coverage summaries for files with low coverage
+  - **Smart Prioritization**: Shows highest priority annotations when limit is exceeded
+
+#### Permissions Required
+
+Your workflow needs the `checks: write` permission:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write  # Required for GitHub Checks API
+```
+
 **Multi-language project:**
 
 ```yaml
@@ -88,6 +127,8 @@ Multiple patterns can be specified by separating them with commas. Each file is 
 | `label`                | `string` | `false`  | -                      | Optional label for comment identification                                                                             |
 | `source-code-pattern`  | `string` | `false`  | -                      | Optional glob pattern(s) for source code files to include in coverage analysis. Multiple patterns separated by commas. |
 | `test-code-pattern`    | `string` | `false`  | -                      | Optional glob pattern(s) for test files to exclude from coverage analysis. Multiple patterns separated by commas.   |
+| `github-app-client-id` | `string` | `false`  | -                      | GitHub App Client ID for posting check annotations. When provided with `github-app-client-secret`, enables GitHub Checks API annotations. |
+| `github-app-client-secret` | `string` | `false`  | -                   | GitHub App Client Secret for posting check annotations. When provided with `github-app-client-id`, enables GitHub Checks API annotations. |
 
 ## Coverage Threshold Gating
 
@@ -196,6 +237,7 @@ on:
 permissions:
   contents: read
   pull-requests: write # Required to post comments
+  checks: write # Required for GitHub Checks API annotations
 
 jobs:
   build-and-test:
@@ -231,6 +273,9 @@ jobs:
           lcov-file: "./coverage/your-project-name/lcov.info"
           coverage-threshold: 85
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Optional: Enable GitHub Checks API annotations
+          github-app-client-id: ${{ secrets.COVERAGEMAP_APP_CLIENT_ID }}
+          github-app-client-secret: ${{ secrets.COVERAGEMAP_APP_CLIENT_SECRET }}
 
       - name: "Check Coverage Output"
         if: steps.coverage_check.outputs.meets-threshold == 'false'

@@ -7,6 +7,7 @@ import { PrCommentService } from "./prComment";
 import { CoverageGating, GatingResult } from "./coverageGating";
 import { TreemapGenerator } from "./treemapGenerator";
 import { ArtifactService, ArtifactInfo } from "./artifactService";
+import { ChecksService } from "./checksService";
 
 export interface ActionInputs {
   lcovFile: string;
@@ -16,6 +17,8 @@ export interface ActionInputs {
   label?: string;
   sourceCodePattern?: string;
   testCodePattern?: string;
+  githubAppClientId?: string;
+  githubAppClientSecret?: string;
 }
 
 export function getInputs(): ActionInputs {
@@ -26,6 +29,9 @@ export function getInputs(): ActionInputs {
   const label = core.getInput("label") || undefined;
   const sourceCodePattern = core.getInput("source-code-pattern") || undefined;
   const testCodePattern = core.getInput("test-code-pattern") || undefined;
+  const githubAppClientId = core.getInput("github-app-client-id") || undefined;
+  const githubAppClientSecret =
+    core.getInput("github-app-client-secret") || undefined;
 
   return {
     lcovFile,
@@ -35,6 +41,8 @@ export function getInputs(): ActionInputs {
     label,
     sourceCodePattern,
     testCodePattern,
+    githubAppClientId,
+    githubAppClientSecret,
   };
 }
 
@@ -54,6 +62,9 @@ export function printInputs(inputs: ActionInputs): void {
   if (inputs.testCodePattern) {
     core.info(`🧪 Test code pattern: ${inputs.testCodePattern}`);
   }
+  if (inputs.githubAppClientId && inputs.githubAppClientSecret) {
+    core.info(`🤖 GitHub App credentials: [PROVIDED]`);
+  }
 }
 
 export async function detectChangeset(
@@ -64,7 +75,7 @@ export async function detectChangeset(
   core.startGroup("🕵️‍♂️ Determining changeset");
   const changeset = await ChangesetService.detectCodeChanges(
     targetBranch,
-    undefined, // extensions - will be undefined to use patterns instead
+    undefined,
     sourceCodePattern,
     testCodePattern,
   );
@@ -100,12 +111,10 @@ export async function analyzeCoverageAndGating(
 
   core.info(CoverageAnalyzer.format(analysis));
 
-  // Evaluate threshold gating
   const gatingResult = CoverageGating.evaluate(analysis, lcovReport, threshold);
 
   core.info(CoverageGating.format(gatingResult));
 
-  // Output results for use in workflow
   core.setOutput(
     "coverage-percentage",
     analysis.summary.overallCoverage.overallCoveragePercentage,
@@ -148,7 +157,7 @@ export async function generateAndUploadTreemap(
       const artifactInfo = await artifactService.uploadArtifact(
         artifactName,
         treemapPath,
-        30, // 30 days retention
+        30,
       );
 
       await artifactService.cleanupTempFiles([treemapPath]);
@@ -214,6 +223,62 @@ export async function postPrComment(
   core.endGroup();
 }
 
+export async function postCheckAnnotations(
+  analysis: CoverageAnalysis,
+  githubToken: string,
+  githubAppClientId?: string,
+  githubAppClientSecret?: string,
+): Promise<void> {
+  if (!ChecksService.isEnabled(githubAppClientId, githubAppClientSecret)) {
+    core.info(
+      "⏭️ Skipping check annotations - GitHub App credentials not provided",
+    );
+    return;
+  }
+
+  core.startGroup("📝 Posting check annotations");
+
+  try {
+    const checksService = new ChecksService({
+      githubAppClientId: githubAppClientId!,
+      githubAppClientSecret: githubAppClientSecret!,
+      githubToken,
+    });
+
+    const annotations = checksService.generateAnnotations(analysis);
+
+    if (annotations.length === 0) {
+      core.info("ℹ️ No annotations to post - all files have good coverage");
+      core.endGroup();
+      return;
+    }
+
+    const annotationsPath =
+      await checksService.createAnnotationsArtifact(annotations);
+
+    const artifactService = new ArtifactService();
+    const artifactName = `coverage-annotations-${Date.now()}`;
+    await artifactService.uploadArtifact(artifactName, annotationsPath, 30);
+
+    await checksService.postAnnotations(analysis, annotations);
+
+    await artifactService.cleanupTempFiles([annotationsPath]);
+
+    core.info(`✅ Posted ${annotations.length} check annotations successfully`);
+  } catch (error) {
+    core.warning(
+      `Failed to post check annotations: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    core.info(
+      "🔍 This might be because the action lacks permissions for the Checks API or GitHub App is not properly configured",
+    );
+  }
+
+  core.endGroup();
+}
+
 export async function run(): Promise<void> {
   try {
     const inputs = getInputs();
@@ -233,7 +298,6 @@ export async function run(): Promise<void> {
       threshold,
     );
 
-    // Generate treemap visualization
     const treemapArtifact = await generateAndUploadTreemap(analysis);
 
     await postPrComment(
@@ -243,6 +307,13 @@ export async function run(): Promise<void> {
       inputs.githubToken,
       inputs.label,
       treemapArtifact || undefined,
+    );
+
+    await postCheckAnnotations(
+      analysis,
+      inputs.githubToken,
+      inputs.githubAppClientId,
+      inputs.githubAppClientSecret,
     );
 
     if (!gatingResult.meetsThreshold) {

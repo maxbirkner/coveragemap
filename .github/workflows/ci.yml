@@ -86,3 +86,5 @@ jobs:
         lcov-file: "./coverage/lcov.info"
         coverage-threshold: "80"
         github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-app-client-id: ${{ secrets.COVERAGEMAP_APP_CLIENT_ID }}
+        github-app-client-secret: ${{ secrets.COVERAGEMAP_APP_CLIENT_SECRET }}
