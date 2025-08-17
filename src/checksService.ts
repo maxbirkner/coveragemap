@@ -228,6 +228,15 @@ export class ChecksService {
         `📈 Coverage: ${analysis.summary.overallCoverage.overallCoveragePercentage}% (Threshold: ${this.config.coverageThreshold}%)`,
       );
 
+      const serverUrl =
+        github.context.serverUrl ||
+        process.env.GITHUB_SERVER_URL ||
+        "https://github.com";
+      const runId = process.env.GITHUB_RUN_ID;
+      const actionsUrl = runId
+        ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
+        : `${serverUrl}/${owner}/${repo}/pull/${github.context.payload.pull_request.number}`;
+
       const createCheckResponse = await octokit.rest.checks.create({
         owner,
         repo,
@@ -235,6 +244,7 @@ export class ChecksService {
         head_sha: headSha,
         status: "completed",
         conclusion,
+        details_url: actionsUrl,
         output: {
           title,
           summary,
@@ -285,11 +295,15 @@ export class ChecksService {
       lines.push("", "### ⚠️ Files Without Coverage");
       const { owner, repo } = github.context.repo;
       const headSha = github.context.payload.pull_request?.head.sha;
+      const serverUrl =
+        github.context.serverUrl ||
+        process.env.GITHUB_SERVER_URL ||
+        "https://github.com";
 
       analysis.changedFiles
         .filter((f) => !f.coverage)
         .forEach((f) => {
-          const fileUrl = `https://github.com/${owner}/${repo}/blob/${headSha}/${f.path}`;
+          const fileUrl = `${serverUrl}/${owner}/${repo}/blob/${headSha}/${f.path}`;
           lines.push(`- [${f.path}](${fileUrl})`);
         });
     }

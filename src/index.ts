@@ -249,10 +249,6 @@ export async function postCheckAnnotations(
 
     const annotations = checksService.generateAnnotations(analysis);
 
-    // Print full annotations object for debugging
-    core.info("📝 Generated annotations:");
-    core.info(JSON.stringify(annotations, null, 2));
-
     if (annotations.length === 0) {
       core.info("ℹ️ No annotations to post - all files have good coverage");
       core.endGroup();
