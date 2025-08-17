@@ -1,9 +1,36 @@
-import { PrCommentService, CommentData } from "./prComment";
+import {
+  PrCommentService,
+  CommentData,
+  generateCommentBody,
+  formatFileSize,
+} from "./prComment";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { LcovReport } from "./lcov";
 import { GatingResult } from "./coverageGating";
 
 describe("PrCommentService", () => {
+  let originalGitHubRepository: string | undefined;
+  let originalGitHubRunId: string | undefined;
+
+  beforeEach(() => {
+    originalGitHubRepository = process.env.GITHUB_REPOSITORY;
+    originalGitHubRunId = process.env.GITHUB_RUN_ID;
+  });
+
+  afterEach(() => {
+    if (originalGitHubRepository) {
+      process.env.GITHUB_REPOSITORY = originalGitHubRepository;
+    } else {
+      delete process.env.GITHUB_REPOSITORY;
+    }
+
+    if (originalGitHubRunId) {
+      process.env.GITHUB_RUN_ID = originalGitHubRunId;
+    } else {
+      delete process.env.GITHUB_RUN_ID;
+    }
+  });
+
   const mockLcovReport: LcovReport = {
     files: new Map(),
     summary: {
@@ -368,6 +395,75 @@ describe("PrCommentService", () => {
         "| **Threshold** | ❌ ≥ Project Avg (80%) | - |",
       );
       expect(result).toContain("❌ `src/example.ts` | 60% | 30/50");
+    });
+
+    test("should include artifact information in comment when provided", () => {
+      // Set up GitHub environment
+      process.env.GITHUB_REPOSITORY = "owner/repo";
+      process.env.GITHUB_RUN_ID = "123";
+
+      const commentData: CommentData = {
+        totalCoverage: {
+          linesHit: 800,
+          linesFound: 1000,
+          percentage: 80,
+        },
+        changedFilesCoverage: {
+          linesHit: 40,
+          linesFound: 50,
+          percentage: 80,
+        },
+        coverageDifference: 0,
+        fileBreakdown: [
+          {
+            filename: "src/example.ts",
+            linesHit: 40,
+            linesFound: 50,
+            percentage: 80,
+          },
+        ],
+      };
+
+      const artifactInfo = {
+        name: "coverage-treemap-pr-123",
+        path: "./coverage-treemap.png",
+        downloadUrl:
+          "https://github.com/owner/repo/actions/runs/123/artifacts/coverage-treemap",
+        size: 2048,
+      };
+
+      const result = generateCommentBody(
+        mockCoverageAnalysis,
+        {
+          meetsThreshold: true,
+          threshold: 80,
+          mode: "standard" as const,
+          prCoveragePercentage: 85,
+          description: "Coverage meets threshold",
+        },
+        artifactInfo,
+      );
+
+      expect(result).toContain("### 📊 Coverage Treemap Visualization");
+      expect(result).toContain("coverage-treemap-pr-123");
+      expect(result).toContain("2.0 KB");
+      expect(result).toContain(
+        "https://github.com/owner/repo/actions/runs/123",
+      );
+      expect(result).toContain(
+        "A visual treemap has been generated showing coverage by function/method",
+      );
+    });
+  });
+
+  describe("formatFileSize", () => {
+    test("should format file sizes correctly", () => {
+      expect(formatFileSize(0)).toBe("0.0 B");
+      expect(formatFileSize(512)).toBe("512.0 B");
+      expect(formatFileSize(1024)).toBe("1.0 KB");
+      expect(formatFileSize(1536)).toBe("1.5 KB");
+      expect(formatFileSize(1048576)).toBe("1.0 MB");
+      expect(formatFileSize(1073741824)).toBe("1.0 GB");
     });
   });
 });

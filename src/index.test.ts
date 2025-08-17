@@ -1,3 +1,50 @@
+// Mock D3.js modules before imports
+jest.mock("d3", () => ({
+  scaleOrdinal: jest.fn(() => ({
+    domain: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
+  })),
+  schemeCategory10: ["#1f77b4", "#ff7f0e", "#2ca02c"],
+  select: jest.fn(() => ({
+    append: jest.fn().mockReturnThis(),
+    attr: jest.fn().mockReturnThis(),
+    style: jest.fn().mockReturnThis(),
+    text: jest.fn().mockReturnThis(),
+  })),
+}));
+
+jest.mock("d3-hierarchy", () => ({
+  hierarchy: jest.fn(() => ({
+    sum: jest.fn().mockReturnThis(),
+    sort: jest.fn().mockReturnThis(),
+  })),
+  treemap: jest.fn(() => ({
+    size: jest.fn().mockReturnThis(),
+    padding: jest.fn().mockReturnThis(),
+  })),
+}));
+
+// Mock Sharp
+jest.mock("sharp", () => {
+  return jest.fn(() => ({
+    png: jest.fn().mockReturnThis(),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from("fake-png-data")),
+  }));
+});
+
+// Mock JSDOM
+jest.mock("jsdom", () => ({
+  JSDOM: jest.fn(() => ({
+    window: {
+      document: {
+        createElement: jest.fn(() => ({
+          setAttribute: jest.fn(),
+        })),
+      },
+    },
+  })),
+}));
+
 import * as core from "@actions/core";
 import {
   getInputs,
@@ -6,6 +53,7 @@ import {
   parseLcovReport,
   analyzeCoverageAndGating,
   postPrComment,
+  generateAndUploadTreemap,
   run,
 } from "./index";
 import { ChangesetService } from "./changesetService";
@@ -13,6 +61,8 @@ import { LcovParser } from "./lcov";
 import { CoverageAnalyzer } from "./coverageAnalyzer";
 import { PrCommentService } from "./prComment";
 import { CoverageGating } from "./coverageGating";
+import { TreemapGenerator } from "./treemapGenerator";
+import { ArtifactService } from "./artifactService";
 
 // Mock all the modules
 jest.mock("@actions/core");
@@ -21,6 +71,8 @@ jest.mock("./lcov");
 jest.mock("./coverageAnalyzer");
 jest.mock("./prComment");
 jest.mock("./coverageGating");
+jest.mock("./treemapGenerator");
+jest.mock("./artifactService");
 
 const mockedCore = core as jest.Mocked<typeof core>;
 const mockedChangesetService = ChangesetService as jest.Mocked<
@@ -35,6 +87,16 @@ const mockedPrCommentService = PrCommentService as jest.MockedClass<
 >;
 const mockedCoverageGating = CoverageGating as jest.Mocked<
   typeof CoverageGating
+>;
+// Mock TreemapGenerator
+jest.mock("./treemapGenerator", () => ({
+  TreemapGenerator: {
+    generatePNG: jest.fn(),
+  },
+}));
+const mockedTreemapGenerator = require("./treemapGenerator").TreemapGenerator;
+const mockedArtifactService = ArtifactService as jest.MockedClass<
+  typeof ArtifactService
 >;
 
 describe("getInputs", () => {
@@ -540,6 +602,7 @@ describe("postPrComment", () => {
       mockGatingResult,
       "test-token",
       "coverage",
+      undefined,
     );
 
     expect(mockedCore.startGroup).toHaveBeenCalledWith("💬 Posting PR comment");
@@ -551,6 +614,7 @@ describe("postPrComment", () => {
       mockAnalysis,
       mockLcovReport,
       mockGatingResult,
+      undefined,
     );
     expect(mockedCore.info).toHaveBeenCalledWith(
       "✅ PR comment posted successfully",
@@ -836,5 +900,190 @@ describe("run", () => {
     await run();
 
     expect(mockedCore.setFailed).toHaveBeenCalledWith("String error");
+  });
+});
+
+describe("generateAndUploadTreemap", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.GITHUB_REF = "refs/pull/123/merge";
+    process.env.GITHUB_REPOSITORY = "owner/repo";
+    process.env.GITHUB_RUN_ID = "456789";
+  });
+
+  it("should generate and upload treemap successfully", async () => {
+    const mockAnalysis = {
+      changeset: {
+        baseCommit: "abc123",
+        headCommit: "def456",
+        targetBranch: "main",
+        files: [],
+        totalFiles: 1,
+      },
+      changedFiles: [
+        {
+          path: "src/example.ts",
+          status: "modified" as const,
+          coverage: {
+            path: "src/example.ts",
+            functions: [],
+            lines: [],
+            branches: [],
+            summary: {
+              functionsFound: 10,
+              functionsHit: 8,
+              linesFound: 100,
+              linesHit: 80,
+              branchesFound: 20,
+              branchesHit: 16,
+            },
+          },
+          analysis: {
+            totalLines: 100,
+            coveredLines: 80,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 16,
+            linesCoveragePercentage: 80,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 80,
+            overallCoveragePercentage: 80,
+          },
+        },
+      ],
+      summary: {
+        totalChangedFiles: 1,
+        filesWithCoverage: 1,
+        filesWithoutCoverage: 0,
+        overallCoverage: {
+          totalLines: 100,
+          coveredLines: 80,
+          totalFunctions: 10,
+          coveredFunctions: 8,
+          totalBranches: 20,
+          coveredBranches: 16,
+          linesCoveragePercentage: 80,
+          functionsCoveragePercentage: 80,
+          branchesCoveragePercentage: 80,
+          overallCoveragePercentage: 80,
+        },
+      },
+    };
+
+    // Mock TreemapGenerator static method
+    mockedTreemapGenerator.generatePNG.mockResolvedValue(
+      "./coverage-treemap.png",
+    );
+
+    const mockArtifactServiceInstance = {
+      uploadArtifact: jest.fn().mockResolvedValue({
+        name: "coverage-treemap-pr-123",
+        path: "./coverage-treemap.png",
+        size: 1024,
+      }),
+      generateTreemapArtifactName: jest
+        .fn()
+        .mockReturnValue("coverage-treemap-pr-123"),
+      cleanupTempFiles: jest.fn(),
+    };
+
+    (mockedArtifactService as any).mockImplementation(
+      () => mockArtifactServiceInstance,
+    );
+
+    const result = await generateAndUploadTreemap(mockAnalysis);
+
+    expect(mockedTreemapGenerator.generatePNG).toHaveBeenCalledWith(
+      mockAnalysis,
+      {
+        width: 1200,
+        height: 800,
+        outputPath: "./coverage-treemap.png",
+      },
+    );
+    expect(mockArtifactServiceInstance.uploadArtifact).toHaveBeenCalledWith(
+      "coverage-treemap-pr-123",
+      "./coverage-treemap.png",
+      30,
+    );
+    expect(result).toEqual({
+      name: "coverage-treemap-pr-123",
+      path: "./coverage-treemap.png",
+      size: 1024,
+    });
+  });
+
+  it("should handle treemap generation failure gracefully", async () => {
+    // Mock TreemapGenerator.generatePNG to throw an error
+    mockedTreemapGenerator.generatePNG.mockRejectedValue(
+      new Error("D3.js not available"),
+    );
+
+    const mockAnalysis = {
+      changeset: {
+        baseCommit: "abc123",
+        headCommit: "def456",
+        targetBranch: "main",
+        files: [],
+        totalFiles: 0,
+      },
+      changedFiles: [
+        {
+          path: "src/example.ts",
+          status: "modified" as const,
+          coverage: {
+            path: "src/example.ts",
+            functions: [],
+            lines: [],
+            branches: [],
+            summary: {
+              functionsFound: 10,
+              functionsHit: 8,
+              linesFound: 100,
+              linesHit: 80,
+              branchesFound: 20,
+              branchesHit: 16,
+            },
+          },
+          analysis: {
+            totalLines: 100,
+            coveredLines: 80,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 16,
+            linesCoveragePercentage: 80,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 80,
+            overallCoveragePercentage: 80,
+          },
+        },
+      ],
+      summary: {
+        totalChangedFiles: 0,
+        filesWithCoverage: 0,
+        filesWithoutCoverage: 0,
+        overallCoverage: {
+          totalLines: 0,
+          coveredLines: 0,
+          totalFunctions: 0,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 0,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 0,
+        },
+      },
+    };
+
+    const result = await generateAndUploadTreemap(mockAnalysis);
+
+    expect(result).toBeNull();
+    expect(mockedCore.warning).toHaveBeenCalledWith(
+      "Failed to generate treemap: D3.js not available",
+    );
   });
 });
