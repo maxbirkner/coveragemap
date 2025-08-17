@@ -36,7 +36,7 @@ export function getInputs(): ActionInputs {
   };
 }
 
-function printInputs(inputs: ActionInputs): void {
+export function printInputs(inputs: ActionInputs): void {
   core.info(`📁 LCOV file: ${inputs.lcovFile}`);
   core.info(`📊 Coverage threshold: ${inputs.coverageThreshold}%`);
   core.info(`🌿 Target branch: ${inputs.targetBranch}`);
@@ -54,7 +54,7 @@ function printInputs(inputs: ActionInputs): void {
   }
 }
 
-async function detectChangeset(
+export async function detectChangeset(
   targetBranch: string,
   sourceCodePattern?: string,
   testCodePattern?: string,
@@ -71,7 +71,7 @@ async function detectChangeset(
   return changeset;
 }
 
-async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
+export async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
   core.startGroup("📊 Parsing LCOV report");
 
   core.info(`📂 Reading LCOV file: ${lcovFile}`);
@@ -87,7 +87,7 @@ async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
   return report;
 }
 
-async function analyzeCoverageAndGating(
+export async function analyzeCoverageAndGating(
   changeset: Changeset,
   lcovReport: LcovReport,
   threshold: number,
@@ -116,7 +116,7 @@ async function analyzeCoverageAndGating(
   return { analysis, gatingResult };
 }
 
-async function postPrComment(
+export async function postPrComment(
   analysis: CoverageAnalysis,
   lcovReport: LcovReport,
   gatingResult: GatingResult,
@@ -148,7 +148,7 @@ async function postPrComment(
   core.endGroup();
 }
 
-async function run(): Promise<void> {
+export async function run(): Promise<void> {
   try {
     const inputs = getInputs();
     printInputs(inputs);
