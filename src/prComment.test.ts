@@ -453,6 +453,8 @@ describe("PrCommentService", () => {
       expect(result).toContain(
         "A visual treemap has been generated showing coverage by function/method",
       );
+      expect(result).toContain("direct download");
+      expect(result).toContain("📥 **[Download treemap visualization]");
     });
   });
 

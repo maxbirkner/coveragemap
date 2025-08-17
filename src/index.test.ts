@@ -981,6 +981,8 @@ describe("generateAndUploadTreemap", () => {
         name: "coverage-treemap-pr-123",
         path: "./coverage-treemap.png",
         size: 1024,
+        downloadUrl:
+          "https://github.com/owner/repo/actions/runs/123/artifacts/456",
       }),
       generateTreemapArtifactName: jest
         .fn()
@@ -1011,6 +1013,8 @@ describe("generateAndUploadTreemap", () => {
       name: "coverage-treemap-pr-123",
       path: "./coverage-treemap.png",
       size: 1024,
+      downloadUrl:
+        "https://github.com/owner/repo/actions/runs/123/artifacts/456",
     });
   });
 

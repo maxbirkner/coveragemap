@@ -9,6 +9,13 @@ jest.mock("@actions/core", () => ({
   warning: jest.fn(),
 }));
 
+// Mock @actions/github
+jest.mock("@actions/github", () => ({
+  context: {
+    serverUrl: "https://github.com",
+  },
+}));
+
 // Mock @actions/artifact
 jest.mock("@actions/artifact", () => ({
   __esModule: true,
@@ -70,8 +77,42 @@ describe("ArtifactService", () => {
         name: artifactName,
         path: filePath,
         size: 1024,
+        downloadUrl:
+          "https://github.com/unknown/unknown/actions/runs/unknown/artifacts/123",
       });
     });
+
+    it("should use custom GitHub server URL for download URL", async () => {
+      process.env.GITHUB_SERVER_URL = "https://github.enterprise.com";
+      process.env.GITHUB_REPOSITORY = "owner/repo";
+      process.env.GITHUB_RUN_ID = "123456";
+
+      const filePath = "/path/to/file.png";
+      const artifactName = "test-artifact";
+
+      const artifact = require("@actions/artifact").default;
+      artifact.uploadArtifact.mockResolvedValue({
+        id: 789,
+        size: 2048,
+      } as any);
+
+      const result = await artifactService.uploadArtifact(
+        artifactName,
+        filePath,
+      );
+
+      expect(result).toEqual({
+        name: artifactName,
+        path: filePath,
+        size: 1024, // Size comes from fs.statSync mock, not uploadResponse
+        downloadUrl:
+          "https://github.enterprise.com/owner/repo/actions/runs/123456/artifacts/789",
+      });
+
+      // Clean up
+      delete process.env.GITHUB_SERVER_URL;
+    });
+
     it("handles upload failures", async () => {
       const filePath = "/path/to/file.png";
       const artifactName = "test-artifact";
@@ -155,6 +196,27 @@ describe("ArtifactService", () => {
       expect(result).toBe(
         "https://github.com/unknown/unknown/actions/runs/unknown/artifacts",
       );
+    });
+
+    it("should use custom GitHub server URL from environment", () => {
+      process.env.GITHUB_SERVER_URL = "https://github.enterprise.com";
+      process.env.GITHUB_REPOSITORY = "owner/repo";
+      process.env.GITHUB_RUN_ID = "987654321";
+
+      const artifactInfo = {
+        name: "test-artifact",
+        path: "/path/to/artifact.png",
+        size: 1024,
+      };
+
+      const result = artifactService.getArtifactDownloadUrl(artifactInfo);
+
+      expect(result).toBe(
+        "https://github.enterprise.com/owner/repo/actions/runs/987654321/artifacts",
+      );
+
+      // Clean up
+      delete process.env.GITHUB_SERVER_URL;
     });
   });
 

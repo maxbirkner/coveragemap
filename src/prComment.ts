@@ -140,7 +140,13 @@ export class PrCommentService {
       markdown += `📎 **Artifact**: \`${
         treemapArtifact.name
       }\` (${this.formatFileSize(treemapArtifact.size)})\n\n`;
-      markdown += `> **Note**: Download the treemap artifact from the [Actions tab](${this.getArtifactDownloadUrl()}) to view the detailed coverage visualization.\n\n`;
+
+      const downloadUrl =
+        treemapArtifact.downloadUrl || this.getArtifactDownloadUrl();
+      const linkText = treemapArtifact.downloadUrl
+        ? "direct download"
+        : "Actions tab";
+      markdown += `> 📥 **[Download treemap visualization](${downloadUrl})** - Click for ${linkText}\n\n`;
     }
 
     // Footer

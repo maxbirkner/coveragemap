@@ -1,4 +1,5 @@
 import * as core from "@actions/core";
+import * as github from "@actions/github";
 import artifact from "@actions/artifact";
 import * as fs from "fs";
 import * as path from "path";
@@ -46,10 +47,16 @@ export class ArtifactService {
       core.info(`✅ Artifact uploaded successfully!`);
       core.info(`🔗 Artifact ID: ${uploadResponse.id}`);
 
+      const serverUrl = this.getGitHubServerUrl();
+      const repository = process.env.GITHUB_REPOSITORY || "unknown/unknown";
+      const runId = process.env.GITHUB_RUN_ID || "unknown";
+      const downloadUrl = `${serverUrl}/${repository}/actions/runs/${runId}/artifacts/${uploadResponse.id}`;
+
       return {
         name: artifactName,
         path: filePath,
         size: stats.size,
+        downloadUrl,
       };
     } catch (error) {
       const errorMessage =
@@ -72,12 +79,22 @@ export class ArtifactService {
    * Get the download URL for an artifact (approximated for GitHub Actions)
    */
   getArtifactDownloadUrl(artifactInfo: ArtifactInfo): string {
+    const serverUrl = this.getGitHubServerUrl();
     const runId = process.env.GITHUB_RUN_ID || "unknown";
     const repository = process.env.GITHUB_REPOSITORY || "unknown/unknown";
 
-    // This is the typical pattern for GitHub Actions artifact download URLs
-    // Note: The actual URL might require authentication
-    return `https://github.com/${repository}/actions/runs/${runId}/artifacts`;
+    return `${serverUrl}/${repository}/actions/runs/${runId}/artifacts`;
+  }
+
+  /**
+   * Get the GitHub server URL from environment or context
+   */
+  private getGitHubServerUrl(): string {
+    return (
+      process.env.GITHUB_SERVER_URL ||
+      github.context.serverUrl ||
+      "https://github.com"
+    );
   }
 
   /**
