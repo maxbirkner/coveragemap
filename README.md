@@ -83,17 +83,42 @@ Multiple patterns can be specified by separating them with commas. Each file is 
 | Name                   | Type     | Required | Default                | Description                                                                                                           |
 | :--------------------- | :------- | :------- | :--------------------- | :-------------------------------------------------------------------------------------------------------------------- |
 | `lcov-file`            | `string` | `true`   | `'coverage/lcov.info'` | Path to the lcov.info report                                                                                         |
-| `coverage-threshold`   | `string` | `true`   | `'80'`                 | Min coverage % for changed files                                                                                     |
+| `coverage-threshold`   | `string` | `true`   | `'80'`                 | Min coverage % for changed files. Set to '0' to compare PR coverage against overall project coverage instead.      |
 | `github-token`         | `string` | `true`   | -                      | GitHub token to post PR comments                                                                                     |
 | `label`                | `string` | `false`  | -                      | Optional label for comment identification                                                                             |
 | `source-code-pattern`  | `string` | `false`  | -                      | Optional glob pattern(s) for source code files to include in coverage analysis. Multiple patterns separated by commas. |
 | `test-code-pattern`    | `string` | `false`  | -                      | Optional glob pattern(s) for test files to exclude from coverage analysis. Multiple patterns separated by commas.   |
 
+## Coverage Threshold Gating
+
+The action includes sophisticated threshold gating to enforce coverage standards:
+
+### Standard Threshold Mode (threshold > 0)
+
+When `coverage-threshold` is set to a value greater than 0, the action enforces that the coverage percentage of changed files meets this threshold:
+
+  - ✅ **Pass**: If PR changes have coverage ≥ threshold
+  - ❌ **Fail**: If PR changes have coverage < threshold
+
+Example: With `coverage-threshold: 80`, the action passes only if changed files have ≥80% coverage.
+
+### Project Baseline Mode (threshold = 0)
+
+When `coverage-threshold` is set to `"0"`, the action compares PR coverage against the overall project coverage:
+
+  - ✅ **Pass**: If PR changes have coverage ≥ overall project coverage
+  - ❌ **Fail**: If PR changes have coverage < overall project coverage
+
+This mode ensures new code doesn't lower the overall quality bar while allowing flexibility for projects with varying coverage levels.
+
 ## Outputs
 
-| Name              | Type      | Description                             |
-| :---------------- | :-------- | :-------------------------------------- |
-| `coverage-passed` | `boolean` | True if coverage threshold is met       |
+| Name                | Type      | Description                                      |
+| :------------------ | :-------- | :----------------------------------------------- |
+| `coverage-percentage` | `string` | The overall coverage percentage for changed files |
+| `meets-threshold`   | `boolean` | True if coverage threshold is met               |
+| `files-analyzed`    | `string`  | The number of changed files that were analyzed  |
+| `files-with-coverage` | `string` | The number of changed files that have coverage data |
 
 ## Workflow Logic
 
@@ -103,6 +128,7 @@ flowchart TD
     A1[/LCOV Report/]
     A2[/Coverage Threshold/]
     A3[(Git Repo)]
+    A4[/Source & Test Code Patterns/]
   end
 
   subgraph Analysis
@@ -118,15 +144,22 @@ flowchart TD
   end
 
   subgraph Gating
-    H{Is Coverage >= Threshold?}
-    I[Set Output: coverage-passed = true]
-    J[Set Output: coverage-passed = false & Fail Action]
+    H{PR Coverage >= Threshold?}
+    H1{Threshold == 0?}
+    H2{PR Coverage >= Project Coverage?}
+    I[Set Output: meets-threshold = true]
+    J[Set Output: meets-threshold = false & Fail Action]
   end
 
   A1 --> C
-  A2 --> H
+  A2 --> H1
   A3 --> B
-  B --> C --> D --> E --> F --> G --> H
+  A4 --> B
+  B --> C --> D --> E --> F --> G --> H1
+  H1 -- Yes --> H2
+  H1 -- No --> H
+  H2 -- Yes --> I
+  H2 -- No --> J
   H -- Yes --> I
   H -- No --> J
 ```
@@ -200,7 +233,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: "Check Coverage Output"
-        if: steps.coverage_check.outputs.coverage-passed == 'false'
+        if: steps.coverage_check.outputs.meets-threshold == 'false'
         run: |
           echo "Coverage check failed. See the PR comment for details."
           exit 1
@@ -228,4 +261,18 @@ If you need to run multiple coverage checks (e.g., for different test suites), u
           coverage-threshold: 85
           github-token: ${{ secrets.GITHUB_TOKEN }}
           label: "Backend"
+```
+
+### Example with Project Baseline Mode
+
+For projects where you want to ensure new code maintains or improves the overall coverage level:
+
+```yaml
+      - name: "Coverage Baseline Check"
+        uses: your-username/coverage-treemap-action@v1
+        with:
+          lcov-file: "./coverage/lcov.info"
+          coverage-threshold: "0"  # Compare against project average
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          label: "Quality Gate"
 ```

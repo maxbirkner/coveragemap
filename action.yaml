@@ -13,7 +13,9 @@ inputs:
     required: true
     default: ./coverage/lcov.info
   coverage-threshold:
-    description: The minimum acceptable coverage percentage
+    description: |
+      The minimum acceptable coverage percentage for changed files.
+      Set to 0 to compare PR coverage against overall project coverage instead.
     required: true
     default: "80"
   target-branch:

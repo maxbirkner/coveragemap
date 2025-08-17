@@ -197,6 +197,88 @@ describe("CoverageAnalyzer", () => {
       expect(CoverageAnalyzer.meetsCoverageThreshold(analysis, 60)).toBe(false);
       expect(CoverageAnalyzer.meetsCoverageThreshold(analysis, 80)).toBe(false);
     });
+
+    describe("threshold = 0 behavior", () => {
+      it("should return true when PR coverage equals overall project coverage", () => {
+        const changeset = ChangesetUtils.createChangeset(
+          ["src/example.ts"],
+          "abc123",
+          "def456",
+          "main",
+        );
+
+        const analysis = CoverageAnalyzer.analyze(changeset, mockLcovReport);
+        // PR coverage is 50%, overall project coverage is 50% (2/4 lines)
+        const overallProjectCoverage = 50;
+
+        expect(
+          CoverageAnalyzer.meetsCoverageThreshold(
+            analysis,
+            0,
+            overallProjectCoverage,
+          ),
+        ).toBe(true);
+      });
+
+      it("should return true when PR coverage is higher than overall project coverage", () => {
+        const changeset = ChangesetUtils.createChangeset(
+          ["src/example.ts"],
+          "abc123",
+          "def456",
+          "main",
+        );
+
+        const analysis = CoverageAnalyzer.analyze(changeset, mockLcovReport);
+        // PR coverage is 50%, overall project coverage is 40%
+        const overallProjectCoverage = 40;
+
+        expect(
+          CoverageAnalyzer.meetsCoverageThreshold(
+            analysis,
+            0,
+            overallProjectCoverage,
+          ),
+        ).toBe(true);
+      });
+
+      it("should return false when PR coverage is lower than overall project coverage", () => {
+        const changeset = ChangesetUtils.createChangeset(
+          ["src/example.ts"],
+          "abc123",
+          "def456",
+          "main",
+        );
+
+        const analysis = CoverageAnalyzer.analyze(changeset, mockLcovReport);
+        // PR coverage is 50%, overall project coverage is 60%
+        const overallProjectCoverage = 60;
+
+        expect(
+          CoverageAnalyzer.meetsCoverageThreshold(
+            analysis,
+            0,
+            overallProjectCoverage,
+          ),
+        ).toBe(false);
+      });
+
+      it("should throw error when threshold is 0 but overall project coverage is not provided", () => {
+        const changeset = ChangesetUtils.createChangeset(
+          ["src/example.ts"],
+          "abc123",
+          "def456",
+          "main",
+        );
+
+        const analysis = CoverageAnalyzer.analyze(changeset, mockLcovReport);
+
+        expect(() => {
+          CoverageAnalyzer.meetsCoverageThreshold(analysis, 0);
+        }).toThrow(
+          "Overall project coverage must be provided when threshold is 0",
+        );
+      });
+    });
   });
 
   describe("format", () => {

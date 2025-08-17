@@ -238,14 +238,29 @@ export class CoverageAnalyzer {
 
   /**
    * Check if coverage meets the specified threshold
+   * - If threshold > 0: PR coverage must meet the threshold
+   * - If threshold = 0: PR coverage must be >= overall project coverage
    */
   static meetsCoverageThreshold(
     analysis: CoverageAnalysis,
     threshold: number,
+    overallProjectCoverage?: number,
   ): boolean {
-    return (
-      analysis.summary.overallCoverage.overallCoveragePercentage >= threshold
-    );
+    const prCoverage =
+      analysis.summary.overallCoverage.overallCoveragePercentage;
+
+    if (threshold === 0) {
+      // When threshold is 0, compare against overall project coverage
+      if (overallProjectCoverage === undefined) {
+        throw new Error(
+          "Overall project coverage must be provided when threshold is 0",
+        );
+      }
+      return prCoverage >= overallProjectCoverage;
+    }
+
+    // Normal threshold comparison
+    return prCoverage >= threshold;
   }
 
   /**

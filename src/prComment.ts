@@ -2,6 +2,7 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { LcovReport } from "./lcov";
+import { GatingResult } from "./coverageGating";
 
 export interface PrCommentOptions {
   githubToken: string;
@@ -86,12 +87,19 @@ export class PrCommentService {
     };
   }
 
-  private generateCommentBody(data: CommentData, threshold: number): string {
+  private generateCommentBody(
+    data: CommentData,
+    gatingResult: GatingResult,
+  ): string {
     const title = this.getCommentTitle();
-    const thresholdEmoji =
-      data.changedFilesCoverage.percentage >= threshold ? "✅" : "❌";
+    const thresholdEmoji = gatingResult.meetsThreshold ? "✅" : "❌";
     const diffEmoji = data.coverageDifference >= 0 ? "📈" : "📉";
     const diffSign = data.coverageDifference >= 0 ? "+" : "";
+
+    const thresholdDisplay =
+      gatingResult.mode === "baseline"
+        ? `≥ Project Avg (${gatingResult.overallProjectCoveragePercentage}%)`
+        : `${gatingResult.threshold}%`;
 
     let markdown = `## ${title}\n\n`;
 
@@ -101,7 +109,7 @@ export class PrCommentService {
     markdown += `| **Total Coverage** | ${data.totalCoverage.percentage}% | ${data.totalCoverage.linesHit}/${data.totalCoverage.linesFound} |\n`;
     markdown += `| **Changed Files** | ${data.changedFilesCoverage.percentage}% | ${data.changedFilesCoverage.linesHit}/${data.changedFilesCoverage.linesFound} |\n`;
     markdown += `| **Difference** | ${diffEmoji} ${diffSign}${data.coverageDifference}% | - |\n`;
-    markdown += `| **Threshold** | ${thresholdEmoji} ${threshold}% | - |\n\n`;
+    markdown += `| **Threshold** | ${thresholdEmoji} ${thresholdDisplay} | - |\n\n`;
 
     // File breakdown if there are any files with coverage data
     if (data.fileBreakdown.length > 0) {
@@ -110,7 +118,11 @@ export class PrCommentService {
       markdown += `|------|----------|-------|\n`;
 
       for (const file of data.fileBreakdown) {
-        const fileEmoji = file.percentage >= threshold ? "✅" : "❌";
+        const fileThresholdMet =
+          gatingResult.mode === "baseline"
+            ? file.percentage >= gatingResult.overallProjectCoveragePercentage!
+            : file.percentage >= gatingResult.threshold;
+        const fileEmoji = fileThresholdMet ? "✅" : "❌";
         markdown += `| ${fileEmoji} \`${file.filename}\` | ${file.percentage}% | ${file.linesHit}/${file.linesFound} |\n`;
       }
       markdown += `\n`;
@@ -150,7 +162,7 @@ export class PrCommentService {
   async postComment(
     analysis: CoverageAnalysis,
     lcovReport: LcovReport,
-    threshold: number,
+    gatingResult: GatingResult,
   ): Promise<void> {
     const { context } = github;
 
@@ -159,7 +171,7 @@ export class PrCommentService {
     }
 
     const data = PrCommentService.createCommentData(analysis, lcovReport);
-    const body = this.generateCommentBody(data, threshold);
+    const body = this.generateCommentBody(data, gatingResult);
 
     try {
       const existingCommentId = await this.findExistingComment();

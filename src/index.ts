@@ -4,6 +4,7 @@ import { LcovParser, LcovReport } from "./lcov";
 import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
 import { Changeset } from "./changeset";
 import { PrCommentService } from "./prComment";
+import { CoverageGating, GatingResult } from "./coverageGating";
 
 export interface ActionInputs {
   lcovFile: string;
@@ -35,7 +36,7 @@ export function getInputs(): ActionInputs {
   };
 }
 
-function printInputs(inputs: ActionInputs): void {
+export function printInputs(inputs: ActionInputs): void {
   core.info(`📁 LCOV file: ${inputs.lcovFile}`);
   core.info(`📊 Coverage threshold: ${inputs.coverageThreshold}%`);
   core.info(`🌿 Target branch: ${inputs.targetBranch}`);
@@ -53,7 +54,7 @@ function printInputs(inputs: ActionInputs): void {
   }
 }
 
-async function detectChangeset(
+export async function detectChangeset(
   targetBranch: string,
   sourceCodePattern?: string,
   testCodePattern?: string,
@@ -70,7 +71,7 @@ async function detectChangeset(
   return changeset;
 }
 
-async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
+export async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
   core.startGroup("📊 Parsing LCOV report");
 
   core.info(`📂 Reading LCOV file: ${lcovFile}`);
@@ -86,41 +87,39 @@ async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
   return report;
 }
 
-async function analyzeCoverage(
+export async function analyzeCoverageAndGating(
   changeset: Changeset,
   lcovReport: LcovReport,
   threshold: number,
-): Promise<CoverageAnalysis> {
+): Promise<{ analysis: CoverageAnalysis; gatingResult: GatingResult }> {
   core.startGroup("🔍 Analyzing coverage for changed files");
 
   const analysis = CoverageAnalyzer.analyze(changeset, lcovReport);
 
   core.info(CoverageAnalyzer.format(analysis));
 
-  const meetsThreshold = CoverageAnalyzer.meetsCoverageThreshold(
-    analysis,
-    threshold,
-  );
-  core.info(`🎯 Coverage threshold: ${threshold}%`);
-  core.info(`${meetsThreshold ? "✅" : "❌"} Threshold met: ${meetsThreshold}`);
+  // Evaluate threshold gating
+  const gatingResult = CoverageGating.evaluate(analysis, lcovReport, threshold);
+
+  core.info(CoverageGating.format(gatingResult));
 
   // Output results for use in workflow
   core.setOutput(
     "coverage-percentage",
     analysis.summary.overallCoverage.overallCoveragePercentage,
   );
-  core.setOutput("meets-threshold", meetsThreshold);
+  core.setOutput("meets-threshold", gatingResult.meetsThreshold);
   core.setOutput("files-analyzed", analysis.summary.totalChangedFiles);
   core.setOutput("files-with-coverage", analysis.summary.filesWithCoverage);
 
   core.endGroup();
-  return analysis;
+  return { analysis, gatingResult };
 }
 
-async function postPrComment(
+export async function postPrComment(
   analysis: CoverageAnalysis,
   lcovReport: LcovReport,
-  threshold: number,
+  gatingResult: GatingResult,
   githubToken: string,
   label?: string,
 ): Promise<void> {
@@ -132,7 +131,7 @@ async function postPrComment(
       label,
     });
 
-    await commentService.postComment(analysis, lcovReport, threshold);
+    await commentService.postComment(analysis, lcovReport, gatingResult);
 
     core.info("✅ PR comment posted successfully");
   } catch (error) {
@@ -149,7 +148,7 @@ async function postPrComment(
   core.endGroup();
 }
 
-async function run(): Promise<void> {
+export async function run(): Promise<void> {
   try {
     const inputs = getInputs();
     printInputs(inputs);
@@ -162,18 +161,31 @@ async function run(): Promise<void> {
     const lcovReport = await parseLcovReport(inputs.lcovFile);
     const threshold = parseFloat(inputs.coverageThreshold);
 
-    const analysis = await analyzeCoverage(changeset, lcovReport, threshold);
+    const { analysis, gatingResult } = await analyzeCoverageAndGating(
+      changeset,
+      lcovReport,
+      threshold,
+    );
+
     await postPrComment(
       analysis,
       lcovReport,
-      threshold,
+      gatingResult,
       inputs.githubToken,
       inputs.label,
     );
 
+    if (!gatingResult.meetsThreshold) {
+      core.setFailed(
+        gatingResult.errorMessage ?? "Coverage threshold not met.",
+      );
+      return;
+    }
+
     core.info("✅ Coverage Treemap Action completed successfully!");
   } catch (error) {
-    core.setFailed(error instanceof Error ? error.message : String(error));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    core.setFailed(errorMessage);
   }
 }
 

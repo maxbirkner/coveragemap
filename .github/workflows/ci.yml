@@ -72,16 +72,17 @@ jobs:
         mkdir -p dist
         npm run package
 
-    - name: Run Coveragemap action
-      uses: ./
-      with:
-        lcov-file: "./coverage/lcov.info"
-        coverage-threshold: "80"
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Upload coverage reports
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: coverage-report
         path: coverage/
         retention-days: 3
+
+    - name: Run Coveragemap action
+      uses: ./
+      id: coveragemap
+      with:
+        lcov-file: "./coverage/lcov.info"
+        coverage-threshold: "80"
+        github-token: ${{ secrets.GITHUB_TOKEN }}
