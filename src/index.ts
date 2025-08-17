@@ -176,7 +176,9 @@ export async function run(): Promise<void> {
     );
 
     if (!gatingResult.meetsThreshold) {
-      core.setFailed(gatingResult.errorMessage!);
+      core.setFailed(
+        gatingResult.errorMessage ?? "Coverage threshold not met.",
+      );
       return;
     }
 

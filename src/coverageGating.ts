@@ -23,10 +23,8 @@ export class CoverageGating {
     const overallProjectCoveragePercentage =
       lcovReport.summary.linesFound > 0
         ? Math.round(
-            (lcovReport.summary.linesHit / lcovReport.summary.linesFound) *
-              100 *
-              100,
-          ) / 100
+            (lcovReport.summary.linesHit / lcovReport.summary.linesFound) * 100,
+          )
         : 100;
 
     if (threshold === 0) {
