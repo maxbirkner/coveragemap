@@ -9,7 +9,7 @@ export interface ActionInputs {
   lcovFile: string;
   coverageThreshold: string;
   targetBranch: string;
-  githubToken: string;
+  githubToken?: string;
   label?: string;
 }
 
@@ -17,7 +17,11 @@ export function getInputs(): ActionInputs {
   const lcovFile = core.getInput("lcov-file") || "coverage/lcov.info";
   const coverageThreshold = core.getInput("coverage-threshold") || "80";
   const targetBranch = core.getInput("target-branch") || "main";
-  const githubToken = core.getInput("github-token", { required: true });
+
+  // Try to get GitHub token from input first, then fall back to environment variable
+  const githubToken =
+    core.getInput("github-token") || process.env.GITHUB_TOKEN || undefined;
+
   const label = core.getInput("label") || undefined;
 
   return {
@@ -100,10 +104,19 @@ async function postPrComment(
   analysis: CoverageAnalysis,
   lcovReport: LcovReport,
   threshold: number,
-  githubToken: string,
+  githubToken?: string,
   label?: string,
 ): Promise<void> {
   core.startGroup("💬 Posting PR comment");
+
+  if (!githubToken) {
+    core.info("⏭️  GitHub token not provided, skipping PR comment");
+    core.info(
+      "💡 To enable PR comments, provide the 'github-token' input or set the GITHUB_TOKEN environment variable",
+    );
+    core.endGroup();
+    return;
+  }
 
   try {
     const commentService = new PrCommentService({
@@ -138,6 +151,8 @@ async function run(): Promise<void> {
     const threshold = parseFloat(inputs.coverageThreshold);
 
     const analysis = await analyzeCoverage(changeset, lcovReport, threshold);
+
+    // Only attempt to post PR comment if we have a GitHub token
     await postPrComment(
       analysis,
       lcovReport,

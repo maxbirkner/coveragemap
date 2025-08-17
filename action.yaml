@@ -21,8 +21,8 @@ inputs:
     required: false
     default: main
   github-token:
-    description: GitHub token to post PR comments
-    required: true
+    description: GitHub token to post PR comments (falls back to GITHUB_TOKEN env var if not provided)
+    required: false
   label:
     description: Optional label for comment identification (enables multiple instances)
     required: false

@@ -6,8 +6,15 @@ jest.mock("@actions/core");
 const mockedCore = core as jest.Mocked<typeof core>;
 
 describe("getInputs", () => {
+  const originalEnv = process.env;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env = { ...originalEnv };
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
   });
 
   it("should return inputs when they are provided", () => {
@@ -32,9 +39,7 @@ describe("getInputs", () => {
     expect(mockedCore.getInput).toHaveBeenCalledWith("lcov-file");
     expect(mockedCore.getInput).toHaveBeenCalledWith("coverage-threshold");
     expect(mockedCore.getInput).toHaveBeenCalledWith("target-branch");
-    expect(mockedCore.getInput).toHaveBeenCalledWith("github-token", {
-      required: true,
-    });
+    expect(mockedCore.getInput).toHaveBeenCalledWith("github-token");
     expect(mockedCore.getInput).toHaveBeenCalledWith("label");
   });
 
@@ -53,6 +58,55 @@ describe("getInputs", () => {
       githubToken: "test-token",
       label: undefined,
     });
+  });
+
+  it("should fall back to GITHUB_TOKEN environment variable when input is not provided", () => {
+    process.env.GITHUB_TOKEN = "env-token";
+
+    mockedCore.getInput.mockImplementation(() => {
+      return ""; // All inputs empty
+    });
+
+    const result = getInputs();
+
+    expect(result).toEqual({
+      lcovFile: "coverage/lcov.info",
+      coverageThreshold: "80",
+      targetBranch: "main",
+      githubToken: "env-token",
+      label: undefined,
+    });
+  });
+
+  it("should return undefined for github token when neither input nor env var is provided", () => {
+    delete process.env.GITHUB_TOKEN;
+
+    mockedCore.getInput.mockImplementation(() => {
+      return ""; // All inputs empty
+    });
+
+    const result = getInputs();
+
+    expect(result).toEqual({
+      lcovFile: "coverage/lcov.info",
+      coverageThreshold: "80",
+      targetBranch: "main",
+      githubToken: undefined,
+      label: undefined,
+    });
+  });
+
+  it("should prioritize input over environment variable", () => {
+    process.env.GITHUB_TOKEN = "env-token";
+
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "input-token";
+      return "";
+    });
+
+    const result = getInputs();
+
+    expect(result.githubToken).toBe("input-token");
   });
 
   it("should handle partial inputs correctly", () => {
