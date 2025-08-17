@@ -44,6 +44,11 @@ export class TreemapGenerator {
     text: "#334155",
   };
 
+  private static readonly PIXELS_PER_CHAR = 7;
+  private static readonly ELLIPSIS_LENGTH = 3;
+  private static readonly MIN_FUNCTION_SIZE_ESTIMATE = 10;
+  private static readonly DEFAULT_FUNCTION_LINE_COUNT = 10;
+
   /**
    * Generate treemap data from coverage analysis
    */
@@ -133,140 +138,160 @@ export class TreemapGenerator {
 
     // Create a virtual DOM environment for D3
     const dom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
-    global.document = dom.window.document;
-    global.window = dom.window as unknown as Window & typeof globalThis;
 
-    // Create SVG element
-    const svg = d3
-      .select(dom.window.document.body)
-      .append("svg")
-      .attr("width", opts.width)
-      .attr("height", opts.height)
-      .attr("xmlns", "http://www.w3.org/2000/svg");
+    // Store original global values for cleanup
+    const originalDocument = global.document;
+    const originalWindow = global.window;
 
-    // Add background
-    svg
-      .append("rect")
-      .attr("width", opts.width)
-      .attr("height", opts.height)
-      .attr("fill", this.COLORS.background);
+    try {
+      global.document = dom.window.document;
+      global.window = dom.window as unknown as Window & typeof globalThis;
 
-    // Create D3 treemap layout
-    const root = hierarchy<TreemapData | TreemapNode>(data)
-      .sum((d) => (d as TreemapNode).value || 0)
-      .sort((a, b) => (b.value || 0) - (a.value || 0));
+      // Create SVG element
+      const svg = d3
+        .select(dom.window.document.body)
+        .append("svg")
+        .attr("width", opts.width)
+        .attr("height", opts.height)
+        .attr("xmlns", "http://www.w3.org/2000/svg");
 
-    const treemapLayout = treemap<TreemapData | TreemapNode>()
-      .size([opts.width - 40, opts.height - 80]) // Leave margin for title
-      .padding(2);
-
-    treemapLayout(root);
-
-    // Draw title
-    svg
-      .append("text")
-      .attr("x", opts.width / 2)
-      .attr("y", 30)
-      .attr("text-anchor", "middle")
-      .attr("font-family", "Arial, sans-serif")
-      .attr("font-size", "24px")
-      .attr("fill", this.COLORS.text)
-      .text("Coverage Treemap");
-
-    // Draw legend
-    this.drawSVGLegend(svg, opts.width - 200, 50);
-
-    // Draw treemap rectangles
-    const leaves = root.leaves();
-    const leafGroup = svg.append("g").attr("class", "leaves");
-
-    for (const leaf of leaves as HierarchyRectangularNode<
-      TreemapData | TreemapNode
-    >[]) {
-      if (
-        leaf.x0 === undefined ||
-        leaf.y0 === undefined ||
-        leaf.x1 === undefined ||
-        leaf.y1 === undefined
-      )
-        continue;
-
-      const node = leaf.data as TreemapNode;
-      const x = leaf.x0 + 20; // Account for margin
-      const y = leaf.y0 + 60; // Account for title and margin
-      const width = leaf.x1 - leaf.x0;
-      const height = leaf.y1 - leaf.y0;
-
-      const nodeGroup = leafGroup.append("g");
-
-      // Draw rectangle
-      nodeGroup
+      // Add background
+      svg
         .append("rect")
-        .attr("x", x)
-        .attr("y", y)
-        .attr("width", width)
-        .attr("height", height)
-        .attr(
-          "fill",
-          this.COLORS[node.coverage as keyof typeof this.COLORS] ||
-            this.COLORS.none,
+        .attr("width", opts.width)
+        .attr("height", opts.height)
+        .attr("fill", this.COLORS.background);
+
+      // Create D3 treemap layout
+      const root = hierarchy<TreemapData | TreemapNode>(data)
+        .sum((d) => (d as TreemapNode).value || 0)
+        .sort((a, b) => (b.value || 0) - (a.value || 0));
+
+      const treemapLayout = treemap<TreemapData | TreemapNode>()
+        .size([opts.width - 40, opts.height - 80]) // Leave margin for title
+        .padding(2);
+
+      treemapLayout(root);
+
+      // Draw title
+      svg
+        .append("text")
+        .attr("x", opts.width / 2)
+        .attr("y", 30)
+        .attr("text-anchor", "middle")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("font-size", "24px")
+        .attr("fill", this.COLORS.text)
+        .text("Coverage Treemap");
+
+      // Draw legend
+      this.drawSVGLegend(svg, opts.width - 200, 50);
+
+      // Draw treemap rectangles
+      const leaves = root.leaves();
+      const leafGroup = svg.append("g").attr("class", "leaves");
+
+      for (const leaf of leaves as HierarchyRectangularNode<
+        TreemapData | TreemapNode
+      >[]) {
+        if (
+          leaf.x0 === undefined ||
+          leaf.y0 === undefined ||
+          leaf.x1 === undefined ||
+          leaf.y1 === undefined
         )
-        .attr("stroke", this.COLORS.border)
-        .attr("stroke-width", 1);
+          continue;
 
-      // Draw text if rectangle is large enough
-      if (width > 80 && height > 30) {
-        const textGroup = nodeGroup.append("g");
+        const node = leaf.data as TreemapNode;
+        const x = leaf.x0 + 20; // Account for margin
+        const y = leaf.y0 + 60; // Account for title and margin
+        const width = leaf.x1 - leaf.x0;
+        const height = leaf.y1 - leaf.y0;
 
-        // Function/file name
-        const name = node.functionName || path.basename(node.file);
-        textGroup
-          .append("text")
-          .attr("x", x + 5)
-          .attr("y", y + 15)
-          .attr("font-family", "Arial, sans-serif")
-          .attr("font-size", "12px")
-          .attr("fill", this.COLORS.text)
-          .text(this.truncateText(name, width - 10));
+        const nodeGroup = leafGroup.append("g");
 
-        // Coverage info
-        if (height > 50) {
-          const coverageText = `${node.coveredLines}/${node.lineCount} lines`;
+        // Draw rectangle
+        nodeGroup
+          .append("rect")
+          .attr("x", x)
+          .attr("y", y)
+          .attr("width", width)
+          .attr("height", height)
+          .attr(
+            "fill",
+            this.COLORS[node.coverage as keyof typeof this.COLORS] ||
+              this.COLORS.none,
+          )
+          .attr("stroke", this.COLORS.border)
+          .attr("stroke-width", 1);
+
+        // Draw text if rectangle is large enough
+        if (width > 80 && height > 30) {
+          const textGroup = nodeGroup.append("g");
+
+          // Function/file name
+          const name = node.functionName || path.basename(node.file);
           textGroup
             .append("text")
             .attr("x", x + 5)
-            .attr("y", y + 30)
+            .attr("y", y + 15)
             .attr("font-family", "Arial, sans-serif")
-            .attr("font-size", "10px")
+            .attr("font-size", "12px")
             .attr("fill", this.COLORS.text)
-            .text(coverageText);
+            .text(this.truncateText(name, width - 10));
 
-          if (height > 70) {
-            const percentText = `${Math.round(
-              (node.coveredLines / node.lineCount) * 100,
-            )}%`;
+          // Coverage info
+          if (height > 50) {
+            const coverageText = `${node.coveredLines}/${node.lineCount} lines`;
             textGroup
               .append("text")
               .attr("x", x + 5)
-              .attr("y", y + 45)
+              .attr("y", y + 30)
               .attr("font-family", "Arial, sans-serif")
               .attr("font-size", "10px")
               .attr("fill", this.COLORS.text)
-              .text(percentText);
+              .text(coverageText);
+
+            if (height > 70) {
+              const percentText = `${Math.round(
+                (node.coveredLines / node.lineCount) * 100,
+              )}%`;
+              textGroup
+                .append("text")
+                .attr("x", x + 5)
+                .attr("y", y + 45)
+                .attr("font-family", "Arial, sans-serif")
+                .attr("font-size", "10px")
+                .attr("fill", this.COLORS.text)
+                .text(percentText);
+            }
           }
         }
       }
+
+      // Convert SVG to string
+      const svgString = dom.window.document.body.innerHTML;
+
+      // Use Sharp to convert SVG to PNG
+      const buffer = await sharp(Buffer.from(svgString)).png().toBuffer();
+
+      fs.writeFileSync(opts.outputPath, buffer);
+
+      return opts.outputPath;
+    } finally {
+      // Restore original global values
+      if (originalDocument === undefined) {
+        (global as Record<string, any>).document = undefined;
+      } else {
+        global.document = originalDocument;
+      }
+
+      if (originalWindow === undefined) {
+        (global as Record<string, any>).window = undefined;
+      } else {
+        global.window = originalWindow;
+      }
     }
-
-    // Convert SVG to string
-    const svgString = dom.window.document.body.innerHTML;
-
-    // Use Sharp to convert SVG to PNG
-    const buffer = await sharp(Buffer.from(svgString)).png().toBuffer();
-
-    fs.writeFileSync(opts.outputPath, buffer);
-
-    return opts.outputPath;
   }
 
   /**
@@ -316,9 +341,10 @@ export class TreemapGenerator {
    * Truncate text to fit within a given width
    */
   private static truncateText(text: string, maxWidth: number): string {
-    if (text.length * 7 <= maxWidth) return text; // Rough estimation: 7px per character
+    if (text.length * this.PIXELS_PER_CHAR <= maxWidth) return text;
 
-    const maxChars = Math.floor(maxWidth / 7) - 3;
+    const maxChars =
+      Math.floor(maxWidth / this.PIXELS_PER_CHAR) - this.ELLIPSIS_LENGTH;
     return text.substring(0, maxChars) + "...";
   }
 
@@ -335,7 +361,7 @@ export class TreemapGenerator {
       (f) => f.name === func.name && f.line === func.line,
     );
 
-    if (funcIndex === -1) return 10; // Default fallback
+    if (funcIndex === -1) return this.DEFAULT_FUNCTION_LINE_COUNT;
 
     const currentFunc = functions[funcIndex];
     const nextFunc = functions[funcIndex + 1];
@@ -346,7 +372,7 @@ export class TreemapGenerator {
       // Last function - estimate based on file lines
       const maxLine = Math.max(
         ...fileCoverage.lines.map((l) => l.line),
-        currentFunc.line + 10,
+        currentFunc.line + this.MIN_FUNCTION_SIZE_ESTIMATE,
       );
       return Math.max(maxLine - currentFunc.line, 1);
     }
