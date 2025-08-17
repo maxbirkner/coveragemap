@@ -3,22 +3,29 @@ import { ChangesetService } from "./changesetService";
 import { LcovParser, LcovReport } from "./lcov";
 import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
 import { Changeset } from "./changeset";
+import { PrCommentService } from "./prComment";
 
 export interface ActionInputs {
   lcovFile: string;
   coverageThreshold: string;
   targetBranch: string;
+  githubToken: string;
+  label?: string;
 }
 
 export function getInputs(): ActionInputs {
   const lcovFile = core.getInput("lcov-file") || "coverage/lcov.info";
   const coverageThreshold = core.getInput("coverage-threshold") || "80";
   const targetBranch = core.getInput("target-branch") || "main";
+  const githubToken = core.getInput("github-token", { required: true });
+  const label = core.getInput("label") || undefined;
 
   return {
     lcovFile,
     coverageThreshold,
     targetBranch,
+    githubToken,
+    label,
   };
 }
 
@@ -26,6 +33,12 @@ function printInputs(inputs: ActionInputs): void {
   core.info(`📁 LCOV file: ${inputs.lcovFile}`);
   core.info(`📊 Coverage threshold: ${inputs.coverageThreshold}%`);
   core.info(`🌿 Target branch: ${inputs.targetBranch}`);
+  core.info(
+    `🔑 GitHub token: ${inputs.githubToken ? "[PROVIDED]" : "[MISSING]"}`,
+  );
+  if (inputs.label) {
+    core.info(`🏷️ Label: ${inputs.label}`);
+  }
 }
 
 async function detectChangeset(targetBranch: string): Promise<Changeset> {
@@ -83,6 +96,38 @@ async function analyzeCoverage(
   return analysis;
 }
 
+async function postPrComment(
+  analysis: CoverageAnalysis,
+  lcovReport: LcovReport,
+  threshold: number,
+  githubToken: string,
+  label?: string,
+): Promise<void> {
+  core.startGroup("💬 Posting PR comment");
+
+  try {
+    const commentService = new PrCommentService({
+      githubToken,
+      label,
+    });
+
+    await commentService.postComment(analysis, lcovReport, threshold);
+
+    core.info("✅ PR comment posted successfully");
+  } catch (error) {
+    core.warning(
+      `Failed to post PR comment: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    core.info(
+      "🔍 This might be because the action is not running in a PR context or lacks permissions",
+    );
+  }
+
+  core.endGroup();
+}
+
 async function run(): Promise<void> {
   try {
     const inputs = getInputs();
@@ -92,11 +137,14 @@ async function run(): Promise<void> {
     const lcovReport = await parseLcovReport(inputs.lcovFile);
     const threshold = parseFloat(inputs.coverageThreshold);
 
-    await analyzeCoverage(changeset, lcovReport, threshold);
-
-    // TODO: Next steps will be implemented in future iterations
-    // - Generate treemap visualization
-    // - Post PR comment
+    const analysis = await analyzeCoverage(changeset, lcovReport, threshold);
+    await postPrComment(
+      analysis,
+      lcovReport,
+      threshold,
+      inputs.githubToken,
+      inputs.label,
+    );
 
     core.info("✅ Coverage Treemap Action completed successfully!");
   } catch (error) {

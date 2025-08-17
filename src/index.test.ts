@@ -15,6 +15,8 @@ describe("getInputs", () => {
       if (name === "lcov-file") return "./foo/bar.info";
       if (name === "coverage-threshold") return "85";
       if (name === "target-branch") return "baz";
+      if (name === "github-token") return "test-token";
+      if (name === "label") return "test-label";
       return "";
     });
 
@@ -24,14 +26,23 @@ describe("getInputs", () => {
       lcovFile: "./foo/bar.info",
       coverageThreshold: "85",
       targetBranch: "baz",
+      githubToken: "test-token",
+      label: "test-label",
     });
     expect(mockedCore.getInput).toHaveBeenCalledWith("lcov-file");
     expect(mockedCore.getInput).toHaveBeenCalledWith("coverage-threshold");
     expect(mockedCore.getInput).toHaveBeenCalledWith("target-branch");
+    expect(mockedCore.getInput).toHaveBeenCalledWith("github-token", {
+      required: true,
+    });
+    expect(mockedCore.getInput).toHaveBeenCalledWith("label");
   });
 
   it("should return default values when inputs are not provided", () => {
-    mockedCore.getInput.mockReturnValue("");
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      return "";
+    });
 
     const result = getInputs();
 
@@ -39,6 +50,8 @@ describe("getInputs", () => {
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "80",
       targetBranch: "main",
+      githubToken: "test-token",
+      label: undefined,
     });
   });
 
@@ -47,6 +60,8 @@ describe("getInputs", () => {
       if (name === "lcov-file") return "./test/lcov.info";
       if (name === "coverage-threshold") return "";
       if (name === "target-branch") return "develop";
+      if (name === "github-token") return "test-token";
+      if (name === "label") return "";
       return "";
     });
 
@@ -56,6 +71,8 @@ describe("getInputs", () => {
       lcovFile: "./test/lcov.info",
       coverageThreshold: "80",
       targetBranch: "develop",
+      githubToken: "test-token",
+      label: undefined,
     });
   });
 
@@ -64,6 +81,8 @@ describe("getInputs", () => {
       if (name === "lcov-file") return "";
       if (name === "coverage-threshold") return "";
       if (name === "target-branch") return "";
+      if (name === "github-token") return "test-token";
+      if (name === "label") return "";
       return "";
     });
 
@@ -73,6 +92,8 @@ describe("getInputs", () => {
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "80",
       targetBranch: "main",
+      githubToken: "test-token",
+      label: undefined,
     });
   });
 
@@ -81,6 +102,8 @@ describe("getInputs", () => {
       if (name === "lcov-file") return "coverage/lcov.info";
       if (name === "coverage-threshold") return "90";
       if (name === "target-branch") return "develop";
+      if (name === "github-token") return "test-token";
+      if (name === "label") return "";
       return "";
     });
 
@@ -90,6 +113,8 @@ describe("getInputs", () => {
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "90",
       targetBranch: "develop",
+      githubToken: "test-token",
+      label: undefined,
     });
   });
 });

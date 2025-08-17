@@ -20,6 +20,12 @@ inputs:
     description: The target branch to compare changes against
     required: false
     default: main
+  github-token:
+    description: GitHub token to post PR comments
+    required: true
+  label:
+    description: Optional label for comment identification (enables multiple instances)
+    required: false
 
 outputs:
   coverage-percentage:
