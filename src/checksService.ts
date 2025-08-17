@@ -1,5 +1,6 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
+import { createAppAuth } from "@octokit/auth-app";
 import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
 
 export interface CheckAnnotation {
@@ -13,8 +14,8 @@ export interface CheckAnnotation {
 }
 
 export interface ChecksServiceConfig {
-  githubAppClientId: string;
-  githubAppClientSecret: string;
+  githubAppId: string;
+  githubAppPrivateKey: string;
   githubToken: string;
 }
 
@@ -27,10 +28,10 @@ export class ChecksService {
   }
 
   static isEnabled(
-    githubAppClientId?: string,
-    githubAppClientSecret?: string,
+    githubAppId?: string,
+    githubAppPrivateKey?: string,
   ): boolean {
-    return !!(githubAppClientId && githubAppClientSecret);
+    return !!(githubAppId && githubAppPrivateKey);
   }
 
   generateAnnotations(analysis: CoverageAnalysis): CheckAnnotation[] {
@@ -193,7 +194,19 @@ export class ChecksService {
     }
 
     try {
-      const octokit = github.getOctokit(this.config.githubToken);
+      // Create GitHub App authenticated Octokit instance
+      const appAuth = createAppAuth({
+        appId: this.config.githubAppId,
+        privateKey: this.config.githubAppPrivateKey,
+      });
+
+      // Get installation ID from the current repository
+      const installationAuth = await appAuth({
+        type: "installation",
+        installationId: github.context.payload.installation?.id,
+      });
+
+      const octokit = github.getOctokit(installationAuth.token);
       const { owner, repo } = github.context.repo;
       const headSha = github.context.payload.pull_request.head.sha;
 

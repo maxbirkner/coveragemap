@@ -40,16 +40,16 @@ inputs:
       Multiple patterns can be separated by commas (e.g., "**/*.test.ts,**/*.spec.js").
       If not provided, defaults to common test file patterns.
     required: false
-  github-app-client-id:
+  github-app-id:
     description: |
-      Optional GitHub App Client ID for posting check annotations.
-      When provided with github-app-client-secret, enables posting up to 50 annotations
+      Optional GitHub App ID for posting check annotations.
+      When provided with github-app-private-key, enables posting up to 50 annotations
       to the PR using the GitHub Checks API.
     required: false
-  github-app-client-secret:
+  github-app-private-key:
     description: |
-      Optional GitHub App Client Secret for posting check annotations.
-      When provided with github-app-client-id, enables posting up to 50 annotations
+      Optional GitHub App Private Key for posting check annotations.
+      When provided with github-app-id, enables posting up to 50 annotations
       to the PR using the GitHub Checks API.
     required: false
 

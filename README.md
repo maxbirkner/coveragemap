@@ -83,8 +83,8 @@ To enable GitHub Checks API integration:
 1. **Create a GitHub App** with `checks:write` permission
 2. **Install the app** on your repository
 3. **Configure secrets** in your repository:
-   - `COVERAGEMAP_APP_CLIENT_ID`: Your GitHub App's Client ID
-   - `COVERAGEMAP_APP_CLIENT_SECRET`: Your GitHub App's Client Secret
+   - `COVERAGEMAP_APP_ID`: Your GitHub App's ID
+   - `COVERAGEMAP_APP_PRIVATE_KEY`: Your GitHub App's Private Key
 
 #### Annotation Features
 
@@ -127,8 +127,8 @@ Multiple patterns can be specified by separating them with commas. Each file is 
 | `label`                | `string` | `false`  | -                      | Optional label for comment identification                                                                             |
 | `source-code-pattern`  | `string` | `false`  | -                      | Optional glob pattern(s) for source code files to include in coverage analysis. Multiple patterns separated by commas. |
 | `test-code-pattern`    | `string` | `false`  | -                      | Optional glob pattern(s) for test files to exclude from coverage analysis. Multiple patterns separated by commas.   |
-| `github-app-client-id` | `string` | `false`  | -                      | GitHub App Client ID for posting check annotations. When provided with `github-app-client-secret`, enables GitHub Checks API annotations. |
-| `github-app-client-secret` | `string` | `false`  | -                   | GitHub App Client Secret for posting check annotations. When provided with `github-app-client-id`, enables GitHub Checks API annotations. |
+| `github-app-id` | `string` | `false`  | -                      | GitHub App ID for posting check annotations. When provided with `github-app-private-key`, enables GitHub Checks API annotations. |
+| `github-app-private-key` | `string` | `false`  | -                   | GitHub App Private Key for posting check annotations. When provided with `github-app-id`, enables GitHub Checks API annotations. |
 
 ## Coverage Threshold Gating
 
@@ -274,8 +274,8 @@ jobs:
           coverage-threshold: 85
           github-token: ${{ secrets.GITHUB_TOKEN }}
           # Optional: Enable GitHub Checks API annotations
-          github-app-client-id: ${{ secrets.COVERAGEMAP_APP_CLIENT_ID }}
-          github-app-client-secret: ${{ secrets.COVERAGEMAP_APP_CLIENT_SECRET }}
+          github-app-id: ${{ secrets.COVERAGEMAP_APP_ID }}
+          github-app-private-key: ${{ secrets.COVERAGEMAP_APP_PRIVATE_KEY }}
 
       - name: "Check Coverage Output"
         if: steps.coverage_check.outputs.meets-threshold == 'false'

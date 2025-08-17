@@ -17,8 +17,8 @@ export interface ActionInputs {
   label?: string;
   sourceCodePattern?: string;
   testCodePattern?: string;
-  githubAppClientId?: string;
-  githubAppClientSecret?: string;
+  githubAppId?: string;
+  githubAppPrivateKey?: string;
 }
 
 export function getInputs(): ActionInputs {
@@ -29,9 +29,9 @@ export function getInputs(): ActionInputs {
   const label = core.getInput("label") || undefined;
   const sourceCodePattern = core.getInput("source-code-pattern") || undefined;
   const testCodePattern = core.getInput("test-code-pattern") || undefined;
-  const githubAppClientId = core.getInput("github-app-client-id") || undefined;
-  const githubAppClientSecret =
-    core.getInput("github-app-client-secret") || undefined;
+  const githubAppId = core.getInput("github-app-id") || undefined;
+  const githubAppPrivateKey =
+    core.getInput("github-app-private-key") || undefined;
 
   return {
     lcovFile,
@@ -41,8 +41,8 @@ export function getInputs(): ActionInputs {
     label,
     sourceCodePattern,
     testCodePattern,
-    githubAppClientId,
-    githubAppClientSecret,
+    githubAppId,
+    githubAppPrivateKey,
   };
 }
 
@@ -62,7 +62,7 @@ export function printInputs(inputs: ActionInputs): void {
   if (inputs.testCodePattern) {
     core.info(`🧪 Test code pattern: ${inputs.testCodePattern}`);
   }
-  if (inputs.githubAppClientId && inputs.githubAppClientSecret) {
+  if (inputs.githubAppId && inputs.githubAppPrivateKey) {
     core.info(`🤖 GitHub App credentials: [PROVIDED]`);
   }
 }
@@ -226,10 +226,10 @@ export async function postPrComment(
 export async function postCheckAnnotations(
   analysis: CoverageAnalysis,
   githubToken: string,
-  githubAppClientId?: string,
-  githubAppClientSecret?: string,
+  githubAppId?: string,
+  githubAppPrivateKey?: string,
 ): Promise<void> {
-  if (!ChecksService.isEnabled(githubAppClientId, githubAppClientSecret)) {
+  if (!ChecksService.isEnabled(githubAppId, githubAppPrivateKey)) {
     core.info(
       "⏭️ Skipping check annotations - GitHub App credentials not provided",
     );
@@ -240,8 +240,8 @@ export async function postCheckAnnotations(
 
   try {
     const checksService = new ChecksService({
-      githubAppClientId: githubAppClientId!,
-      githubAppClientSecret: githubAppClientSecret!,
+      githubAppId: githubAppId!,
+      githubAppPrivateKey: githubAppPrivateKey!,
       githubToken,
     });
 
@@ -312,8 +312,8 @@ export async function run(): Promise<void> {
     await postCheckAnnotations(
       analysis,
       inputs.githubToken,
-      inputs.githubAppClientId,
-      inputs.githubAppClientSecret,
+      inputs.githubAppId,
+      inputs.githubAppPrivateKey,
     );
 
     if (!gatingResult.meetsThreshold) {
