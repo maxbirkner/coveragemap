@@ -11,6 +11,8 @@ export interface ActionInputs {
   targetBranch: string;
   githubToken: string;
   label?: string;
+  sourceCodePattern?: string;
+  testCodePattern?: string;
 }
 
 export function getInputs(): ActionInputs {
@@ -19,6 +21,8 @@ export function getInputs(): ActionInputs {
   const targetBranch = core.getInput("target-branch") || "main";
   const githubToken = core.getInput("github-token", { required: true });
   const label = core.getInput("label") || undefined;
+  const sourceCodePattern = core.getInput("source-code-pattern") || undefined;
+  const testCodePattern = core.getInput("test-code-pattern") || undefined;
 
   return {
     lcovFile,
@@ -26,6 +30,8 @@ export function getInputs(): ActionInputs {
     targetBranch,
     githubToken,
     label,
+    sourceCodePattern,
+    testCodePattern,
   };
 }
 
@@ -39,11 +45,26 @@ function printInputs(inputs: ActionInputs): void {
   if (inputs.label) {
     core.info(`🏷️ Label: ${inputs.label}`);
   }
+  if (inputs.sourceCodePattern) {
+    core.info(`📂 Source code pattern: ${inputs.sourceCodePattern}`);
+  }
+  if (inputs.testCodePattern) {
+    core.info(`🧪 Test code pattern: ${inputs.testCodePattern}`);
+  }
 }
 
-async function detectChangeset(targetBranch: string): Promise<Changeset> {
+async function detectChangeset(
+  targetBranch: string,
+  sourceCodePattern?: string,
+  testCodePattern?: string,
+): Promise<Changeset> {
   core.startGroup("🕵️‍♂️ Determining changeset");
-  const changeset = await ChangesetService.detectCodeChanges(targetBranch);
+  const changeset = await ChangesetService.detectCodeChanges(
+    targetBranch,
+    undefined, // extensions - will be undefined to use patterns instead
+    sourceCodePattern,
+    testCodePattern,
+  );
   ChangesetService.outputChangeset(changeset);
   core.endGroup();
   return changeset;
@@ -133,7 +154,11 @@ async function run(): Promise<void> {
     const inputs = getInputs();
     printInputs(inputs);
 
-    const changeset = await detectChangeset(inputs.targetBranch);
+    const changeset = await detectChangeset(
+      inputs.targetBranch,
+      inputs.sourceCodePattern,
+      inputs.testCodePattern,
+    );
     const lcovReport = await parseLcovReport(inputs.lcovFile);
     const threshold = parseFloat(inputs.coverageThreshold);
 

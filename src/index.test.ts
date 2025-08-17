@@ -17,6 +17,8 @@ describe("getInputs", () => {
       if (name === "target-branch") return "baz";
       if (name === "github-token") return "test-token";
       if (name === "label") return "test-label";
+      if (name === "source-code-pattern") return "src/**/*.ts";
+      if (name === "test-code-pattern") return "**/*.test.ts";
       return "";
     });
 
@@ -28,6 +30,8 @@ describe("getInputs", () => {
       targetBranch: "baz",
       githubToken: "test-token",
       label: "test-label",
+      sourceCodePattern: "src/**/*.ts",
+      testCodePattern: "**/*.test.ts",
     });
     expect(mockedCore.getInput).toHaveBeenCalledWith("lcov-file");
     expect(mockedCore.getInput).toHaveBeenCalledWith("coverage-threshold");
@@ -36,6 +40,8 @@ describe("getInputs", () => {
       required: true,
     });
     expect(mockedCore.getInput).toHaveBeenCalledWith("label");
+    expect(mockedCore.getInput).toHaveBeenCalledWith("source-code-pattern");
+    expect(mockedCore.getInput).toHaveBeenCalledWith("test-code-pattern");
   });
 
   it("should return default values when inputs are not provided", () => {
@@ -52,6 +58,8 @@ describe("getInputs", () => {
       targetBranch: "main",
       githubToken: "test-token",
       label: undefined,
+      sourceCodePattern: undefined,
+      testCodePattern: undefined,
     });
   });
 
@@ -73,6 +81,8 @@ describe("getInputs", () => {
       targetBranch: "develop",
       githubToken: "test-token",
       label: undefined,
+      sourceCodePattern: undefined,
+      testCodePattern: undefined,
     });
   });
 
@@ -94,6 +104,8 @@ describe("getInputs", () => {
       targetBranch: "main",
       githubToken: "test-token",
       label: undefined,
+      sourceCodePattern: undefined,
+      testCodePattern: undefined,
     });
   });
 
@@ -115,6 +127,50 @@ describe("getInputs", () => {
       targetBranch: "develop",
       githubToken: "test-token",
       label: undefined,
+      sourceCodePattern: undefined,
+      testCodePattern: undefined,
+    });
+  });
+
+  it("should handle source code and test patterns", () => {
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      if (name === "source-code-pattern") return "src/**/*.ts,lib/**/*.js";
+      if (name === "test-code-pattern") return "**/*.test.*,**/*.spec.*";
+      return "";
+    });
+
+    const result = getInputs();
+
+    expect(result).toEqual({
+      lcovFile: "coverage/lcov.info",
+      coverageThreshold: "80",
+      targetBranch: "main",
+      githubToken: "test-token",
+      label: undefined,
+      sourceCodePattern: "src/**/*.ts,lib/**/*.js",
+      testCodePattern: "**/*.test.*,**/*.spec.*",
+    });
+  });
+
+  it("should handle mixed pattern and empty inputs", () => {
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      if (name === "source-code-pattern") return "app/**/*.py";
+      if (name === "test-code-pattern") return "";
+      return "";
+    });
+
+    const result = getInputs();
+
+    expect(result).toEqual({
+      lcovFile: "coverage/lcov.info",
+      coverageThreshold: "80",
+      targetBranch: "main",
+      githubToken: "test-token",
+      label: undefined,
+      sourceCodePattern: "app/**/*.py",
+      testCodePattern: undefined,
     });
   });
 });

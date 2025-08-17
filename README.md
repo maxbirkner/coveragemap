@@ -44,14 +44,50 @@ The action automatically posts a comprehensive coverage report as a PR comment, 
     - With label: Comment title is "Coveragemap Action: \<label\>"
   - **Automatic Detection**: The action identifies and updates comments based on the title pattern
 
+### File Pattern Filtering
+
+The action supports file filtering using glob patterns to control which files are included in coverage analysis:
+
+  - Use `source-code-pattern` to specify which files to **include in coverage** analysis.
+  - Use `test-code-pattern` to specify which files to **exclude from coverage** analysis.
+
+#### Pattern Examples
+
+**Include only TypeScript files in src/ directory:**
+
+```yaml
+source-code-pattern: "src/**/*.ts"
+```
+
+**Exclude integration tests and mocks:**
+
+```yaml
+test-code-pattern: "**/integration/**,**/*.mock.*"
+```
+
+**Multi-language project:**
+
+```yaml
+source-code-pattern: "frontend/**/*.ts,backend/**/*.py,mobile/**/*.swift"
+test-code-pattern: "**/*.test.*,**/*.spec.*,**/test_*"
+```
+
+#### Pattern Matching Details
+
+File patterns are powered by [picomatch](https://github.com/micromatch/picomatch). Check the instructions to find more information about supported [globbing features](https://github.com/micromatch/picomatch?tab=readme-ov-file#globbing-features).
+
+Multiple patterns can be specified by separating them with commas. Each file is included if it matches any source pattern, excluded if it matches any test pattern!
+
 ## Inputs
 
-| Name                 | Type     | Required | Default                | Description                       |
-| :------------------- | :------- | :------- | :--------------------- | :-------------------------------- |
-| `lcov-file`          | `string` | `true`   | `'coverage/lcov.info'` | Path to the lcov.info report     |
-| `coverage-threshold` | `string` | `true`   | `'80'`                 | Min coverage % for changed files |
-| `github-token`       | `string` | `true`   | -                      | GitHub token to post PR comments |
-| `label`              | `string` | `false`  | -                      | Optional label for comment identification |
+| Name                   | Type     | Required | Default                | Description                                                                                                           |
+| :--------------------- | :------- | :------- | :--------------------- | :-------------------------------------------------------------------------------------------------------------------- |
+| `lcov-file`            | `string` | `true`   | `'coverage/lcov.info'` | Path to the lcov.info report                                                                                         |
+| `coverage-threshold`   | `string` | `true`   | `'80'`                 | Min coverage % for changed files                                                                                     |
+| `github-token`         | `string` | `true`   | -                      | GitHub token to post PR comments                                                                                     |
+| `label`                | `string` | `false`  | -                      | Optional label for comment identification                                                                             |
+| `source-code-pattern`  | `string` | `false`  | -                      | Optional glob pattern(s) for source code files to include in coverage analysis. Multiple patterns separated by commas. |
+| `test-code-pattern`    | `string` | `false`  | -                      | Optional glob pattern(s) for test files to exclude from coverage analysis. Multiple patterns separated by commas.   |
 
 ## Outputs
 

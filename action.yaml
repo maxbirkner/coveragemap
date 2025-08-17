@@ -26,6 +26,18 @@ inputs:
   label:
     description: Optional label for comment identification (enables multiple instances)
     required: false
+  source-code-pattern:
+    description: |
+      Optional glob pattern(s) for source code files to include in coverage analysis.
+      Multiple patterns can be separated by commas (e.g., "src/**/*.ts,lib/**/*.js").
+      If not provided, defaults to common source code extensions.
+    required: false
+  test-code-pattern:
+    description: |
+      Optional glob pattern(s) for test files to exclude from coverage analysis.
+      Multiple patterns can be separated by commas (e.g., "**/*.test.ts,**/*.spec.js").
+      If not provided, defaults to common test file patterns.
+    required: false
 
 outputs:
   coverage-percentage:

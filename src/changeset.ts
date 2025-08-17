@@ -1,3 +1,5 @@
+import picomatch from "picomatch";
+
 export interface FileChange {
   path: string;
   status: "added" | "modified" | "deleted";
@@ -12,6 +14,49 @@ export interface Changeset {
 }
 
 export class ChangesetUtils {
+  private static readonly DEFAULT_SOURCE_PATTERNS = [
+    "**/*.ts",
+    "**/*.js",
+    "**/*.tsx",
+    "**/*.jsx",
+    "**/*.py",
+    "**/*.java",
+    "**/*.cs",
+    "**/*.cpp",
+    "**/*.c",
+    "**/*.go",
+    "**/*.rs",
+  ];
+
+  private static readonly DEFAULT_TEST_PATTERNS = [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/test/**",
+    "**/tests/**",
+    "**/__tests__/**",
+    "**/*.mock.*",
+  ];
+
+  private static matchesAnyPattern(
+    filePath: string,
+    patterns: string[],
+  ): boolean {
+    if (patterns.length === 0) return false;
+
+    return patterns.some((pattern) => {
+      const matcher = picomatch(pattern.trim());
+      return matcher(filePath);
+    });
+  }
+
+  static parsePatterns(patternString?: string): string[] {
+    if (!patternString) return [];
+    return patternString
+      .split(",")
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+  }
+
   static createChangeset(
     files: string[],
     baseCommit: string,
@@ -29,6 +74,31 @@ export class ChangesetUtils {
       targetBranch,
       files: fileChanges,
       totalFiles: files.length,
+    };
+  }
+
+  static filterByPatterns(
+    changeset: Changeset,
+    sourceCodePattern: string[] = ChangesetUtils.DEFAULT_SOURCE_PATTERNS,
+    testCodePattern: string[] = ChangesetUtils.DEFAULT_TEST_PATTERNS,
+  ): Changeset {
+    const filteredFiles = changeset.files.filter((file) => {
+      const matchesSource = ChangesetUtils.matchesAnyPattern(
+        file.path,
+        sourceCodePattern,
+      );
+      const matchesTest = ChangesetUtils.matchesAnyPattern(
+        file.path,
+        testCodePattern,
+      );
+
+      return matchesSource && !matchesTest;
+    });
+
+    return {
+      ...changeset,
+      files: filteredFiles,
+      totalFiles: filteredFiles.length,
     };
   }
 
