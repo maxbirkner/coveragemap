@@ -103,6 +103,7 @@ flowchart TD
     A1[/LCOV Report/]
     A2[/Coverage Threshold/]
     A3[(Git Repo)]
+    A4[/Source & Test Code Patterns/]
   end
 
   subgraph Analysis
@@ -126,6 +127,7 @@ flowchart TD
   A1 --> C
   A2 --> H
   A3 --> B
+  A4 --> B
   B --> C --> D --> E --> F --> G --> H
   H -- Yes --> I
   H -- No --> J
