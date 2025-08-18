@@ -7,6 +7,7 @@ import { PrCommentService } from "./prComment";
 import { CoverageGating, GatingResult } from "./coverageGating";
 import { TreemapGenerator } from "./treemapGenerator";
 import { ArtifactService, ArtifactInfo } from "./artifactService";
+import { ChecksService } from "./checksService";
 
 export interface ActionInputs {
   lcovFile: string;
@@ -16,6 +17,8 @@ export interface ActionInputs {
   label?: string;
   sourceCodePattern?: string;
   testCodePattern?: string;
+  githubAppId?: string;
+  githubAppPrivateKey?: string;
 }
 
 export function getInputs(): ActionInputs {
@@ -26,6 +29,9 @@ export function getInputs(): ActionInputs {
   const label = core.getInput("label") || undefined;
   const sourceCodePattern = core.getInput("source-code-pattern") || undefined;
   const testCodePattern = core.getInput("test-code-pattern") || undefined;
+  const githubAppId = core.getInput("github-app-id") || undefined;
+  const githubAppPrivateKey =
+    core.getInput("github-app-private-key") || undefined;
 
   return {
     lcovFile,
@@ -35,6 +41,8 @@ export function getInputs(): ActionInputs {
     label,
     sourceCodePattern,
     testCodePattern,
+    githubAppId,
+    githubAppPrivateKey,
   };
 }
 
@@ -54,6 +62,9 @@ export function printInputs(inputs: ActionInputs): void {
   if (inputs.testCodePattern) {
     core.info(`🧪 Test code pattern: ${inputs.testCodePattern}`);
   }
+  if (inputs.githubAppId && inputs.githubAppPrivateKey) {
+    core.info(`🤖 GitHub App credentials: [PROVIDED]`);
+  }
 }
 
 export async function detectChangeset(
@@ -64,7 +75,7 @@ export async function detectChangeset(
   core.startGroup("🕵️‍♂️ Determining changeset");
   const changeset = await ChangesetService.detectCodeChanges(
     targetBranch,
-    undefined, // extensions - will be undefined to use patterns instead
+    undefined,
     sourceCodePattern,
     testCodePattern,
   );
@@ -100,12 +111,10 @@ export async function analyzeCoverageAndGating(
 
   core.info(CoverageAnalyzer.format(analysis));
 
-  // Evaluate threshold gating
   const gatingResult = CoverageGating.evaluate(analysis, lcovReport, threshold);
 
   core.info(CoverageGating.format(gatingResult));
 
-  // Output results for use in workflow
   core.setOutput(
     "coverage-percentage",
     analysis.summary.overallCoverage.overallCoveragePercentage,
@@ -148,7 +157,7 @@ export async function generateAndUploadTreemap(
       const artifactInfo = await artifactService.uploadArtifact(
         artifactName,
         treemapPath,
-        30, // 30 days retention
+        30,
       );
 
       await artifactService.cleanupTempFiles([treemapPath]);
@@ -183,7 +192,7 @@ export async function postPrComment(
   githubToken: string,
   label?: string,
   treemapArtifact?: ArtifactInfo,
-): Promise<void> {
+): Promise<string | null> {
   core.startGroup("💬 Posting PR comment");
 
   try {
@@ -192,7 +201,7 @@ export async function postPrComment(
       label,
     });
 
-    await commentService.postComment(
+    const commentUrl = await commentService.postComment(
       analysis,
       lcovReport,
       gatingResult,
@@ -200,6 +209,7 @@ export async function postPrComment(
     );
 
     core.info("✅ PR comment posted successfully");
+    return commentUrl;
   } catch (error) {
     core.warning(
       `Failed to post PR comment: ${
@@ -208,6 +218,66 @@ export async function postPrComment(
     );
     core.info(
       "🔍 This might be because the action is not running in a PR context or lacks permissions",
+    );
+    return null;
+  } finally {
+    core.endGroup();
+  }
+}
+
+export async function postCheckAnnotations(
+  analysis: CoverageAnalysis,
+  githubToken: string,
+  coverageThreshold: number,
+  githubAppId?: string,
+  githubAppPrivateKey?: string,
+  prCommentUrl?: string,
+): Promise<void> {
+  if (!ChecksService.isEnabled(githubAppId, githubAppPrivateKey)) {
+    core.info(
+      "⏭️ Skipping check annotations - GitHub App credentials not provided",
+    );
+    return;
+  }
+
+  core.startGroup("📝 Posting check annotations");
+
+  try {
+    const checksService = new ChecksService({
+      githubAppId: githubAppId!,
+      githubAppPrivateKey: githubAppPrivateKey!,
+      githubToken,
+      coverageThreshold,
+    });
+
+    const annotations = checksService.generateAnnotations(analysis);
+
+    if (annotations.length === 0) {
+      core.info("ℹ️ No annotations to post - all files have good coverage");
+      core.endGroup();
+      return;
+    }
+
+    const annotationsPath =
+      await checksService.createAnnotationsArtifact(annotations);
+
+    const artifactService = new ArtifactService();
+    const artifactName = `coverage-annotations-${Date.now()}`;
+    await artifactService.uploadArtifact(artifactName, annotationsPath, 30);
+
+    await checksService.postAnnotations(analysis, annotations, prCommentUrl);
+
+    await artifactService.cleanupTempFiles([annotationsPath]);
+
+    core.info(`✅ Posted ${annotations.length} check annotations successfully`);
+  } catch (error) {
+    core.warning(
+      `Failed to post check annotations: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+    core.info(
+      "🔍 This might be because the action lacks permissions for the Checks API or GitHub App is not properly configured",
     );
   }
 
@@ -233,16 +303,24 @@ export async function run(): Promise<void> {
       threshold,
     );
 
-    // Generate treemap visualization
     const treemapArtifact = await generateAndUploadTreemap(analysis);
 
-    await postPrComment(
+    const prCommentUrl = await postPrComment(
       analysis,
       lcovReport,
       gatingResult,
       inputs.githubToken,
       inputs.label,
       treemapArtifact || undefined,
+    );
+
+    await postCheckAnnotations(
+      analysis,
+      inputs.githubToken,
+      threshold,
+      inputs.githubAppId,
+      inputs.githubAppPrivateKey,
+      prCommentUrl || undefined,
     );
 
     if (!gatingResult.meetsThreshold) {

@@ -185,7 +185,7 @@ export class PrCommentService {
     lcovReport: LcovReport,
     gatingResult: GatingResult,
     treemapArtifact?: ArtifactInfo,
-  ): Promise<void> {
+  ): Promise<string | null> {
     const { context } = github;
 
     if (!context.payload.pull_request) {
@@ -197,6 +197,12 @@ export class PrCommentService {
 
     try {
       const existingCommentId = await this.findExistingComment();
+      const serverUrl =
+        context.serverUrl ||
+        process.env.GITHUB_SERVER_URL ||
+        "https://github.com";
+      const { owner, repo } = context.repo;
+      const prNumber = context.payload.pull_request.number;
 
       if (existingCommentId) {
         // Update existing comment
@@ -208,6 +214,7 @@ export class PrCommentService {
         });
 
         core.info(`✅ Updated existing PR comment (ID: ${existingCommentId})`);
+        return `${serverUrl}/${owner}/${repo}/pull/${prNumber}#issuecomment-${existingCommentId}`;
       } else {
         // Create new comment
         const response = await this.octokit.rest.issues.createComment({
@@ -218,6 +225,7 @@ export class PrCommentService {
         });
 
         core.info(`✅ Created new PR comment (ID: ${response.data.id})`);
+        return `${serverUrl}/${owner}/${repo}/pull/${prNumber}#issuecomment-${response.data.id}`;
       }
     } catch (error) {
       throw new Error(

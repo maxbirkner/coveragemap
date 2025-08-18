@@ -40,6 +40,18 @@ inputs:
       Multiple patterns can be separated by commas (e.g., "**/*.test.ts,**/*.spec.js").
       If not provided, defaults to common test file patterns.
     required: false
+  github-app-id:
+    description: |
+      Optional GitHub App ID for posting check annotations.
+      When provided with github-app-private-key, enables posting up to 50 annotations
+      to the PR using the GitHub Checks API.
+    required: false
+  github-app-private-key:
+    description: |
+      Optional GitHub App Private Key for posting check annotations.
+      When provided with github-app-id, enables posting up to 50 annotations
+      to the PR using the GitHub Checks API.
+    required: false
 
 outputs:
   coverage-percentage:
