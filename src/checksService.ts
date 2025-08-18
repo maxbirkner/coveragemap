@@ -2,6 +2,7 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { createAppAuth } from "@octokit/auth-app";
 import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
+import { GatingResult } from "./coverageGating";
 
 export interface CheckAnnotation {
   path: string;
@@ -185,6 +186,7 @@ export class ChecksService {
 
   async postAnnotations(
     analysis: CoverageAnalysis,
+    gatingResult: GatingResult,
     annotations: CheckAnnotation[],
     prCommentUrl?: string,
   ): Promise<void> {
@@ -222,7 +224,7 @@ export class ChecksService {
       const checkName = "Coverage Treemap Action";
       const title = this.generateCheckTitle(analysis);
       const summary = this.generateCheckSummary(analysis);
-      const conclusion = this.determineCheckConclusion(analysis);
+      const conclusion = this.determineCheckConclusion(gatingResult);
 
       core.info(`📊 Check conclusion: ${conclusion}`);
       core.info(
@@ -318,23 +320,10 @@ export class ChecksService {
   }
 
   private determineCheckConclusion(
-    analysis: CoverageAnalysis,
+    gatingResult: GatingResult,
   ): "success" | "failure" | "neutral" {
-    const coverage = analysis.summary.overallCoverage.overallCoveragePercentage;
-    const threshold = this.config.coverageThreshold;
-
-    // Fail if coverage is significantly below threshold
-    if (coverage < threshold) {
-      return "failure";
-    }
-
-    // Success if coverage meets or exceeds threshold
-    if (coverage >= threshold) {
-      return "success";
-    }
-
-    // Neutral for edge cases
-    return "neutral";
+    // Use the gating result to match the action's overall result
+    return gatingResult.meetsThreshold ? "success" : "failure";
   }
 
   async createAnnotationsArtifact(

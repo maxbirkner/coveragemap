@@ -227,6 +227,7 @@ export async function postPrComment(
 
 export async function postCheckAnnotations(
   analysis: CoverageAnalysis,
+  gatingResult: GatingResult,
   githubToken: string,
   coverageThreshold: number,
   githubAppId?: string,
@@ -265,7 +266,12 @@ export async function postCheckAnnotations(
     const artifactName = `coverage-annotations-${Date.now()}`;
     await artifactService.uploadArtifact(artifactName, annotationsPath, 30);
 
-    await checksService.postAnnotations(analysis, annotations, prCommentUrl);
+    await checksService.postAnnotations(
+      analysis,
+      gatingResult,
+      annotations,
+      prCommentUrl,
+    );
 
     await artifactService.cleanupTempFiles([annotationsPath]);
 
@@ -316,6 +322,7 @@ export async function run(): Promise<void> {
 
     await postCheckAnnotations(
       analysis,
+      gatingResult,
       inputs.githubToken,
       threshold,
       inputs.githubAppId,

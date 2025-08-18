@@ -5,6 +5,7 @@ import {
 } from "./checksService";
 import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
 import { ChangesetUtils } from "./changeset";
+import { GatingResult } from "./coverageGating";
 
 // Mock @actions/core
 jest.mock("@actions/core", () => ({
@@ -54,6 +55,18 @@ describe("ChecksService", () => {
     githubToken: "ghp_token",
     coverageThreshold: 80,
   };
+
+  const createMockGatingResult = (
+    meetsThreshold: boolean = true,
+    threshold: number = 80,
+  ): GatingResult => ({
+    meetsThreshold,
+    threshold,
+    mode: "standard",
+    prCoveragePercentage: 85,
+    description: "Test description",
+    errorMessage: undefined,
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -774,8 +787,9 @@ describe("ChecksService", () => {
         },
       };
 
+      const gatingResult = createMockGatingResult(true, 80); // meetsThreshold = true
       const conclusion = (checksService as any).determineCheckConclusion(
-        analysis,
+        gatingResult,
       );
       expect(conclusion).toBe("success");
     });
@@ -808,8 +822,9 @@ describe("ChecksService", () => {
         },
       };
 
+      const gatingResult = createMockGatingResult(false, 80); // meetsThreshold = false
       const conclusion = (checksService as any).determineCheckConclusion(
-        analysis,
+        gatingResult,
       );
       expect(conclusion).toBe("failure");
     });
@@ -842,8 +857,9 @@ describe("ChecksService", () => {
         },
       };
 
+      const gatingResult = createMockGatingResult(true, 80); // meetsThreshold = true
       const conclusion = (checksService as any).determineCheckConclusion(
-        analysis,
+        gatingResult,
       );
       expect(conclusion).toBe("success");
     });
@@ -947,7 +963,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       expect(mockedCreateAppAuth).toHaveBeenCalledWith({
         appId: "123456",
@@ -1042,7 +1062,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       expect(mockOctokit.rest.checks.create).toHaveBeenCalledWith({
         owner: "testowner",
@@ -1098,9 +1122,9 @@ describe("ChecksService", () => {
 
       mockAppAuth.mockRejectedValue(new Error("Authentication failed"));
 
-      await expect(checksService.postAnnotations(analysis, [])).rejects.toThrow(
-        "Authentication failed",
-      );
+      await expect(
+        checksService.postAnnotations(analysis, createMockGatingResult(), []),
+      ).rejects.toThrow("Authentication failed");
 
       expect(mockedCore.warning).toHaveBeenCalledWith(
         "Failed to post check annotations: Authentication failed",
@@ -1160,7 +1184,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       const createCallArgs = mockOctokit.rest.checks.create.mock.calls[0][0];
       expect(createCallArgs.output.annotations).toHaveLength(50); // Limited to maxAnnotations
@@ -1221,7 +1249,12 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations, prCommentUrl);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+        prCommentUrl,
+      );
 
       expect(mockedCore.info).toHaveBeenCalledWith(
         `💬 View PR comment: ${prCommentUrl}`,
@@ -1278,7 +1311,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       expect(mockedCore.info).not.toHaveBeenCalledWith(
         expect.stringContaining("💬 View PR comment:"),
