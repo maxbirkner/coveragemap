@@ -26,7 +26,8 @@ inputs:
     description: GitHub token to post PR comments
     required: true
   label:
-    description: Optional label for comment identification (enables multiple instances)
+    description: |
+      Optional label for identification (enables multiple instances).
     required: false
   source-code-pattern:
     description: |

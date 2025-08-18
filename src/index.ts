@@ -209,6 +209,9 @@ export async function postPrComment(
     );
 
     core.info("✅ PR comment posted successfully");
+    if (commentUrl) {
+      core.info(`💬 View PR comment: ${commentUrl}`);
+    }
     return commentUrl;
   } catch (error) {
     core.warning(
@@ -227,11 +230,13 @@ export async function postPrComment(
 
 export async function postCheckAnnotations(
   analysis: CoverageAnalysis,
+  gatingResult: GatingResult,
   githubToken: string,
   coverageThreshold: number,
   githubAppId?: string,
   githubAppPrivateKey?: string,
   prCommentUrl?: string,
+  label?: string,
 ): Promise<void> {
   if (!ChecksService.isEnabled(githubAppId, githubAppPrivateKey)) {
     core.info(
@@ -248,6 +253,7 @@ export async function postCheckAnnotations(
       githubAppPrivateKey: githubAppPrivateKey!,
       githubToken,
       coverageThreshold,
+      label,
     });
 
     const annotations = checksService.generateAnnotations(analysis);
@@ -265,7 +271,12 @@ export async function postCheckAnnotations(
     const artifactName = `coverage-annotations-${Date.now()}`;
     await artifactService.uploadArtifact(artifactName, annotationsPath, 30);
 
-    await checksService.postAnnotations(analysis, annotations, prCommentUrl);
+    await checksService.postAnnotations(
+      analysis,
+      gatingResult,
+      annotations,
+      prCommentUrl,
+    );
 
     await artifactService.cleanupTempFiles([annotationsPath]);
 
@@ -316,11 +327,13 @@ export async function run(): Promise<void> {
 
     await postCheckAnnotations(
       analysis,
+      gatingResult,
       inputs.githubToken,
       threshold,
       inputs.githubAppId,
       inputs.githubAppPrivateKey,
       prCommentUrl || undefined,
+      inputs.label,
     );
 
     if (!gatingResult.meetsThreshold) {

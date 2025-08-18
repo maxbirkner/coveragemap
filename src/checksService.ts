@@ -2,6 +2,7 @@ import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { createAppAuth } from "@octokit/auth-app";
 import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
+import { GatingResult } from "./coverageGating";
 
 export interface CheckAnnotation {
   path: string;
@@ -18,6 +19,7 @@ export interface ChecksServiceConfig {
   githubAppPrivateKey: string;
   githubToken: string;
   coverageThreshold: number;
+  label?: string;
 }
 
 export class ChecksService {
@@ -26,6 +28,12 @@ export class ChecksService {
 
   constructor(config: ChecksServiceConfig) {
     this.config = config;
+  }
+
+  private getCheckName(): string {
+    return this.config.label
+      ? `Coverage Treemap Action: ${this.config.label}`
+      : "Coverage Treemap Action";
   }
 
   static isEnabled(
@@ -185,6 +193,7 @@ export class ChecksService {
 
   async postAnnotations(
     analysis: CoverageAnalysis,
+    gatingResult: GatingResult,
     annotations: CheckAnnotation[],
     prCommentUrl?: string,
   ): Promise<void> {
@@ -219,10 +228,10 @@ export class ChecksService {
       const octokit = github.getOctokit(installationAuth.token);
       const headSha = github.context.payload.pull_request.head.sha;
 
-      const checkName = "Coverage Treemap Action";
+      const checkName = this.getCheckName();
       const title = this.generateCheckTitle(analysis);
       const summary = this.generateCheckSummary(analysis);
-      const conclusion = this.determineCheckConclusion(analysis);
+      const conclusion = this.determineCheckConclusion(gatingResult);
 
       core.info(`📊 Check conclusion: ${conclusion}`);
       core.info(
@@ -255,11 +264,6 @@ export class ChecksService {
 
       core.info(`✅ Posted ${annotations.length} annotations to GitHub Checks`);
       core.info(`🔗 Check run: ${createCheckResponse.data.html_url}`);
-
-      // Add link to PR comment if provided
-      if (prCommentUrl) {
-        core.info(`💬 View PR comment: ${prCommentUrl}`);
-      }
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -318,23 +322,10 @@ export class ChecksService {
   }
 
   private determineCheckConclusion(
-    analysis: CoverageAnalysis,
+    gatingResult: GatingResult,
   ): "success" | "failure" | "neutral" {
-    const coverage = analysis.summary.overallCoverage.overallCoveragePercentage;
-    const threshold = this.config.coverageThreshold;
-
-    // Fail if coverage is significantly below threshold
-    if (coverage < threshold) {
-      return "failure";
-    }
-
-    // Success if coverage meets or exceeds threshold
-    if (coverage >= threshold) {
-      return "success";
-    }
-
-    // Neutral for edge cases
-    return "neutral";
+    // Use the gating result to match the action's overall result
+    return gatingResult.meetsThreshold ? "success" : "failure";
   }
 
   async createAnnotationsArtifact(

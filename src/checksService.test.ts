@@ -5,6 +5,7 @@ import {
 } from "./checksService";
 import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
 import { ChangesetUtils } from "./changeset";
+import { GatingResult } from "./coverageGating";
 
 // Mock @actions/core
 jest.mock("@actions/core", () => ({
@@ -55,6 +56,18 @@ describe("ChecksService", () => {
     coverageThreshold: 80,
   };
 
+  const createMockGatingResult = (
+    meetsThreshold: boolean = true,
+    threshold: number = 80,
+  ): GatingResult => ({
+    meetsThreshold,
+    threshold,
+    mode: "standard",
+    prCoveragePercentage: 85,
+    description: "Test description",
+    errorMessage: undefined,
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     checksService = new ChecksService(mockConfig);
@@ -74,6 +87,22 @@ describe("ChecksService", () => {
     it("should return false when only one credential is provided", () => {
       expect(ChecksService.isEnabled("123456", undefined)).toBe(false);
       expect(ChecksService.isEnabled(undefined, "private-key")).toBe(false);
+    });
+  });
+
+  describe("getCheckName", () => {
+    it("should return default name when no label is provided", () => {
+      const config = { ...mockConfig };
+      const service = new ChecksService(config);
+      const checkName = (service as any).getCheckName();
+      expect(checkName).toBe("Coverage Treemap Action");
+    });
+
+    it("should return name with label when label is provided", () => {
+      const config = { ...mockConfig, label: "Frontend" };
+      const service = new ChecksService(config);
+      const checkName = (service as any).getCheckName();
+      expect(checkName).toBe("Coverage Treemap Action: Frontend");
     });
   });
 
@@ -774,8 +803,9 @@ describe("ChecksService", () => {
         },
       };
 
+      const gatingResult = createMockGatingResult(true, 80); // meetsThreshold = true
       const conclusion = (checksService as any).determineCheckConclusion(
-        analysis,
+        gatingResult,
       );
       expect(conclusion).toBe("success");
     });
@@ -808,8 +838,9 @@ describe("ChecksService", () => {
         },
       };
 
+      const gatingResult = createMockGatingResult(false, 80); // meetsThreshold = false
       const conclusion = (checksService as any).determineCheckConclusion(
-        analysis,
+        gatingResult,
       );
       expect(conclusion).toBe("failure");
     });
@@ -842,8 +873,9 @@ describe("ChecksService", () => {
         },
       };
 
+      const gatingResult = createMockGatingResult(true, 80); // meetsThreshold = true
       const conclusion = (checksService as any).determineCheckConclusion(
-        analysis,
+        gatingResult,
       );
       expect(conclusion).toBe("success");
     });
@@ -947,7 +979,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       expect(mockedCreateAppAuth).toHaveBeenCalledWith({
         appId: "123456",
@@ -979,6 +1015,92 @@ describe("ChecksService", () => {
       expect(mockedCore.info).toHaveBeenCalledWith(
         "📈 Coverage: 85% (Threshold: 80%)",
       );
+
+      // Restore original environment
+      if (originalGitHubRunId !== undefined) {
+        process.env.GITHUB_RUN_ID = originalGitHubRunId;
+      }
+    });
+
+    it("should use label in check name when provided", async () => {
+      const originalGitHubRunId = process.env.GITHUB_RUN_ID;
+      delete process.env.GITHUB_RUN_ID;
+
+      // Create a service with a label
+      const configWithLabel = { ...mockConfig, label: "Frontend" };
+      const labeledChecksService = new ChecksService(configWithLabel);
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 10,
+            coveredLines: 8,
+            totalFunctions: 2,
+            coveredFunctions: 2,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 80,
+            functionsCoveragePercentage: 100,
+            branchesCoveragePercentage: 100,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const annotations: CheckAnnotation[] = [
+        {
+          path: "src/test.ts",
+          start_line: 5,
+          end_line: 6,
+          annotation_level: "warning",
+          title: "Test",
+          message: "Test message",
+        },
+      ];
+
+      // Mock GitHub App authentication flow
+      mockAppAuth
+        .mockResolvedValueOnce({ token: "app-token" })
+        .mockResolvedValueOnce({ token: "installation-token" });
+
+      mockOctokit.rest.apps.getRepoInstallation.mockResolvedValue({
+        data: { id: 12345 },
+      });
+
+      mockOctokit.rest.checks.create.mockResolvedValue({
+        data: { html_url: "https://github.com/owner/repo/runs/123" },
+      });
+
+      await labeledChecksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
+
+      expect(mockOctokit.rest.checks.create).toHaveBeenCalledWith({
+        owner: "testowner",
+        repo: "testrepo",
+        name: "Coverage Treemap Action: Frontend",
+        head_sha: "test-head-sha",
+        status: "completed",
+        conclusion: "success",
+        details_url: "https://github.com/testowner/testrepo/pull/123",
+        output: {
+          title: "Coverage: 85% (1/1 files)",
+          summary: expect.stringContaining("## Coverage Analysis Summary"),
+          annotations: annotations,
+        },
+      });
 
       // Restore original environment
       if (originalGitHubRunId !== undefined) {
@@ -1042,7 +1164,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       expect(mockOctokit.rest.checks.create).toHaveBeenCalledWith({
         owner: "testowner",
@@ -1098,9 +1224,9 @@ describe("ChecksService", () => {
 
       mockAppAuth.mockRejectedValue(new Error("Authentication failed"));
 
-      await expect(checksService.postAnnotations(analysis, [])).rejects.toThrow(
-        "Authentication failed",
-      );
+      await expect(
+        checksService.postAnnotations(analysis, createMockGatingResult(), []),
+      ).rejects.toThrow("Authentication failed");
 
       expect(mockedCore.warning).toHaveBeenCalledWith(
         "Failed to post check annotations: Authentication failed",
@@ -1160,7 +1286,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       const createCallArgs = mockOctokit.rest.checks.create.mock.calls[0][0];
       expect(createCallArgs.output.annotations).toHaveLength(50); // Limited to maxAnnotations
@@ -1221,10 +1351,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations, prCommentUrl);
-
-      expect(mockedCore.info).toHaveBeenCalledWith(
-        `💬 View PR comment: ${prCommentUrl}`,
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+        prCommentUrl,
       );
     });
 
@@ -1278,7 +1409,11 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(analysis, annotations);
+      await checksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
 
       expect(mockedCore.info).not.toHaveBeenCalledWith(
         expect.stringContaining("💬 View PR comment:"),
