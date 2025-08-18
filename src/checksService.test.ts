@@ -893,6 +893,9 @@ describe("ChecksService", () => {
     });
 
     it("should post annotations successfully", async () => {
+      const originalGitHubRunId = process.env.GITHUB_RUN_ID;
+      delete process.env.GITHUB_RUN_ID;
+
       const analysis: CoverageAnalysis = {
         changeset: ChangesetUtils.createChangeset(
           ["src/test.ts"],
@@ -976,6 +979,93 @@ describe("ChecksService", () => {
       expect(mockedCore.info).toHaveBeenCalledWith(
         "📈 Coverage: 85% (Threshold: 80%)",
       );
+
+      // Restore original environment
+      if (originalGitHubRunId !== undefined) {
+        process.env.GITHUB_RUN_ID = originalGitHubRunId;
+      }
+    });
+
+    it("should use actions URL when GITHUB_RUN_ID is present", async () => {
+      // Mock environment with GITHUB_RUN_ID
+      const originalGitHubRunId = process.env.GITHUB_RUN_ID;
+      process.env.GITHUB_RUN_ID = "17025947211";
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 100,
+            coveredLines: 85,
+            totalFunctions: 10,
+            coveredFunctions: 8,
+            totalBranches: 20,
+            coveredBranches: 15,
+            linesCoveragePercentage: 85,
+            functionsCoveragePercentage: 80,
+            branchesCoveragePercentage: 75,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const annotations = [
+        {
+          path: "src/test.ts",
+          start_line: 1,
+          end_line: 1,
+          annotation_level: "warning" as const,
+          title: "Test",
+          message: "Test message",
+        },
+      ];
+
+      // Mock GitHub App authentication flow
+      mockAppAuth
+        .mockResolvedValueOnce({ token: "app-token" })
+        .mockResolvedValueOnce({ token: "installation-token" });
+
+      mockOctokit.rest.apps.getRepoInstallation.mockResolvedValue({
+        data: { id: 12345 },
+      });
+
+      mockOctokit.rest.checks.create.mockResolvedValue({
+        data: { html_url: "https://github.com/owner/repo/runs/123" },
+      });
+
+      await checksService.postAnnotations(analysis, annotations);
+
+      expect(mockOctokit.rest.checks.create).toHaveBeenCalledWith({
+        owner: "testowner",
+        repo: "testrepo",
+        name: "Coverage Treemap Action",
+        head_sha: "test-head-sha",
+        status: "completed",
+        conclusion: "success",
+        details_url:
+          "https://github.com/testowner/testrepo/actions/runs/17025947211",
+        output: {
+          title: "Coverage: 85% (1/1 files)",
+          summary: expect.stringContaining("## Coverage Analysis Summary"),
+          annotations: annotations,
+        },
+      });
+
+      // Restore original environment
+      if (originalGitHubRunId !== undefined) {
+        process.env.GITHUB_RUN_ID = originalGitHubRunId;
+      } else {
+        delete process.env.GITHUB_RUN_ID;
+      }
     });
 
     it("should handle authentication errors", async () => {
