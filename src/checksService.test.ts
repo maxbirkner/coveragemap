@@ -90,6 +90,22 @@ describe("ChecksService", () => {
     });
   });
 
+  describe("getCheckName", () => {
+    it("should return default name when no label is provided", () => {
+      const config = { ...mockConfig };
+      const service = new ChecksService(config);
+      const checkName = (service as any).getCheckName();
+      expect(checkName).toBe("Coverage Treemap Action");
+    });
+
+    it("should return name with label when label is provided", () => {
+      const config = { ...mockConfig, label: "Frontend" };
+      const service = new ChecksService(config);
+      const checkName = (service as any).getCheckName();
+      expect(checkName).toBe("Coverage Treemap Action: Frontend");
+    });
+  });
+
   describe("generateAnnotations", () => {
     it("should generate annotations for uncovered lines", () => {
       const fileWithCoverage: FileChangeWithCoverage = {
@@ -999,6 +1015,92 @@ describe("ChecksService", () => {
       expect(mockedCore.info).toHaveBeenCalledWith(
         "📈 Coverage: 85% (Threshold: 80%)",
       );
+
+      // Restore original environment
+      if (originalGitHubRunId !== undefined) {
+        process.env.GITHUB_RUN_ID = originalGitHubRunId;
+      }
+    });
+
+    it("should use label in check name when provided", async () => {
+      const originalGitHubRunId = process.env.GITHUB_RUN_ID;
+      delete process.env.GITHUB_RUN_ID;
+
+      // Create a service with a label
+      const configWithLabel = { ...mockConfig, label: "Frontend" };
+      const labeledChecksService = new ChecksService(configWithLabel);
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 10,
+            coveredLines: 8,
+            totalFunctions: 2,
+            coveredFunctions: 2,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 80,
+            functionsCoveragePercentage: 100,
+            branchesCoveragePercentage: 100,
+            overallCoveragePercentage: 85,
+          },
+        },
+      };
+
+      const annotations: CheckAnnotation[] = [
+        {
+          path: "src/test.ts",
+          start_line: 5,
+          end_line: 6,
+          annotation_level: "warning",
+          title: "Test",
+          message: "Test message",
+        },
+      ];
+
+      // Mock GitHub App authentication flow
+      mockAppAuth
+        .mockResolvedValueOnce({ token: "app-token" })
+        .mockResolvedValueOnce({ token: "installation-token" });
+
+      mockOctokit.rest.apps.getRepoInstallation.mockResolvedValue({
+        data: { id: 12345 },
+      });
+
+      mockOctokit.rest.checks.create.mockResolvedValue({
+        data: { html_url: "https://github.com/owner/repo/runs/123" },
+      });
+
+      await labeledChecksService.postAnnotations(
+        analysis,
+        createMockGatingResult(),
+        annotations,
+      );
+
+      expect(mockOctokit.rest.checks.create).toHaveBeenCalledWith({
+        owner: "testowner",
+        repo: "testrepo",
+        name: "Coverage Treemap Action: Frontend",
+        head_sha: "test-head-sha",
+        status: "completed",
+        conclusion: "success",
+        details_url: "https://github.com/testowner/testrepo/pull/123",
+        output: {
+          title: "Coverage: 85% (1/1 files)",
+          summary: expect.stringContaining("## Coverage Analysis Summary"),
+          annotations: annotations,
+        },
+      });
 
       // Restore original environment
       if (originalGitHubRunId !== undefined) {

@@ -233,6 +233,7 @@ export async function postCheckAnnotations(
   githubAppId?: string,
   githubAppPrivateKey?: string,
   prCommentUrl?: string,
+  label?: string,
 ): Promise<void> {
   if (!ChecksService.isEnabled(githubAppId, githubAppPrivateKey)) {
     core.info(
@@ -249,6 +250,7 @@ export async function postCheckAnnotations(
       githubAppPrivateKey: githubAppPrivateKey!,
       githubToken,
       coverageThreshold,
+      label,
     });
 
     const annotations = checksService.generateAnnotations(analysis);
@@ -328,6 +330,7 @@ export async function run(): Promise<void> {
       inputs.githubAppId,
       inputs.githubAppPrivateKey,
       prCommentUrl || undefined,
+      inputs.label,
     );
 
     if (!gatingResult.meetsThreshold) {

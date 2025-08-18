@@ -19,6 +19,7 @@ export interface ChecksServiceConfig {
   githubAppPrivateKey: string;
   githubToken: string;
   coverageThreshold: number;
+  label?: string;
 }
 
 export class ChecksService {
@@ -27,6 +28,12 @@ export class ChecksService {
 
   constructor(config: ChecksServiceConfig) {
     this.config = config;
+  }
+
+  private getCheckName(): string {
+    return this.config.label
+      ? `Coverage Treemap Action: ${this.config.label}`
+      : "Coverage Treemap Action";
   }
 
   static isEnabled(
@@ -221,7 +228,7 @@ export class ChecksService {
       const octokit = github.getOctokit(installationAuth.token);
       const headSha = github.context.payload.pull_request.head.sha;
 
-      const checkName = "Coverage Treemap Action";
+      const checkName = this.getCheckName();
       const title = this.generateCheckTitle(analysis);
       const summary = this.generateCheckSummary(analysis);
       const conclusion = this.determineCheckConclusion(gatingResult);
