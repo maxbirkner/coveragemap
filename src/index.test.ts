@@ -591,8 +591,9 @@ describe("postPrComment", () => {
       prCoveragePercentage: 85.5,
       description: "Coverage meets threshold",
     };
+    const commentUrl = "https://github.com/test/repo/pull/123#issuecomment-456";
     const mockCommentService = {
-      postComment: jest.fn().mockResolvedValue(undefined),
+      postComment: jest.fn().mockResolvedValue(commentUrl),
     };
     mockedPrCommentService.mockImplementation(() => mockCommentService as any);
 
@@ -618,6 +619,9 @@ describe("postPrComment", () => {
     );
     expect(mockedCore.info).toHaveBeenCalledWith(
       "✅ PR comment posted successfully",
+    );
+    expect(mockedCore.info).toHaveBeenCalledWith(
+      `💬 View PR comment: ${commentUrl}`,
     );
     expect(mockedCore.endGroup).toHaveBeenCalled();
   });

@@ -1357,10 +1357,6 @@ describe("ChecksService", () => {
         annotations,
         prCommentUrl,
       );
-
-      expect(mockedCore.info).toHaveBeenCalledWith(
-        `💬 View PR comment: ${prCommentUrl}`,
-      );
     });
 
     it("should not log PR comment URL when not provided", async () => {

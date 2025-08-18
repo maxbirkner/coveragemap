@@ -209,6 +209,9 @@ export async function postPrComment(
     );
 
     core.info("✅ PR comment posted successfully");
+    if (commentUrl) {
+      core.info(`💬 View PR comment: ${commentUrl}`);
+    }
     return commentUrl;
   } catch (error) {
     core.warning(
