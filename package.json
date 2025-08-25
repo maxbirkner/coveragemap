@@ -9,7 +9,7 @@
     "d3-hierarchy": "^3.1.2",
     "jsdom": "^23.0.1",
     "picomatch": "^4.0.3",
-    "sharp": "^0.33.4"
+    "sharp": "^0.34.0"
   },
   "description": "GitHub Action that analyzes code coverage for files changed in a pull request and generates a visual treemap",
   "devDependencies": {
