@@ -32,6 +32,35 @@ jobs:
     - name: Run pre-commit hooks
       run: pre-commit run --all-files
 
+  check-dist:
+    runs-on: ubuntu-latest
+    name: Check dist is up to date
+    permissions:
+      contents: read
+    steps:
+    - name: Checkout
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: 24
+        cache: npm
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Rebuild the dist bundle
+      run: npm run package
+
+    - name: Verify dist matches the committed bundle
+      run: |
+        if [ -n "$(git status --porcelain dist/)" ]; then
+          echo "::error::dist/ is out of date. Run 'npm run package' and commit the result."
+          git --no-pager diff --stat dist/
+          exit 1
+        fi
+
   test:
     runs-on: ubuntu-latest
     name: Test Coverage Treemap Action
@@ -47,9 +76,11 @@ jobs:
         fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
 
     - name: Dump Github context
+      env:
+        GITHUB_CONTEXT: ${{ toJSON(github) }}
       run: |
         set -x
-        echo '${{ toJSON(github) }}'
+        echo "$GITHUB_CONTEXT"
         git log --oneline
         echo "base-depth=${{ steps.base-depth.outputs.base-depth }}"
         git diff ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}

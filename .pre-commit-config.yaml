@@ -60,3 +60,12 @@ repos:
   rev: v0.13.0
   hooks:
   - id: yamlfmt
+
+- repo: local
+  hooks:
+  - id: package-dist
+    name: package dist bundle
+    entry: npm run package
+    language: system
+    pass_filenames: false
+    files: ^(src/.*|package\.json|package-lock\.json|tsconfig\.json)$
