@@ -17,9 +17,20 @@ export interface TreemapNode {
   functionName?: string;
 }
 
+/**
+ * A file groups its function tiles together. The file path is drawn once on
+ * the group's header border so individual function tiles only need to show the
+ * function name.
+ */
+export interface TreemapFileGroup {
+  name: string; // file basename, used as the group header label
+  file: string; // full file path
+  children: TreemapNode[];
+}
+
 export interface TreemapData {
   name: string;
-  children: TreemapNode[];
+  children: TreemapFileGroup[];
 }
 
 export interface TreemapOptions {
@@ -63,28 +74,41 @@ export class TreemapGenerator {
   private static readonly SIDE_MARGIN = 20;
   private static readonly BOTTOM_MARGIN = 20;
 
+  // Height of the per-file header band that carries the file path label.
+  private static readonly FILE_HEADER_HEIGHT = 18;
+
   /**
    * Generate treemap data from coverage analysis
    */
   static generateTreemapData(analysis: CoverageAnalysis): TreemapData {
-    const children: TreemapNode[] = [];
+    const children: TreemapFileGroup[] = [];
 
     for (const file of analysis.changedFiles) {
+      const basename = path.basename(file.path);
+
       if (!file.coverage) {
-        // File without coverage data - treat as uncovered
+        // File without coverage data - treat as a single uncovered tile.
         children.push({
-          name: path.basename(file.path),
+          name: basename,
           file: file.path,
-          value: Math.max(file.analysis.totalLines, 1), // Ensure minimum size
-          coverage: "none",
-          lineCount: file.analysis.totalLines,
-          coveredLines: 0,
+          children: [
+            {
+              name: basename,
+              file: file.path,
+              value: Math.max(file.analysis.totalLines, 1),
+              coverage: "none",
+              lineCount: file.analysis.totalLines,
+              coveredLines: 0,
+            },
+          ],
         });
         continue;
       }
 
-      // Process functions in the file
       if (file.coverage.functions.length > 0) {
+        // One tile per function, grouped under the file.
+        const functionTiles: TreemapNode[] = [];
+
         for (const func of file.coverage.functions) {
           const functionLines = this.getFunctionLineCount(func, file.coverage);
           const coveredLines = this.getFunctionCoveredLines(
@@ -101,8 +125,8 @@ export class TreemapGenerator {
             coverage = "partial";
           }
 
-          children.push({
-            name: `${path.basename(file.path)}::${func.name}`,
+          functionTiles.push({
+            name: func.name,
             file: file.path,
             value: Math.max(functionLines, 1), // Ensure minimum size
             coverage,
@@ -111,8 +135,14 @@ export class TreemapGenerator {
             functionName: func.name,
           });
         }
+
+        children.push({
+          name: basename,
+          file: file.path,
+          children: functionTiles,
+        });
       } else {
-        // File has coverage but no functions - treat as file-level coverage
+        // File has coverage but no functions - single file-level tile.
         const coverageRatio = file.analysis.linesCoveragePercentage / 100;
         let coverage: "full" | "partial" | "none";
         if (coverageRatio === 0) {
@@ -124,12 +154,18 @@ export class TreemapGenerator {
         }
 
         children.push({
-          name: path.basename(file.path),
+          name: basename,
           file: file.path,
-          value: Math.max(file.analysis.totalLines, 1),
-          coverage,
-          lineCount: file.analysis.totalLines,
-          coveredLines: file.analysis.coveredLines,
+          children: [
+            {
+              name: basename,
+              file: file.path,
+              value: Math.max(file.analysis.totalLines, 1),
+              coverage,
+              lineCount: file.analysis.totalLines,
+              coveredLines: file.analysis.coveredLines,
+            },
+          ],
         });
       }
     }
@@ -173,16 +209,21 @@ export class TreemapGenerator {
       .attr("fill", this.COLORS.background);
 
     // Create D3 treemap layout
-    const root = hierarchy<TreemapData | TreemapNode>(data)
+    const root = hierarchy<TreemapData | TreemapFileGroup | TreemapNode>(data)
       .sum((d) => (d as TreemapNode).value || 0)
       .sort((a, b) => (b.value || 0) - (a.value || 0));
 
-    const treemapLayout = treemap<TreemapData | TreemapNode>()
+    const treemapLayout = treemap<
+      TreemapData | TreemapFileGroup | TreemapNode
+    >()
       .size([
         opts.width - this.SIDE_MARGIN * 2,
         opts.height - (this.HEADER_HEIGHT + this.BOTTOM_MARGIN),
       ])
-      .padding(2);
+      .paddingOuter(2)
+      // Reserve a header band on each file group for its path label.
+      .paddingTop((d) => (d.depth === 1 ? this.FILE_HEADER_HEIGHT : 2))
+      .paddingInner(2);
 
     treemapLayout(root);
 
@@ -214,12 +255,70 @@ export class TreemapGenerator {
     // edge. It lives in the reserved header band so it never overlaps tiles.
     this.drawSVGLegend(svg, opts.width - this.SIDE_MARGIN, 35);
 
-    // Draw treemap rectangles
+    // Draw a labelled box around each file's functions. The file path lives on
+    // this header once, so the function tiles below only show the function
+    // name.
+    const fileGroupLayer = svg.append("g").attr("class", "file-groups");
+
+    for (const group of (root.children ?? []) as HierarchyRectangularNode<
+      TreemapData | TreemapFileGroup | TreemapNode
+    >[]) {
+      if (
+        group.x0 === undefined ||
+        group.y0 === undefined ||
+        group.x1 === undefined ||
+        group.y1 === undefined
+      )
+        continue;
+
+      const groupData = group.data as TreemapFileGroup;
+      const gx = group.x0 + this.SIDE_MARGIN;
+      const gy = group.y0 + this.HEADER_HEIGHT;
+      const gWidth = group.x1 - group.x0;
+      const gHeight = group.y1 - group.y0;
+
+      const groupNode = fileGroupLayer.append("g");
+
+      // Header strip carrying the file path.
+      groupNode
+        .append("rect")
+        .attr("x", gx)
+        .attr("y", gy)
+        .attr("width", gWidth)
+        .attr("height", this.FILE_HEADER_HEIGHT)
+        .attr("fill", this.COLORS.border)
+        .attr("fill-opacity", 0.12);
+
+      // Outline around the whole file group.
+      groupNode
+        .append("rect")
+        .attr("x", gx)
+        .attr("y", gy)
+        .attr("width", gWidth)
+        .attr("height", gHeight)
+        .attr("fill", "none")
+        .attr("stroke", this.COLORS.border)
+        .attr("stroke-width", 1.5);
+
+      // File path label, left-aligned in the header strip.
+      groupNode
+        .append("text")
+        .attr("x", gx + 6)
+        .attr("y", gy + this.FILE_HEADER_HEIGHT - 5)
+        .attr("text-anchor", "start")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("font-size", "11px")
+        .attr("font-weight", "bold")
+        .attr("fill", this.COLORS.text)
+        .text(this.truncateText(groupData.file, gWidth - 12));
+    }
+
+    // Draw the function/file coverage tiles.
     const leaves = root.leaves();
     const leafGroup = svg.append("g").attr("class", "leaves");
 
     for (const leaf of leaves as HierarchyRectangularNode<
-      TreemapData | TreemapNode
+      TreemapData | TreemapFileGroup | TreemapNode
     >[]) {
       if (
         leaf.x0 === undefined ||
@@ -248,26 +347,30 @@ export class TreemapGenerator {
         .attr("stroke", this.COLORS.border)
         .attr("stroke-width", 1);
 
-      // Draw "ticker style" labels when the tile is large enough: the name
-      // sits at the top like a ticker symbol, with the coverage percentage as
-      // the headline figure in the middle and the line count beneath it.
+      // Draw "ticker style" labels when the tile is large enough: the function
+      // name sits at the top like a ticker symbol, with the coverage
+      // percentage as the headline figure in the middle and the line count
+      // beneath it. The file path is already on the group header above.
       if (width > 80 && height > 30) {
         const textGroup = nodeGroup.append("g");
         const centerX = x + width / 2;
         const ticker = this.formatTickerLines(node);
 
-        // Symbol (file/class/function name) pinned to the top.
-        textGroup
-          .append("text")
-          .attr("x", centerX)
-          .attr("y", y + 16)
-          .attr("text-anchor", "middle")
-          .attr("font-family", "Arial, sans-serif")
-          .attr("font-size", "12px")
-          .attr("font-weight", "bold")
-          .attr("letter-spacing", "0.5")
-          .attr("fill", this.COLORS.text)
-          .text(this.truncateText(ticker.name, width - 10));
+        let topOffset = 0;
+        if (ticker.name) {
+          topOffset = 16;
+          // Function name pinned to the top.
+          textGroup
+            .append("text")
+            .attr("x", centerX)
+            .attr("y", y + topOffset)
+            .attr("text-anchor", "middle")
+            .attr("font-family", "Arial, sans-serif")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .attr("fill", this.COLORS.text)
+            .text(this.truncateText(ticker.name, width - 10));
+        }
 
         if (height > 50) {
           const centerY = y + height / 2;
@@ -378,14 +481,13 @@ export class TreemapGenerator {
   }
 
   /**
-   * Build the three "ticker style" text rows for a tile: the symbol (name) on
+   * Build the three "ticker style" text rows for a tile: the function name on
    * top, the coverage percentage as the headline figure in the middle, and the
    * covered/total line count underneath.
    *
-   * For function tiles the symbol is prefixed with the file basename
-   * (e.g. `example.ts › doWork`) so the same function name appearing in
-   * different files stays distinguishable. File-level tiles already carry the
-   * basename, so they are shown as-is.
+   * The name is the function name only; the owning file path is drawn once on
+   * the group header, so file-level tiles (without a function name) return an
+   * empty name and the renderer omits that row.
    */
   static formatTickerLines(node: TreemapNode): {
     name: string;
@@ -397,12 +499,8 @@ export class TreemapGenerator {
         ? Math.round((node.coveredLines / node.lineCount) * 100)
         : 0;
 
-    const name = node.functionName
-      ? `${path.basename(node.file)} › ${node.functionName}`
-      : path.basename(node.file);
-
     return {
-      name,
+      name: node.functionName ?? "",
       percent: `${percentValue}%`,
       lines: `${node.coveredLines}/${node.lineCount} lines`,
     };

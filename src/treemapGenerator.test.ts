@@ -50,6 +50,9 @@ jest.mock("d3-hierarchy", () => ({
     const mockTreemap: Record<string, any> = jest.fn();
     mockTreemap.size = jest.fn().mockReturnValue(mockTreemap);
     mockTreemap.padding = jest.fn().mockReturnValue(mockTreemap);
+    mockTreemap.paddingOuter = jest.fn().mockReturnValue(mockTreemap);
+    mockTreemap.paddingTop = jest.fn().mockReturnValue(mockTreemap);
+    mockTreemap.paddingInner = jest.fn().mockReturnValue(mockTreemap);
     return mockTreemap;
   }),
 }));
@@ -79,7 +82,7 @@ describe("TreemapGenerator", () => {
   describe("formatTickerLines", () => {
     it("builds ticker rows with name, percentage and line count", () => {
       const result = TreemapGenerator.formatTickerLines({
-        name: "example.ts::doWork",
+        name: "doWork",
         file: "src/example.ts",
         value: 10,
         coverage: "partial",
@@ -89,13 +92,13 @@ describe("TreemapGenerator", () => {
       });
 
       expect(result).toEqual({
-        name: "example.ts › doWork",
+        name: "doWork",
         percent: "30%",
         lines: "3/10 lines",
       });
     });
 
-    it("falls back to the file basename when no function name is set", () => {
+    it("returns an empty name for file-level tiles without a function", () => {
       const result = TreemapGenerator.formatTickerLines({
         name: "script.ts",
         file: "src/nested/script.ts",
@@ -105,14 +108,14 @@ describe("TreemapGenerator", () => {
         coveredLines: 4,
       });
 
-      expect(result.name).toBe("script.ts");
+      expect(result.name).toBe("");
       expect(result.percent).toBe("100%");
       expect(result.lines).toBe("4/4 lines");
     });
 
-    it("prefixes the function name with the file basename only", () => {
+    it("uses the function name verbatim without a file prefix", () => {
       const result = TreemapGenerator.formatTickerLines({
-        name: "deep/path/widget.ts::render",
+        name: "render",
         file: "src/deep/path/widget.ts",
         value: 8,
         coverage: "partial",
@@ -121,7 +124,7 @@ describe("TreemapGenerator", () => {
         functionName: "render",
       });
 
-      expect(result.name).toBe("widget.ts › render");
+      expect(result.name).toBe("render");
     });
 
     it("reports 0% without dividing by zero for empty tiles", () => {
@@ -220,17 +223,22 @@ describe("TreemapGenerator", () => {
       const result = TreemapGenerator.generateTreemapData(mockAnalysis);
 
       expect(result.name).toBe("Coverage Analysis");
-      expect(result.children).toHaveLength(2); // Two functions
+      expect(result.children).toHaveLength(1); // One file group
 
-      const testFunction = result.children.find(
-        (child) => child.name === "example.ts::testFunction",
+      const fileGroup = result.children[0];
+      expect(fileGroup.name).toBe("example.ts");
+      expect(fileGroup.file).toBe("src/example.ts");
+      expect(fileGroup.children).toHaveLength(2); // Two functions
+
+      const testFunction = fileGroup.children.find(
+        (child) => child.name === "testFunction",
       );
       expect(testFunction).toBeDefined();
       expect(testFunction?.coverage).toBe("partial"); // 2 out of 10 lines covered
       expect(testFunction?.functionName).toBe("testFunction");
 
-      const anotherFunction = result.children.find(
-        (child) => child.name === "example.ts::anotherFunction",
+      const anotherFunction = fileGroup.children.find(
+        (child) => child.name === "anotherFunction",
       );
       expect(anotherFunction).toBeDefined();
       expect(anotherFunction?.coverage).toBe("none"); // 0 lines covered
@@ -288,8 +296,10 @@ describe("TreemapGenerator", () => {
 
       expect(result.children).toHaveLength(1);
       expect(result.children[0].name).toBe("uncovered.ts");
-      expect(result.children[0].coverage).toBe("none");
-      expect(result.children[0].value).toBe(20);
+      const uncoveredTile = result.children[0].children[0];
+      expect(uncoveredTile.name).toBe("uncovered.ts");
+      expect(uncoveredTile.coverage).toBe("none");
+      expect(uncoveredTile.value).toBe(20);
     });
 
     it("should handle files with coverage but no functions", () => {
@@ -360,8 +370,9 @@ describe("TreemapGenerator", () => {
 
       expect(result.children).toHaveLength(1);
       expect(result.children[0].name).toBe("script.ts");
-      expect(result.children[0].coverage).toBe("partial"); // 66.67%
-      expect(result.children[0].functionName).toBeUndefined();
+      const scriptTile = result.children[0].children[0];
+      expect(scriptTile.coverage).toBe("partial"); // 66.67%
+      expect(scriptTile.functionName).toBeUndefined();
     });
 
     it("should mark a fully covered function as full", () => {
@@ -436,8 +447,8 @@ describe("TreemapGenerator", () => {
 
       const result = TreemapGenerator.generateTreemapData(mockAnalysis);
 
-      const fullFn = result.children.find(
-        (child) => child.name === "full.ts::fullFn",
+      const fullFn = result.children[0].children.find(
+        (child) => child.name === "fullFn",
       );
       expect(fullFn?.coverage).toBe("full");
     });
@@ -510,7 +521,7 @@ describe("TreemapGenerator", () => {
         const result = TreemapGenerator.generateTreemapData(mockAnalysis);
 
         expect(result.children).toHaveLength(1);
-        expect(result.children[0].coverage).toBe(expected);
+        expect(result.children[0].children[0].coverage).toBe(expected);
       },
     );
   });
