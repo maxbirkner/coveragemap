@@ -24,13 +24,15 @@ jest.mock("d3-hierarchy", () => ({
   })),
 }));
 
-// Mock Sharp
-jest.mock("sharp", () => {
-  return jest.fn(() => ({
-    png: jest.fn().mockReturnThis(),
-    toBuffer: jest.fn().mockResolvedValue(Buffer.from("fake-png-data")),
-  }));
-});
+// Mock the resvg WASM renderer
+jest.mock("@resvg/resvg-wasm", () => ({
+  initWasm: jest.fn().mockResolvedValue(undefined),
+  Resvg: jest.fn().mockImplementation(() => ({
+    render: jest.fn(() => ({
+      asPng: jest.fn(() => Buffer.from("fake-png-data")),
+    })),
+  })),
+}));
 
 // Mock JSDOM
 jest.mock("jsdom", () => ({

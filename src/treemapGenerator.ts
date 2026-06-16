@@ -1,11 +1,26 @@
 import * as fs from "fs";
 import * as path from "path";
-import sharp from "sharp";
+import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import { JSDOM } from "jsdom";
 import * as d3 from "d3";
 import { hierarchy, treemap, HierarchyRectangularNode } from "d3-hierarchy";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { FunctionCoverage, FileCoverage } from "./lcov";
+
+// resvg's WASM module must be initialised exactly once before any Resvg
+// instance is created. Cache the promise so concurrent callers share a single
+// initialisation and repeated renders do not re-init (which would throw).
+let resvgInit: Promise<void> | undefined;
+
+function ensureResvgInitialised(): Promise<void> {
+  if (resvgInit === undefined) {
+    const wasm = fs.readFileSync(
+      require.resolve("@resvg/resvg-wasm/index_bg.wasm"),
+    );
+    resvgInit = initWasm(wasm);
+  }
+  return resvgInit;
+}
 
 export interface TreemapNode {
   name: string;
@@ -272,8 +287,11 @@ export class TreemapGenerator {
       // Convert SVG to string
       const svgString = dom.window.document.body.innerHTML;
 
-      // Use Sharp to convert SVG to PNG
-      const buffer = await sharp(Buffer.from(svgString)).png().toBuffer();
+      // Rasterise the SVG to PNG using the WASM build of resvg. WASM keeps the
+      // action hermetic and bundlable (no native add-ons), which is required
+      // because GitHub runs the committed dist/ bundle directly.
+      await ensureResvgInitialised();
+      const buffer = Buffer.from(new Resvg(svgString).render().asPng());
 
       fs.writeFileSync(opts.outputPath, buffer);
 

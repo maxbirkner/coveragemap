@@ -3,12 +3,14 @@ import { CoverageAnalysis } from "./coverageAnalyzer";
 import * as fs from "fs";
 
 // Mock dependencies that may not be installed
-jest.mock("sharp", () => {
-  return jest.fn(() => ({
-    png: jest.fn().mockReturnThis(),
-    toBuffer: jest.fn().mockResolvedValue(Buffer.from("fake-png-data")),
-  }));
-});
+jest.mock("@resvg/resvg-wasm", () => ({
+  initWasm: jest.fn().mockResolvedValue(undefined),
+  Resvg: jest.fn().mockImplementation(() => ({
+    render: jest.fn(() => ({
+      asPng: jest.fn(() => Buffer.from("fake-png-data")),
+    })),
+  })),
+}));
 
 jest.mock("jsdom", () => ({
   JSDOM: jest.fn(() => ({
