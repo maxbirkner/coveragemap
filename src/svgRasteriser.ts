@@ -3,15 +3,31 @@ import { Resvg, initWasm } from "@resvg/resvg-wasm";
 
 // resvg's WASM module must be initialised exactly once before any Resvg
 // instance is created. Cache the promise so concurrent callers share a single
-// initialisation and repeated renders do not re-init (which would throw).
+// initialisation and repeated renders do not re-init (which would throw). The
+// initialisation is wrapped so a failure to locate/read the bundled WASM asset
+// (or a rejected initWasm) surfaces an actionable error instead of a bare
+// require.resolve/fs failure. The cache is cleared on failure so a later call
+// can retry rather than being stuck on a poisoned promise.
 let resvgInit: Promise<void> | undefined;
 
 function ensureResvgInitialised(): Promise<void> {
   if (resvgInit === undefined) {
-    const wasm = fs.readFileSync(
-      require.resolve("@resvg/resvg-wasm/index_bg.wasm"),
-    );
-    resvgInit = initWasm(wasm);
+    resvgInit = (async () => {
+      try {
+        const wasm = fs.readFileSync(
+          require.resolve("@resvg/resvg-wasm/index_bg.wasm"),
+        );
+        await initWasm(wasm);
+      } catch (error) {
+        resvgInit = undefined;
+        throw new Error(
+          `Failed to initialise the resvg WASM renderer: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          { cause: error },
+        );
+      }
+    })();
   }
   return resvgInit;
 }
