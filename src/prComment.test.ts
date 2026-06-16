@@ -3,6 +3,7 @@ import {
   CommentData,
   generateCommentBody,
   formatFileSize,
+  formatLineCount,
 } from "./prComment";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { LcovReport } from "./lcov";
@@ -271,9 +272,9 @@ describe("PrCommentService", () => {
       const result = generateCommentBody(commentData, gatingResult);
 
       expect(result).toContain("## Coveragemap Action: Test");
-      expect(result).toContain("| **Total Coverage** | 80% | 800/1000 |");
+      expect(result).toContain("| **Total Coverage** | 80% | 800/1,000 |");
       expect(result).toContain("| **Changed Files** | 80% | 40/50 |");
-      expect(result).toContain("| **Difference** | 📈 +0% | - |");
+      expect(result).toContain("| **Difference** | ➖ 0% | - |");
       expect(result).toContain("| **Threshold** | ✅ 75% | - |");
       expect(result).toContain("✅ `src/example.ts` | 80% | 40/50");
     });
@@ -477,6 +478,68 @@ describe("PrCommentService", () => {
       expect(formatFileSize(1536)).toBe("1.5 KB");
       expect(formatFileSize(1048576)).toBe("1.0 MB");
       expect(formatFileSize(1073741824)).toBe("1.0 GB");
+    });
+  });
+
+  describe("formatLineCount", () => {
+    test("should add thousands separators to large counts", () => {
+      expect(formatLineCount(63162)).toBe("63,162");
+      expect(formatLineCount(100542)).toBe("100,542");
+      expect(formatLineCount(1000)).toBe("1,000");
+    });
+
+    test("should leave small counts untouched", () => {
+      expect(formatLineCount(0)).toBe("0");
+      expect(formatLineCount(42)).toBe("42");
+    });
+  });
+
+  describe("difference indicator", () => {
+    const buildBody = (coverageDifference: number): string => {
+      const service = new PrCommentService({ githubToken: "test-token" });
+      const commentData: CommentData = {
+        totalCoverage: { linesHit: 63162, linesFound: 100542, percentage: 63 },
+        changedFilesCoverage: { linesHit: 0, linesFound: 0, percentage: 100 },
+        coverageDifference,
+        fileBreakdown: [],
+      };
+      const gatingResult: GatingResult = {
+        meetsThreshold: true,
+        threshold: 0,
+        mode: "baseline",
+        prCoveragePercentage: 100,
+        overallProjectCoveragePercentage: 63,
+        description: "baseline",
+      };
+      return (
+        service as unknown as {
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+          ) => string;
+        }
+      ).generateCommentBody.bind(service)(commentData, gatingResult);
+    };
+
+    test("shows a neutral indicator when coverage is unchanged", () => {
+      const result = buildBody(0);
+      expect(result).toContain("| **Difference** | ➖ 0% | - |");
+      expect(result).not.toContain("📈");
+      expect(result).not.toContain("📉");
+    });
+
+    test("shows an up indicator with a plus sign for improvements", () => {
+      expect(buildBody(5.5)).toContain("| **Difference** | 📈 +5.5% | - |");
+    });
+
+    test("shows a down indicator for regressions", () => {
+      expect(buildBody(-3.2)).toContain("| **Difference** | 📉 -3.2% | - |");
+    });
+
+    test("renders large line counts with thousands separators", () => {
+      expect(buildBody(0)).toContain(
+        "| **Total Coverage** | 63% | 63,162/100,542 |",
+      );
     });
   });
 

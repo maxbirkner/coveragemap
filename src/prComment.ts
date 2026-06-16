@@ -95,8 +95,13 @@ export class PrCommentService {
   ): string {
     const title = this.getCommentTitle();
     const thresholdEmoji = gatingResult.meetsThreshold ? "✅" : "❌";
-    const diffEmoji = data.coverageDifference >= 0 ? "📈" : "📉";
-    const diffSign = data.coverageDifference >= 0 ? "+" : "";
+    const diffEmoji =
+      data.coverageDifference > 0
+        ? "📈"
+        : data.coverageDifference < 0
+          ? "📉"
+          : "➖";
+    const diffSign = data.coverageDifference > 0 ? "+" : "";
 
     const thresholdDisplay =
       gatingResult.mode === "baseline"
@@ -108,8 +113,18 @@ export class PrCommentService {
     // Summary table
     markdown += `| Metric | Coverage | Lines |\n`;
     markdown += `|--------|----------|-------|\n`;
-    markdown += `| **Total Coverage** | ${data.totalCoverage.percentage}% | ${data.totalCoverage.linesHit}/${data.totalCoverage.linesFound} |\n`;
-    markdown += `| **Changed Files** | ${data.changedFilesCoverage.percentage}% | ${data.changedFilesCoverage.linesHit}/${data.changedFilesCoverage.linesFound} |\n`;
+    markdown += `| **Total Coverage** | ${
+      data.totalCoverage.percentage
+    }% | ${this.formatLines(
+      data.totalCoverage.linesHit,
+      data.totalCoverage.linesFound,
+    )} |\n`;
+    markdown += `| **Changed Files** | ${
+      data.changedFilesCoverage.percentage
+    }% | ${this.formatLines(
+      data.changedFilesCoverage.linesHit,
+      data.changedFilesCoverage.linesFound,
+    )} |\n`;
     markdown += `| **Difference** | ${diffEmoji} ${diffSign}${data.coverageDifference}% | - |\n`;
     markdown += `| **Threshold** | ${thresholdEmoji} ${thresholdDisplay} | - |\n\n`;
 
@@ -125,7 +140,9 @@ export class PrCommentService {
             ? file.percentage >= gatingResult.overallProjectCoveragePercentage!
             : file.percentage >= gatingResult.threshold;
         const fileEmoji = fileThresholdMet ? "✅" : "❌";
-        markdown += `| ${fileEmoji} \`${file.filename}\` | ${file.percentage}% | ${file.linesHit}/${file.linesFound} |\n`;
+        markdown += `| ${fileEmoji} \`${file.filename}\` | ${
+          file.percentage
+        }% | ${this.formatLines(file.linesHit, file.linesFound)} |\n`;
       }
       markdown += `\n`;
     }
@@ -237,6 +254,14 @@ export class PrCommentService {
   }
 
   /**
+   * Format a hit/found line pair with thousands separators so large
+   * line counts stay readable (e.g. 63162/100542 -> 63,162/100,542).
+   */
+  private formatLines(linesHit: number, linesFound: number): string {
+    return `${formatLineCount(linesHit)}/${formatLineCount(linesFound)}`;
+  }
+
+  /**
    * Format file size in human readable format
    */
   private formatFileSize(bytes: number): string {
@@ -311,6 +336,20 @@ export function generateCommentBody(
       ) => string;
     }
   ).generateCommentBody(commentData, gatingResult, artifactInfo);
+}
+
+// Reused across every line-pair we render so we don't allocate a new
+// formatter on each call. Rounds to whole numbers since line counts are
+// always integers.
+const LINE_COUNT_FORMATTER = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
+/**
+ * Format a line count with en-US thousands separators (e.g. 100542 -> 100,542).
+ */
+export function formatLineCount(value: number): string {
+  return LINE_COUNT_FORMATTER.format(value);
 }
 
 /**
