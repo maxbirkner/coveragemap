@@ -68,7 +68,9 @@ jobs:
     steps:
     - name: Determine fetch depth
       id: base-depth
-      run: echo "base-depth=$(expr ${{ github.event.pull_request.commits }} + 1)" | tee -a $GITHUB_OUTPUT
+      env:
+        PR_COMMITS: ${{ github.event.pull_request.commits }}
+      run: echo "base-depth=$(expr "${PR_COMMITS:-0}" + 1)" | tee -a $GITHUB_OUTPUT
 
     - name: Checkout
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
@@ -78,12 +80,18 @@ jobs:
     - name: Dump Github context
       env:
         GITHUB_CONTEXT: ${{ toJSON(github) }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         set -x
         echo "$GITHUB_CONTEXT"
         git log --oneline
         echo "base-depth=${{ steps.base-depth.outputs.base-depth }}"
-        git diff ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+        if [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
+          git diff "$BASE_SHA..$HEAD_SHA"
+        else
+          echo "Not a pull_request event; skipping base..head diff."
+        fi
       shell: bash
 
     - name: Setup Node.js
