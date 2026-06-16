@@ -1,7 +1,5 @@
 name: Coverage Map Action
-description: |
-  A GitHub Action that analyzes code coverage for files changed in a pull request,
-  generates a visual treemap of test gaps, and enforces a coverage threshold.
+description: Analyzes coverage for files changed in a PR, renders a treemap of test gaps, and enforces a coverage threshold.
 author: maxbirkner
 branding:
   icon: bar-chart-2
