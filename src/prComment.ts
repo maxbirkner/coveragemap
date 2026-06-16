@@ -338,11 +338,18 @@ export function generateCommentBody(
   ).generateCommentBody(commentData, gatingResult, artifactInfo);
 }
 
+// Reused across every line-pair we render so we don't allocate a new
+// formatter on each call. Rounds to whole numbers since line counts are
+// always integers.
+const LINE_COUNT_FORMATTER = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
 /**
- * Format an integer line count with locale-aware thousands separators.
+ * Format a line count with en-US thousands separators (e.g. 100542 -> 100,542).
  */
 export function formatLineCount(value: number): string {
-  return new Intl.NumberFormat("en-US").format(value);
+  return LINE_COUNT_FORMATTER.format(value);
 }
 
 /**
