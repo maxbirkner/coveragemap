@@ -776,33 +776,6 @@ describe("ChecksService", () => {
 
   describe("determineCheckConclusion", () => {
     it("should return success when coverage meets threshold", () => {
-      const analysis: CoverageAnalysis = {
-        changeset: ChangesetUtils.createChangeset(
-          ["src/test.ts"],
-          "base-sha",
-          "head-sha",
-          "main",
-        ),
-        changedFiles: [],
-        summary: {
-          totalChangedFiles: 1,
-          filesWithCoverage: 1,
-          filesWithoutCoverage: 0,
-          overallCoverage: {
-            totalLines: 100,
-            coveredLines: 85,
-            totalFunctions: 10,
-            coveredFunctions: 8,
-            totalBranches: 20,
-            coveredBranches: 15,
-            linesCoveragePercentage: 85,
-            functionsCoveragePercentage: 80,
-            branchesCoveragePercentage: 75,
-            overallCoveragePercentage: 85,
-          },
-        },
-      };
-
       const gatingResult = createMockGatingResult(true, 80); // meetsThreshold = true
       const conclusion = (checksService as any).determineCheckConclusion(
         gatingResult,
@@ -811,33 +784,6 @@ describe("ChecksService", () => {
     });
 
     it("should return failure when coverage is below threshold", () => {
-      const analysis: CoverageAnalysis = {
-        changeset: ChangesetUtils.createChangeset(
-          ["src/test.ts"],
-          "base-sha",
-          "head-sha",
-          "main",
-        ),
-        changedFiles: [],
-        summary: {
-          totalChangedFiles: 1,
-          filesWithCoverage: 1,
-          filesWithoutCoverage: 0,
-          overallCoverage: {
-            totalLines: 100,
-            coveredLines: 70,
-            totalFunctions: 10,
-            coveredFunctions: 7,
-            totalBranches: 20,
-            coveredBranches: 14,
-            linesCoveragePercentage: 70,
-            functionsCoveragePercentage: 70,
-            branchesCoveragePercentage: 70,
-            overallCoveragePercentage: 70,
-          },
-        },
-      };
-
       const gatingResult = createMockGatingResult(false, 80); // meetsThreshold = false
       const conclusion = (checksService as any).determineCheckConclusion(
         gatingResult,
@@ -846,33 +792,6 @@ describe("ChecksService", () => {
     });
 
     it("should return success when coverage exactly meets threshold", () => {
-      const analysis: CoverageAnalysis = {
-        changeset: ChangesetUtils.createChangeset(
-          ["src/test.ts"],
-          "base-sha",
-          "head-sha",
-          "main",
-        ),
-        changedFiles: [],
-        summary: {
-          totalChangedFiles: 1,
-          filesWithCoverage: 1,
-          filesWithoutCoverage: 0,
-          overallCoverage: {
-            totalLines: 100,
-            coveredLines: 80,
-            totalFunctions: 10,
-            coveredFunctions: 8,
-            totalBranches: 20,
-            coveredBranches: 16,
-            linesCoveragePercentage: 80,
-            functionsCoveragePercentage: 80,
-            branchesCoveragePercentage: 80,
-            overallCoveragePercentage: 80,
-          },
-        },
-      };
-
       const gatingResult = createMockGatingResult(true, 80); // meetsThreshold = true
       const conclusion = (checksService as any).determineCheckConclusion(
         gatingResult,

@@ -24,8 +24,6 @@ jest.mock("@actions/artifact", () => ({
   },
 }));
 
-const mockUploadArtifact = jest.fn();
-
 // Mock fs
 jest.mock("fs", () => ({
   existsSync: jest.fn(),

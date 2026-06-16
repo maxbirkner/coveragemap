@@ -30,6 +30,11 @@ module.exports = {
           sourceMap: true,
           inlineSourceMap: false,
           inlineSources: false,
+          // Indexing arrays in test assertions (e.g. result[0]) is an
+          // intentional pattern; an out-of-bounds access simply fails the
+          // test. The production typecheck (npm run build) still enforces
+          // noUncheckedIndexedAccess on source files.
+          noUncheckedIndexedAccess: false,
         },
       },
     ],

@@ -99,6 +99,7 @@ export class ChecksService {
     for (const group of lineGroups) {
       const startLine = group[0];
       const endLine = group[group.length - 1];
+      if (startLine === undefined || endLine === undefined) continue;
 
       annotations.push({
         path: file.path,
@@ -145,17 +146,19 @@ export class ChecksService {
 
     const sorted = [...lines].sort((a, b) => a - b);
     const groups: number[][] = [];
-    let currentGroup = [sorted[0]];
+    let currentGroup: number[] = [];
+    let previous: number | undefined;
 
-    for (let i = 1; i < sorted.length; i++) {
-      if (sorted[i] === sorted[i - 1] + 1) {
-        currentGroup.push(sorted[i]);
+    for (const line of sorted) {
+      if (previous !== undefined && line === previous + 1) {
+        currentGroup.push(line);
       } else {
-        groups.push(currentGroup);
-        currentGroup = [sorted[i]];
+        if (currentGroup.length > 0) groups.push(currentGroup);
+        currentGroup = [line];
       }
+      previous = line;
     }
-    groups.push(currentGroup);
+    if (currentGroup.length > 0) groups.push(currentGroup);
 
     return groups;
   }
@@ -195,7 +198,7 @@ export class ChecksService {
     analysis: CoverageAnalysis,
     gatingResult: GatingResult,
     annotations: CheckAnnotation[],
-    prCommentUrl?: string,
+    _prCommentUrl?: string,
   ): Promise<void> {
     if (!github.context.payload.pull_request) {
       core.warning(
