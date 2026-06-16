@@ -1,26 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
-import { Resvg, initWasm } from "@resvg/resvg-wasm";
 import { JSDOM } from "jsdom";
 import * as d3 from "d3";
 import { hierarchy, treemap, HierarchyRectangularNode } from "d3-hierarchy";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { FunctionCoverage, FileCoverage } from "./lcov";
-
-// resvg's WASM module must be initialised exactly once before any Resvg
-// instance is created. Cache the promise so concurrent callers share a single
-// initialisation and repeated renders do not re-init (which would throw).
-let resvgInit: Promise<void> | undefined;
-
-function ensureResvgInitialised(): Promise<void> {
-  if (resvgInit === undefined) {
-    const wasm = fs.readFileSync(
-      require.resolve("@resvg/resvg-wasm/index_bg.wasm"),
-    );
-    resvgInit = initWasm(wasm);
-  }
-  return resvgInit;
-}
+import { rasteriseSvgToPng } from "./svgRasteriser";
 
 export interface TreemapNode {
   name: string;
@@ -287,11 +272,9 @@ export class TreemapGenerator {
       // Convert SVG to string
       const svgString = dom.window.document.body.innerHTML;
 
-      // Rasterise the SVG to PNG using the WASM build of resvg. WASM keeps the
-      // action hermetic and bundlable (no native add-ons), which is required
-      // because GitHub runs the committed dist/ bundle directly.
-      await ensureResvgInitialised();
-      const buffer = Buffer.from(new Resvg(svgString).render().asPng());
+      // Rasterise the SVG to PNG. The font is bundled explicitly so the labels
+      // are not dropped by resvg's font-less WASM runtime.
+      const buffer = await rasteriseSvgToPng(svgString);
 
       fs.writeFileSync(opts.outputPath, buffer);
 

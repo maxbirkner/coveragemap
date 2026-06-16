@@ -8,6 +8,7 @@
     "@resvg/resvg-wasm": "^2.6.2",
     "d3": "^7.8.5",
     "d3-hierarchy": "^3.1.2",
+    "dejavu-fonts-ttf": "2.37.3",
     "jsdom": "^23.0.1",
     "picomatch": "^4.0.3"
   },
