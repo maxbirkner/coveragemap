@@ -184,9 +184,6 @@ export class TreemapGenerator {
         .attr("fill", this.COLORS.text)
         .text("Coverage Treemap");
 
-      // Draw legend
-      this.drawSVGLegend(svg, opts.width - 200, 50);
-
       // Draw treemap rectangles
       const leaves = root.leaves();
       const leafGroup = svg.append("g").attr("class", "leaves");
@@ -269,6 +266,9 @@ export class TreemapGenerator {
         }
       }
 
+      // Draw the legend last so it stays on top of the treemap rectangles.
+      this.drawSVGLegend(svg, opts.width - 200, 50);
+
       // Convert SVG to string
       const svgString = dom.window.document.body.innerHTML;
 
@@ -311,17 +311,43 @@ export class TreemapGenerator {
 
     const legendGroup = svg.append("g").attr("class", "legend");
 
+    // Opaque background panel so the legend stays readable on top of the
+    // treemap rectangles it overlaps.
+    const rowHeight = 20;
+    const panelPadding = 8;
+    const swatchSize = 12;
+    const labelOffset = 18;
+    const longestLabel = Math.max(
+      ...legendItems.map((item) => item.label.length),
+    );
+    const panelWidth =
+      labelOffset + longestLabel * this.PIXELS_PER_CHAR + panelPadding * 2;
+    const panelHeight =
+      legendItems.length * rowHeight - (rowHeight - swatchSize) + panelPadding;
+
+    legendGroup
+      .append("rect")
+      .attr("x", x - panelPadding)
+      .attr("y", y - panelPadding)
+      .attr("width", panelWidth)
+      .attr("height", panelHeight)
+      .attr("rx", 4)
+      .attr("fill", this.COLORS.background)
+      .attr("fill-opacity", 0.85)
+      .attr("stroke", this.COLORS.border)
+      .attr("stroke-width", 1);
+
     for (let i = 0; i < legendItems.length; i++) {
       const item = legendItems[i];
-      const itemY = y + i * 20;
+      const itemY = y + i * rowHeight;
 
       // Draw color square
       legendGroup
         .append("rect")
         .attr("x", x)
         .attr("y", itemY)
-        .attr("width", 12)
-        .attr("height", 12)
+        .attr("width", swatchSize)
+        .attr("height", swatchSize)
         .attr("fill", item.color)
         .attr("stroke", this.COLORS.border)
         .attr("stroke-width", 1);
@@ -329,7 +355,7 @@ export class TreemapGenerator {
       // Draw label
       legendGroup
         .append("text")
-        .attr("x", x + 18)
+        .attr("x", x + labelOffset)
         .attr("y", itemY + 9)
         .attr("font-family", "Arial, sans-serif")
         .attr("font-size", "12px")
