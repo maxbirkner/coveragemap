@@ -499,7 +499,7 @@ describe("PrCommentService", () => {
       const service = new PrCommentService({ githubToken: "test-token" });
       const commentData: CommentData = {
         totalCoverage: { linesHit: 63162, linesFound: 100542, percentage: 63 },
-        changedFilesCoverage: { linesHit: 0, linesFound: 0, percentage: 100 },
+        changedFilesCoverage: { linesHit: 45, linesFound: 50, percentage: 90 },
         coverageDifference,
         fileBreakdown: [],
       };
@@ -507,7 +507,7 @@ describe("PrCommentService", () => {
         meetsThreshold: true,
         threshold: 0,
         mode: "baseline",
-        prCoveragePercentage: 100,
+        prCoveragePercentage: 90,
         overallProjectCoveragePercentage: 63,
         description: "baseline",
       };
@@ -540,6 +540,46 @@ describe("PrCommentService", () => {
       expect(buildBody(0)).toContain(
         "| **Total Coverage** | 63% | 63,162/100,542 |",
       );
+    });
+  });
+
+  describe("no changed lines", () => {
+    const buildBody = (): string => {
+      const service = new PrCommentService({ githubToken: "test-token" });
+      const commentData: CommentData = {
+        totalCoverage: { linesHit: 63162, linesFound: 100542, percentage: 63 },
+        changedFilesCoverage: { linesHit: 0, linesFound: 0, percentage: 100 },
+        coverageDifference: 37.18,
+        fileBreakdown: [],
+      };
+      const gatingResult: GatingResult = {
+        meetsThreshold: true,
+        threshold: 0,
+        mode: "baseline",
+        prCoveragePercentage: 100,
+        overallProjectCoveragePercentage: 63,
+        description: "baseline",
+      };
+      return (
+        service as unknown as {
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+          ) => string;
+        }
+      ).generateCommentBody.bind(service)(commentData, gatingResult);
+    };
+
+    test("renders dashes instead of a misleading 100%/diff/checkmark", () => {
+      const result = buildBody();
+      expect(result).toContain("| **Changed Files** | – | – |");
+      expect(result).toContain("| **Difference** | – | - |");
+      expect(result).toContain(
+        "| **Threshold** | ➖ ≥ Project Avg (63%) (no changed lines) | - |",
+      );
+      expect(result).not.toContain("100%");
+      expect(result).not.toContain("📈");
+      expect(result).not.toContain("✅");
     });
   });
 
