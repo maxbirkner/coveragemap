@@ -1,6 +1,6 @@
 node_modules/
 coverage/
-dist/
+dist/index.js.map
 *.log
 .env
 .DS_Store
