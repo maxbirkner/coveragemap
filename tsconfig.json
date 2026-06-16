@@ -4,8 +4,10 @@
     "declaration": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
     "lib": [
-      "ES2024"
+      "ES2024",
+      "DOM"
     ],
     "module": "commonjs",
     "moduleResolution": "node",
@@ -18,7 +20,11 @@
     "strict": true,
     "strictFunctionTypes": true,
     "strictNullChecks": true,
-    "target": "ES2024"
+    "target": "ES2024",
+    "types": [
+      "node",
+      "jest"
+    ]
   },
   "exclude": [
     "node_modules",

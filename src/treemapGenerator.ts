@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { JSDOM } from "jsdom";
+import { parseHTML } from "linkedom";
 import * as d3 from "d3";
 import { hierarchy, treemap, HierarchyRectangularNode } from "d3-hierarchy";
 import { CoverageAnalysis } from "./coverageAnalyzer";
@@ -147,180 +147,162 @@ export class TreemapGenerator {
     const opts = { ...this.DEFAULT_OPTIONS, ...options };
     const data = this.generateTreemapData(analysis);
 
-    // Create a virtual DOM environment for D3
-    const dom = new JSDOM(`<!DOCTYPE html><html><body></body></html>`);
+    // Create a virtual DOM environment for D3. linkedom is a lightweight,
+    // self-contained DOM implementation that bundles cleanly to a single ESM
+    // file (unlike jsdom, which loads on-disk assets at runtime). D3's
+    // selection API operates on the document node passed to it, so no global
+    // document/window patching is required.
+    const { document } = parseHTML(`<!DOCTYPE html><html><body></body></html>`);
 
-    // Store original global values for cleanup
-    const originalDocument = global.document;
-    const originalWindow = global.window;
+    // Create SVG element
+    const svg = d3
+      .select(document.body)
+      .append("svg")
+      .attr("width", opts.width)
+      .attr("height", opts.height)
+      .attr("xmlns", "http://www.w3.org/2000/svg");
 
-    try {
-      global.document = dom.window.document;
-      global.window = dom.window as unknown as Window & typeof globalThis;
+    // Add background
+    svg
+      .append("rect")
+      .attr("width", opts.width)
+      .attr("height", opts.height)
+      .attr("fill", this.COLORS.background);
 
-      // Create SVG element
-      const svg = d3
-        .select(dom.window.document.body)
-        .append("svg")
-        .attr("width", opts.width)
-        .attr("height", opts.height)
-        .attr("xmlns", "http://www.w3.org/2000/svg");
+    // Create D3 treemap layout
+    const root = hierarchy<TreemapData | TreemapNode>(data)
+      .sum((d) => (d as TreemapNode).value || 0)
+      .sort((a, b) => (b.value || 0) - (a.value || 0));
 
-      // Add background
-      svg
-        .append("rect")
-        .attr("width", opts.width)
-        .attr("height", opts.height)
-        .attr("fill", this.COLORS.background);
+    const treemapLayout = treemap<TreemapData | TreemapNode>()
+      .size([
+        opts.width - this.SIDE_MARGIN * 2,
+        opts.height - (this.HEADER_HEIGHT + this.BOTTOM_MARGIN),
+      ])
+      .padding(2);
 
-      // Create D3 treemap layout
-      const root = hierarchy<TreemapData | TreemapNode>(data)
-        .sum((d) => (d as TreemapNode).value || 0)
-        .sort((a, b) => (b.value || 0) - (a.value || 0));
+    treemapLayout(root);
 
-      const treemapLayout = treemap<TreemapData | TreemapNode>()
-        .size([
-          opts.width - this.SIDE_MARGIN * 2,
-          opts.height - (this.HEADER_HEIGHT + this.BOTTOM_MARGIN),
-        ])
-        .padding(2);
+    // Draw title (left-aligned in the reserved header band)
+    svg
+      .append("text")
+      .attr("x", this.SIDE_MARGIN)
+      .attr("y", 35)
+      .attr("text-anchor", "start")
+      .attr("font-family", "Arial, sans-serif")
+      .attr("font-size", "24px")
+      .attr("fill", this.COLORS.text)
+      .text(opts.title);
 
-      treemapLayout(root);
-
-      // Draw title (left-aligned in the reserved header band)
+    // Draw subtitle (commit hash, generation date) under the title
+    if (opts.subtitle) {
       svg
         .append("text")
         .attr("x", this.SIDE_MARGIN)
-        .attr("y", 35)
+        .attr("y", 56)
         .attr("text-anchor", "start")
         .attr("font-family", "Arial, sans-serif")
-        .attr("font-size", "24px")
-        .attr("fill", this.COLORS.text)
-        .text(opts.title);
+        .attr("font-size", "12px")
+        .attr("fill", this.COLORS.subtitle)
+        .text(opts.subtitle);
+    }
 
-      // Draw subtitle (commit hash, generation date) under the title
-      if (opts.subtitle) {
-        svg
+    // Draw the legend on the same line as the title, aligned to the right
+    // edge. It lives in the reserved header band so it never overlaps tiles.
+    this.drawSVGLegend(svg, opts.width - this.SIDE_MARGIN, 35);
+
+    // Draw treemap rectangles
+    const leaves = root.leaves();
+    const leafGroup = svg.append("g").attr("class", "leaves");
+
+    for (const leaf of leaves as HierarchyRectangularNode<
+      TreemapData | TreemapNode
+    >[]) {
+      if (
+        leaf.x0 === undefined ||
+        leaf.y0 === undefined ||
+        leaf.x1 === undefined ||
+        leaf.y1 === undefined
+      )
+        continue;
+
+      const node = leaf.data as TreemapNode;
+      const x = leaf.x0 + this.SIDE_MARGIN; // Account for side margin
+      const y = leaf.y0 + this.HEADER_HEIGHT; // Account for header band
+      const width = leaf.x1 - leaf.x0;
+      const height = leaf.y1 - leaf.y0;
+
+      const nodeGroup = leafGroup.append("g");
+
+      // Draw rectangle
+      nodeGroup
+        .append("rect")
+        .attr("x", x)
+        .attr("y", y)
+        .attr("width", width)
+        .attr("height", height)
+        .attr(
+          "fill",
+          this.COLORS[node.coverage as keyof typeof this.COLORS] ||
+            this.COLORS.none,
+        )
+        .attr("stroke", this.COLORS.border)
+        .attr("stroke-width", 1);
+
+      // Draw text if rectangle is large enough
+      if (width > 80 && height > 30) {
+        const textGroup = nodeGroup.append("g");
+
+        // Function/file name
+        const name = node.functionName || path.basename(node.file);
+        textGroup
           .append("text")
-          .attr("x", this.SIDE_MARGIN)
-          .attr("y", 56)
-          .attr("text-anchor", "start")
+          .attr("x", x + 5)
+          .attr("y", y + 15)
           .attr("font-family", "Arial, sans-serif")
           .attr("font-size", "12px")
-          .attr("fill", this.COLORS.subtitle)
-          .text(opts.subtitle);
-      }
+          .attr("fill", this.COLORS.text)
+          .text(this.truncateText(name, width - 10));
 
-      // Draw the legend on the same line as the title, aligned to the right
-      // edge. It lives in the reserved header band so it never overlaps tiles.
-      this.drawSVGLegend(svg, opts.width - this.SIDE_MARGIN, 35);
-
-      // Draw treemap rectangles
-      const leaves = root.leaves();
-      const leafGroup = svg.append("g").attr("class", "leaves");
-
-      for (const leaf of leaves as HierarchyRectangularNode<
-        TreemapData | TreemapNode
-      >[]) {
-        if (
-          leaf.x0 === undefined ||
-          leaf.y0 === undefined ||
-          leaf.x1 === undefined ||
-          leaf.y1 === undefined
-        )
-          continue;
-
-        const node = leaf.data as TreemapNode;
-        const x = leaf.x0 + this.SIDE_MARGIN; // Account for side margin
-        const y = leaf.y0 + this.HEADER_HEIGHT; // Account for header band
-        const width = leaf.x1 - leaf.x0;
-        const height = leaf.y1 - leaf.y0;
-
-        const nodeGroup = leafGroup.append("g");
-
-        // Draw rectangle
-        nodeGroup
-          .append("rect")
-          .attr("x", x)
-          .attr("y", y)
-          .attr("width", width)
-          .attr("height", height)
-          .attr(
-            "fill",
-            this.COLORS[node.coverage as keyof typeof this.COLORS] ||
-              this.COLORS.none,
-          )
-          .attr("stroke", this.COLORS.border)
-          .attr("stroke-width", 1);
-
-        // Draw text if rectangle is large enough
-        if (width > 80 && height > 30) {
-          const textGroup = nodeGroup.append("g");
-
-          // Function/file name
-          const name = node.functionName || path.basename(node.file);
+        // Coverage info
+        if (height > 50) {
+          const coverageText = `${node.coveredLines}/${node.lineCount} lines`;
           textGroup
             .append("text")
             .attr("x", x + 5)
-            .attr("y", y + 15)
+            .attr("y", y + 30)
             .attr("font-family", "Arial, sans-serif")
-            .attr("font-size", "12px")
+            .attr("font-size", "10px")
             .attr("fill", this.COLORS.text)
-            .text(this.truncateText(name, width - 10));
+            .text(coverageText);
 
-          // Coverage info
-          if (height > 50) {
-            const coverageText = `${node.coveredLines}/${node.lineCount} lines`;
+          if (height > 70) {
+            const percentText = `${Math.round(
+              (node.coveredLines / node.lineCount) * 100,
+            )}%`;
             textGroup
               .append("text")
               .attr("x", x + 5)
-              .attr("y", y + 30)
+              .attr("y", y + 45)
               .attr("font-family", "Arial, sans-serif")
               .attr("font-size", "10px")
               .attr("fill", this.COLORS.text)
-              .text(coverageText);
-
-            if (height > 70) {
-              const percentText = `${Math.round(
-                (node.coveredLines / node.lineCount) * 100,
-              )}%`;
-              textGroup
-                .append("text")
-                .attr("x", x + 5)
-                .attr("y", y + 45)
-                .attr("font-family", "Arial, sans-serif")
-                .attr("font-size", "10px")
-                .attr("fill", this.COLORS.text)
-                .text(percentText);
-            }
+              .text(percentText);
           }
         }
       }
-
-      // Convert SVG to string
-      const svgString = dom.window.document.body.innerHTML;
-
-      // Rasterise the SVG to PNG. The font is bundled explicitly so the labels
-      // are not dropped by resvg's font-less WASM runtime.
-      const buffer = await rasteriseSvgToPng(svgString);
-
-      fs.writeFileSync(opts.outputPath, buffer);
-
-      return opts.outputPath;
-    } finally {
-      // Restore original global values
-      if (originalDocument === undefined) {
-        (global as Record<string, any>).document = undefined;
-      } else {
-        global.document = originalDocument;
-      }
-
-      if (originalWindow === undefined) {
-        (global as Record<string, any>).window = undefined;
-      } else {
-        global.window = originalWindow;
-      }
     }
+
+    // Convert SVG to string
+    const svgString = document.body.innerHTML;
+
+    // Rasterise the SVG to PNG. The font is bundled explicitly so the labels
+    // are not dropped by resvg's font-less WASM runtime.
+    const buffer = await rasteriseSvgToPng(svgString);
+
+    fs.writeFileSync(opts.outputPath, buffer);
+
+    return opts.outputPath;
   }
 
   /**

@@ -34,15 +34,13 @@ jest.mock("@resvg/resvg-wasm", () => ({
   })),
 }));
 
-// Mock JSDOM
-jest.mock("jsdom", () => ({
-  JSDOM: jest.fn(() => ({
-    window: {
-      document: {
-        createElement: jest.fn(() => ({
-          setAttribute: jest.fn(),
-        })),
-      },
+// Mock linkedom
+jest.mock("linkedom", () => ({
+  parseHTML: jest.fn(() => ({
+    document: {
+      createElement: jest.fn(() => ({
+        setAttribute: jest.fn(),
+      })),
     },
   })),
 }));
