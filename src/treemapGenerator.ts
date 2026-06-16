@@ -434,20 +434,18 @@ export class TreemapGenerator {
     const swatchGap = 6; // between a swatch and its label
     const itemGap = 20; // between legend entries
 
-    const itemWidths = legendItems.map(
-      (item) =>
-        swatchSize + swatchGap + item.label.length * this.PIXELS_PER_CHAR,
-    );
+    const legendEntries = legendItems.map((item) => ({
+      ...item,
+      width: swatchSize + swatchGap + item.label.length * this.PIXELS_PER_CHAR,
+    }));
     const totalWidth =
-      itemWidths.reduce((sum, w) => sum + w, 0) +
+      legendEntries.reduce((sum, entry) => sum + entry.width, 0) +
       itemGap * (legendItems.length - 1);
 
     const legendGroup = svg.append("g").attr("class", "legend");
 
     let cursorX = rightEdge - totalWidth;
-    for (let i = 0; i < legendItems.length; i++) {
-      const item = legendItems[i];
-
+    for (const item of legendEntries) {
       // Draw color square, vertically centred on the title line
       legendGroup
         .append("rect")
@@ -469,7 +467,7 @@ export class TreemapGenerator {
         .attr("fill", this.COLORS.text)
         .text(item.label);
 
-      cursorX += itemWidths[i] + itemGap;
+      cursorX += item.width + itemGap;
     }
   }
 
@@ -533,6 +531,7 @@ export class TreemapGenerator {
     if (funcIndex === -1) return this.DEFAULT_FUNCTION_LINE_COUNT;
 
     const currentFunc = functions[funcIndex];
+    if (!currentFunc) return this.DEFAULT_FUNCTION_LINE_COUNT;
     const nextFunc = functions[funcIndex + 1];
 
     if (nextFunc) {

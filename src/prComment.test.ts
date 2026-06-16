@@ -416,28 +416,6 @@ describe("PrCommentService", () => {
       process.env.GITHUB_REPOSITORY = "owner/repo";
       process.env.GITHUB_RUN_ID = "123";
 
-      const commentData: CommentData = {
-        totalCoverage: {
-          linesHit: 800,
-          linesFound: 1000,
-          percentage: 80,
-        },
-        changedFilesCoverage: {
-          linesHit: 40,
-          linesFound: 50,
-          percentage: 80,
-        },
-        coverageDifference: 0,
-        fileBreakdown: [
-          {
-            filename: "src/example.ts",
-            linesHit: 40,
-            linesFound: 50,
-            percentage: 80,
-          },
-        ],
-      };
-
       const artifactInfo = {
         name: "coverage-treemap-pr-123",
         path: "./coverage-treemap.png",

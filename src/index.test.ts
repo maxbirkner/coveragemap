@@ -63,7 +63,6 @@ import { LcovParser } from "./lcov";
 import { CoverageAnalyzer } from "./coverageAnalyzer";
 import { PrCommentService } from "./prComment";
 import { CoverageGating } from "./coverageGating";
-import { TreemapGenerator } from "./treemapGenerator";
 import { ArtifactService } from "./artifactService";
 
 // Mock all the modules

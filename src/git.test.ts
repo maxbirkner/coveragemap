@@ -19,13 +19,13 @@ import { context } from "@actions/github";
 
 // Helper to mock exec with specific stdout/stderr
 const mockExecSuccess = (stdout: string, stderr = "") => {
-  mockedExec.mockImplementation(((command: string, callback: any) => {
+  mockedExec.mockImplementation(((_command: string, callback: any) => {
     callback(null, { stdout, stderr });
   }) as any);
 };
 
 const mockExecError = (error: Error) => {
-  mockedExec.mockImplementation(((command: string, callback: any) => {
+  mockedExec.mockImplementation(((_command: string, callback: any) => {
     callback(error, { stdout: "", stderr: "" });
   }) as any);
 };

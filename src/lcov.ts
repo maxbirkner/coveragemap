@@ -98,18 +98,18 @@ export class LcovParser {
         currentBranches = [];
       } else if (line.startsWith("FN:")) {
         // Function definition: FN:<line>,<name>
-        const parts = line.substring(3).split(",");
-        if (parts.length >= 2) {
-          const lineNum = parseInt(parts[0], 10);
-          const name = parts.slice(1).join(","); // In case function name contains commas
+        const [lineStr, ...nameParts] = line.substring(3).split(",");
+        if (lineStr !== undefined && nameParts.length > 0) {
+          const lineNum = parseInt(lineStr, 10);
+          const name = nameParts.join(","); // In case function name contains commas
           currentFunctions.push({ name, line: lineNum, hit: 0 });
         }
       } else if (line.startsWith("FNDA:")) {
         // Function data: FNDA:<hit>,<name>
-        const parts = line.substring(5).split(",");
-        if (parts.length >= 2) {
-          const hit = parseInt(parts[0], 10);
-          const name = parts.slice(1).join(",");
+        const [hitStr, ...nameParts] = line.substring(5).split(",");
+        if (hitStr !== undefined && nameParts.length > 0) {
+          const hit = parseInt(hitStr, 10);
+          const name = nameParts.join(",");
 
           // Update existing function with hit count
           const func = currentFunctions.find((f) => f.name === name);
@@ -119,20 +119,27 @@ export class LcovParser {
         }
       } else if (line.startsWith("DA:")) {
         // Line data: DA:<line>,<hit>
-        const parts = line.substring(3).split(",");
-        if (parts.length >= 2) {
-          const lineNum = parseInt(parts[0], 10);
-          const hit = parseInt(parts[1], 10);
+        const [lineStr, hitStr] = line.substring(3).split(",");
+        if (lineStr !== undefined && hitStr !== undefined) {
+          const lineNum = parseInt(lineStr, 10);
+          const hit = parseInt(hitStr, 10);
           currentLines.push({ line: lineNum, hit });
         }
       } else if (line.startsWith("BRDA:")) {
         // Branch data: BRDA:<line>,<block>,<branch>,<taken>
-        const parts = line.substring(5).split(",");
-        if (parts.length >= 4) {
-          const lineNum = parseInt(parts[0], 10);
-          const block = parseInt(parts[1], 10);
-          const branch = parseInt(parts[2], 10);
-          const taken = parts[3] === "-" ? 0 : parseInt(parts[3], 10);
+        const [lineStr, blockStr, branchStr, takenStr] = line
+          .substring(5)
+          .split(",");
+        if (
+          lineStr !== undefined &&
+          blockStr !== undefined &&
+          branchStr !== undefined &&
+          takenStr !== undefined
+        ) {
+          const lineNum = parseInt(lineStr, 10);
+          const block = parseInt(blockStr, 10);
+          const branch = parseInt(branchStr, 10);
+          const taken = takenStr === "-" ? 0 : parseInt(takenStr, 10);
           currentBranches.push({ line: lineNum, block, branch, taken });
         }
       } else if (line === "end_of_record") {
