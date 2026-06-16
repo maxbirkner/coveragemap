@@ -119,6 +119,10 @@ jobs:
         retention-days: 3
 
     - name: Run Coveragemap action
+      # The action analyses the diff of a pull request and needs the PR head
+      # SHA, which only exists on pull_request events. On push (e.g. the merge
+      # to main) there is no PR context, so skip the self-test there.
+      if: github.event_name == 'pull_request'
       uses: ./
       id: coveragemap
       with:
