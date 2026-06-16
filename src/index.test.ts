@@ -48,6 +48,7 @@ jest.mock("jsdom", () => ({
 }));
 
 import * as core from "@actions/core";
+import * as github from "@actions/github";
 import {
   getInputs,
   printInputs,
@@ -56,6 +57,7 @@ import {
   analyzeCoverageAndGating,
   postPrComment,
   generateAndUploadTreemap,
+  buildTreemapSubtitle,
   run,
 } from "./index";
 import { ChangesetService } from "./changesetService";
@@ -1008,6 +1010,8 @@ describe("generateAndUploadTreemap", () => {
         width: 1200,
         height: 800,
         outputPath: "./coverage-treemap.png",
+        title: "Coverage Treemap",
+        subtitle: expect.stringContaining("commit "),
       },
     );
     expect(mockArtifactServiceInstance.uploadArtifact).toHaveBeenCalledWith(
@@ -1022,6 +1026,39 @@ describe("generateAndUploadTreemap", () => {
       downloadUrl:
         "https://github.com/owner/repo/actions/runs/123/artifacts/456",
     });
+  });
+
+  it("should forward a custom treemap title", async () => {
+    mockedTreemapGenerator.generatePNG.mockResolvedValue(
+      "./coverage-treemap.png",
+    );
+
+    const mockArtifactServiceInstance = {
+      uploadArtifact: jest.fn().mockResolvedValue({
+        name: "coverage-treemap-pr-123",
+        path: "./coverage-treemap.png",
+        size: 1024,
+        downloadUrl: "https://example.com",
+      }),
+      cleanupTempFiles: jest.fn().mockResolvedValue(undefined),
+      generateTreemapArtifactName: jest
+        .fn()
+        .mockReturnValue("coverage-treemap-pr-123"),
+    };
+    mockedArtifactService.mockImplementation(
+      () => mockArtifactServiceInstance as unknown as ArtifactService,
+    );
+
+    const mockAnalysis = {
+      changedFiles: [{ path: "src/example.ts", coverage: {} }],
+    } as unknown as Parameters<typeof generateAndUploadTreemap>[0];
+
+    await generateAndUploadTreemap(mockAnalysis, "My Custom Title");
+
+    expect(mockedTreemapGenerator.generatePNG).toHaveBeenCalledWith(
+      mockAnalysis,
+      expect.objectContaining({ title: "My Custom Title" }),
+    );
   });
 
   it("should handle treemap generation failure gracefully", async () => {
@@ -1095,5 +1132,42 @@ describe("generateAndUploadTreemap", () => {
     expect(mockedCore.warning).toHaveBeenCalledWith(
       "Failed to generate treemap: D3.js not available",
     );
+  });
+});
+
+describe("buildTreemapSubtitle", () => {
+  const originalSha = process.env.GITHUB_SHA;
+
+  afterEach(() => {
+    if (originalSha === undefined) {
+      delete process.env.GITHUB_SHA;
+    } else {
+      process.env.GITHUB_SHA = originalSha;
+    }
+    github.context.payload = {};
+  });
+
+  it("prefers the pull request head sha", () => {
+    github.context.payload = {
+      pull_request: { head: { sha: "abcdef1234567890" } },
+    } as unknown as typeof github.context.payload;
+
+    const subtitle = buildTreemapSubtitle();
+
+    expect(subtitle).toMatch(/^commit abcdef1 · generated .+ UTC$/);
+  });
+
+  it("falls back to GITHUB_SHA", () => {
+    github.context.payload = {};
+    process.env.GITHUB_SHA = "1234567abcdef";
+
+    expect(buildTreemapSubtitle()).toMatch(/^commit 1234567 /);
+  });
+
+  it("uses 'unknown' when no sha is available", () => {
+    github.context.payload = {};
+    delete process.env.GITHUB_SHA;
+
+    expect(buildTreemapSubtitle()).toMatch(/^commit unknown /);
   });
 });
