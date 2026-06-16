@@ -89,7 +89,7 @@ describe("TreemapGenerator", () => {
       });
 
       expect(result).toEqual({
-        name: "doWork",
+        name: "example.ts › doWork",
         percent: "30%",
         lines: "3/10 lines",
       });
@@ -108,6 +108,20 @@ describe("TreemapGenerator", () => {
       expect(result.name).toBe("script.ts");
       expect(result.percent).toBe("100%");
       expect(result.lines).toBe("4/4 lines");
+    });
+
+    it("prefixes the function name with the file basename only", () => {
+      const result = TreemapGenerator.formatTickerLines({
+        name: "deep/path/widget.ts::render",
+        file: "src/deep/path/widget.ts",
+        value: 8,
+        coverage: "partial",
+        lineCount: 8,
+        coveredLines: 6,
+        functionName: "render",
+      });
+
+      expect(result.name).toBe("widget.ts › render");
     });
 
     it("reports 0% without dividing by zero for empty tiles", () => {

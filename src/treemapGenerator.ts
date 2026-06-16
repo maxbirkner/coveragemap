@@ -381,6 +381,11 @@ export class TreemapGenerator {
    * Build the three "ticker style" text rows for a tile: the symbol (name) on
    * top, the coverage percentage as the headline figure in the middle, and the
    * covered/total line count underneath.
+   *
+   * For function tiles the symbol is prefixed with the file basename
+   * (e.g. `example.ts › doWork`) so the same function name appearing in
+   * different files stays distinguishable. File-level tiles already carry the
+   * basename, so they are shown as-is.
    */
   static formatTickerLines(node: TreemapNode): {
     name: string;
@@ -392,8 +397,12 @@ export class TreemapGenerator {
         ? Math.round((node.coveredLines / node.lineCount) * 100)
         : 0;
 
+    const name = node.functionName
+      ? `${path.basename(node.file)} › ${node.functionName}`
+      : path.basename(node.file);
+
     return {
-      name: node.functionName || path.basename(node.file),
+      name,
       percent: `${percentValue}%`,
       lines: `${node.coveredLines}/${node.lineCount} lines`,
     };
