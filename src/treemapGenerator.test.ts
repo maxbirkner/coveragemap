@@ -12,19 +12,17 @@ jest.mock("@resvg/resvg-wasm", () => ({
   })),
 }));
 
-jest.mock("jsdom", () => ({
-  JSDOM: jest.fn(() => ({
-    window: {
-      document: {
-        body: {
-          innerHTML: "<svg>mock-svg-content</svg>",
-          appendChild: jest.fn(),
-        },
-        createElement: jest.fn(() => ({
-          setAttribute: jest.fn(),
-          appendChild: jest.fn(),
-        })),
+jest.mock("linkedom", () => ({
+  parseHTML: jest.fn(() => ({
+    document: {
+      body: {
+        innerHTML: "<svg>mock-svg-content</svg>",
+        appendChild: jest.fn(),
       },
+      createElement: jest.fn(() => ({
+        setAttribute: jest.fn(),
+        appendChild: jest.fn(),
+      })),
     },
   })),
 }));
@@ -63,9 +61,6 @@ const mockedFs = fs as jest.Mocked<typeof fs>;
 describe("TreemapGenerator", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock global assignments
-    (global as Record<string, any>).document = {};
-    (global as Record<string, any>).window = {};
   });
 
   describe("generateTreemapData", () => {

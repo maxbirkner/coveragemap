@@ -1,33 +1,32 @@
 {
   "author": "maxbirkner",
   "dependencies": {
-    "@actions/artifact": "2.3.2",
-    "@actions/core": "1.11.1",
-    "@actions/github": "6.0.1",
-    "@octokit/auth-app": "^8.0.2",
+    "@actions/artifact": "6.2.1",
+    "@actions/core": "3.0.1",
+    "@actions/github": "9.1.1",
+    "@octokit/auth-app": "^8.2.0",
     "@resvg/resvg-wasm": "^2.6.2",
-    "d3": "^7.8.5",
+    "d3": "^7.9.0",
     "d3-hierarchy": "^3.1.2",
     "dejavu-fonts-ttf": "2.37.3",
-    "jsdom": "23.2.0",
-    "picomatch": "^4.0.3"
+    "linkedom": "0.18.12",
+    "picomatch": "^4.0.4"
   },
   "description": "GitHub Action that analyzes code coverage for files changed in a pull request and generates a visual treemap",
   "devDependencies": {
-    "@eslint/js": "9.39.4",
+    "@eslint/js": "10.0.1",
     "@types/d3": "^7.4.3",
     "@types/jest": "^30.0.0",
-    "@types/jsdom": "21.1.7",
     "@types/node": "25.9.3",
-    "@types/picomatch": "^4.0.2",
-    "@typescript-eslint/eslint-plugin": "^8.6.0",
-    "@typescript-eslint/parser": "^8.6.0",
-    "@vercel/ncc": "0.44.0",
-    "eslint": "9.39.4",
+    "@types/picomatch": "^4.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "esbuild": "0.28.1",
+    "eslint": "10.5.0",
     "jest": "^30.0.0",
     "prettier": "^3.3.3",
     "ts-jest": "^29.2.5",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.61.1"
   },
   "keywords": [
@@ -48,9 +47,9 @@
     "build": "tsc",
     "format": "prettier --write src/**/*.ts",
     "lint": "eslint src/**/*.ts",
-    "package": "ncc build src/index.ts -o dist --source-map --license licenses.txt",
-    "test": "jest",
-    "test:coverage": "jest --coverage"
+    "package": "node build.mjs",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage"
   },
   "version": "1.0.0"
 }

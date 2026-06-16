@@ -262,6 +262,7 @@ export class PrCommentService {
         `Failed to post PR comment: ${
           error instanceof Error ? error.message : String(error)
         }`,
+        { cause: error },
       );
     }
   }

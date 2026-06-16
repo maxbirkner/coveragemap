@@ -1,7 +1,9 @@
 // Mock for @octokit/auth-app package
-export const createAppAuth = jest.fn(() => {
-  return jest.fn().mockResolvedValue({
+import { jest } from "@jest/globals";
+
+export const createAppAuth = jest.fn(() =>
+  jest.fn(async () => ({
     type: "app",
     token: "mock-app-token",
-  });
-});
+  })),
+);

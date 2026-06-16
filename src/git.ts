@@ -51,7 +51,7 @@ export class GitUtils {
     } catch (error) {
       const errorMessage = `Failed to get changed files between ${base} and ${head}`;
       core.error(`${errorMessage}: ${error}`);
-      throw new Error(errorMessage);
+      throw new Error(errorMessage, { cause: error });
     }
   }
 }

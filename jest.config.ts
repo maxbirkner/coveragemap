@@ -1,6 +1,14 @@
 module.exports = {
-  preset: "ts-jest/presets/default-esm",
+  preset: "ts-jest",
   testEnvironment: "node",
+  // @actions/core, @actions/github and other dependencies are now ESM-only and
+  // expose only the "import" condition in their package exports. The node test
+  // environment defaults to ["node", "node-addons"], so the resolver needs the
+  // "import" condition added to locate these packages; Node's require(ESM)
+  // support (Node >= 24.9) then loads them from the CommonJS test runtime.
+  testEnvironmentOptions: {
+    customExportConditions: ["node", "import", "require", "default"],
+  },
   coverageProvider: "v8", // Use V8 coverage provider for better function name detection
   collectCoverage: true,
   collectCoverageFrom: [
@@ -13,12 +21,10 @@ module.exports = {
   coverageDirectory: "coverage",
   roots: ["<rootDir>/src"],
   testMatch: ["**/__tests__/**/*.ts", "**/?(*.)+(spec|test).ts"],
-  extensionsToTreatAsEsm: [".ts"],
   transform: {
     "^.+\\.ts$": [
       "ts-jest",
       {
-        useESM: true,
         isolatedModules: false,
         tsconfig: {
           sourceMap: true,
