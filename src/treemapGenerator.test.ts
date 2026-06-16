@@ -63,6 +63,68 @@ describe("TreemapGenerator", () => {
     jest.clearAllMocks();
   });
 
+  describe("colorForCoverage", () => {
+    it.each([
+      { coverage: "full" as const, color: "#4ecdc4" },
+      { coverage: "partial" as const, color: "#ffe66d" },
+      { coverage: "none" as const, color: "#ff6b6b" },
+    ])(
+      "maps $coverage coverage to the $color palette colour",
+      ({ coverage, color }) => {
+        expect(TreemapGenerator.colorForCoverage(coverage)).toBe(color);
+      },
+    );
+  });
+
+  describe("formatTickerLines", () => {
+    it("builds ticker rows with name, percentage and line count", () => {
+      const result = TreemapGenerator.formatTickerLines({
+        name: "example.ts::doWork",
+        file: "src/example.ts",
+        value: 10,
+        coverage: "partial",
+        lineCount: 10,
+        coveredLines: 3,
+        functionName: "doWork",
+      });
+
+      expect(result).toEqual({
+        name: "doWork",
+        percent: "30%",
+        lines: "3/10 lines",
+      });
+    });
+
+    it("falls back to the file basename when no function name is set", () => {
+      const result = TreemapGenerator.formatTickerLines({
+        name: "script.ts",
+        file: "src/nested/script.ts",
+        value: 4,
+        coverage: "full",
+        lineCount: 4,
+        coveredLines: 4,
+      });
+
+      expect(result.name).toBe("script.ts");
+      expect(result.percent).toBe("100%");
+      expect(result.lines).toBe("4/4 lines");
+    });
+
+    it("reports 0% without dividing by zero for empty tiles", () => {
+      const result = TreemapGenerator.formatTickerLines({
+        name: "empty.ts",
+        file: "src/empty.ts",
+        value: 1,
+        coverage: "none",
+        lineCount: 0,
+        coveredLines: 0,
+      });
+
+      expect(result.percent).toBe("0%");
+      expect(result.lines).toBe("0/0 lines");
+    });
+  });
+
   describe("generateTreemapData", () => {
     it("should generate treemap data for files with coverage", () => {
       const mockAnalysis: CoverageAnalysis = {

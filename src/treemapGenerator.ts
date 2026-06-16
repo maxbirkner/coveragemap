@@ -39,14 +39,17 @@ export class TreemapGenerator {
     title: "Coverage Treemap",
   };
 
+  // Palette sourced from the "1A535C / 4ECDC4 / F7FFF7 / FF6B6B / FFE66D"
+  // scheme: deep teal anchors the text, with teal/yellow/coral encoding the
+  // coverage states against a soft mint background.
   private static readonly COLORS = {
-    full: "#22c55e", // Green for full coverage
-    partial: "#f59e0b", // Orange for partial coverage
-    none: "#ef4444", // Red for no coverage
-    background: "#f8fafc",
-    border: "#e2e8f0",
-    text: "#334155",
-    subtitle: "#64748b",
+    full: "#4ecdc4", // Teal for full coverage
+    partial: "#ffe66d", // Yellow for partial coverage
+    none: "#ff6b6b", // Coral for no coverage
+    background: "#f7fff7", // Soft mint
+    border: "#1a535c", // Deep teal
+    text: "#1a535c", // Deep teal
+    subtitle: "#4a7a82", // Muted teal
   };
 
   private static readonly PIXELS_PER_CHAR = 7;
@@ -241,53 +244,57 @@ export class TreemapGenerator {
         .attr("y", y)
         .attr("width", width)
         .attr("height", height)
-        .attr(
-          "fill",
-          this.COLORS[node.coverage as keyof typeof this.COLORS] ||
-            this.COLORS.none,
-        )
+        .attr("fill", this.colorForCoverage(node.coverage))
         .attr("stroke", this.COLORS.border)
         .attr("stroke-width", 1);
 
-      // Draw text if rectangle is large enough
+      // Draw "ticker style" labels when the tile is large enough: the name
+      // sits at the top like a ticker symbol, with the coverage percentage as
+      // the headline figure in the middle and the line count beneath it.
       if (width > 80 && height > 30) {
         const textGroup = nodeGroup.append("g");
+        const centerX = x + width / 2;
+        const ticker = this.formatTickerLines(node);
 
-        // Function/file name
-        const name = node.functionName || path.basename(node.file);
+        // Symbol (file/class/function name) pinned to the top.
         textGroup
           .append("text")
-          .attr("x", x + 5)
-          .attr("y", y + 15)
+          .attr("x", centerX)
+          .attr("y", y + 16)
+          .attr("text-anchor", "middle")
           .attr("font-family", "Arial, sans-serif")
           .attr("font-size", "12px")
+          .attr("font-weight", "bold")
+          .attr("letter-spacing", "0.5")
           .attr("fill", this.COLORS.text)
-          .text(this.truncateText(name, width - 10));
+          .text(this.truncateText(ticker.name, width - 10));
 
-        // Coverage info
         if (height > 50) {
-          const coverageText = `${node.coveredLines}/${node.lineCount} lines`;
+          const centerY = y + height / 2;
+
+          // Headline percentage, centred like a ticker quote.
           textGroup
             .append("text")
-            .attr("x", x + 5)
-            .attr("y", y + 30)
+            .attr("x", centerX)
+            .attr("y", centerY + 4)
+            .attr("text-anchor", "middle")
             .attr("font-family", "Arial, sans-serif")
-            .attr("font-size", "10px")
+            .attr("font-size", "22px")
+            .attr("font-weight", "bold")
             .attr("fill", this.COLORS.text)
-            .text(coverageText);
+            .text(ticker.percent);
 
           if (height > 70) {
-            const percentText = `${Math.round(
-              (node.coveredLines / node.lineCount) * 100,
-            )}%`;
+            // Covered/total line count just below the headline figure.
             textGroup
               .append("text")
-              .attr("x", x + 5)
-              .attr("y", y + 45)
+              .attr("x", centerX)
+              .attr("y", centerY + 22)
+              .attr("text-anchor", "middle")
               .attr("font-family", "Arial, sans-serif")
-              .attr("font-size", "10px")
+              .attr("font-size", "11px")
               .attr("fill", this.COLORS.text)
-              .text(percentText);
+              .text(this.truncateText(ticker.lines, width - 10));
           }
         }
       }
@@ -361,6 +368,35 @@ export class TreemapGenerator {
 
       cursorX += itemWidths[i] + itemGap;
     }
+  }
+
+  /**
+   * Resolve the tile fill colour for a coverage state.
+   */
+  static colorForCoverage(coverage: TreemapNode["coverage"]): string {
+    return this.COLORS[coverage] ?? this.COLORS.none;
+  }
+
+  /**
+   * Build the three "ticker style" text rows for a tile: the symbol (name) on
+   * top, the coverage percentage as the headline figure in the middle, and the
+   * covered/total line count underneath.
+   */
+  static formatTickerLines(node: TreemapNode): {
+    name: string;
+    percent: string;
+    lines: string;
+  } {
+    const percentValue =
+      node.lineCount > 0
+        ? Math.round((node.coveredLines / node.lineCount) * 100)
+        : 0;
+
+    return {
+      name: node.functionName || path.basename(node.file),
+      percent: `${percentValue}%`,
+      lines: `${node.coveredLines}/${node.lineCount} lines`,
+    };
   }
 
   /**
