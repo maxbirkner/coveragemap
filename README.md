@@ -251,12 +251,12 @@ jobs:
         run: echo "base-depth=$(expr ${{ github.event.pull_request.commits }} + 1)" | tee -a $GITHUB_OUTPUT
 
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
 
       - name: "Setup Node.js"
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: "18"
           cache: "npm"
@@ -268,9 +268,11 @@ jobs:
       - name: "Run tests and generate coverage"
         run: npm run test -- --no-watch --code-coverage
 
+      # Pinning to a full commit SHA (rather than a tag like @v1) is recommended
+      # for stronger supply-chain security. Find the SHA on the release page.
       - name: "Coverage Treemap Action"
         id: coverage_check
-        uses: your-username/coverage-treemap-action@v1
+        uses: maxbirkner/coveragemap@v1
         with:
           lcov-file: "./coverage/your-project-name/lcov.info"
           coverage-threshold: 85
@@ -293,7 +295,7 @@ If you need to run multiple coverage checks (e.g., for different test suites), u
 ```yaml
       # Frontend coverage check
       - name: "Frontend Coverage Check"
-        uses: your-username/coverage-treemap-action@v1
+        uses: maxbirkner/coveragemap@v1
         with:
           lcov-file: "./coverage/frontend/lcov.info"
           coverage-threshold: 80
@@ -302,7 +304,7 @@ If you need to run multiple coverage checks (e.g., for different test suites), u
 
       # Backend coverage check
       - name: "Backend Coverage Check"
-        uses: your-username/coverage-treemap-action@v1
+        uses: maxbirkner/coveragemap@v1
         with:
           lcov-file: "./coverage/backend/lcov.info"
           coverage-threshold: 85
@@ -316,10 +318,41 @@ For projects where you want to ensure new code maintains or improves the overall
 
 ```yaml
       - name: "Coverage Baseline Check"
-        uses: your-username/coverage-treemap-action@v1
+        uses: maxbirkner/coveragemap@v1
         with:
           lcov-file: "./coverage/lcov.info"
           coverage-threshold: "0"  # Compare against project average
           github-token: ${{ secrets.GITHUB_TOKEN }}
           label: "Quality Gate"
 ```
+
+## Privacy
+
+This action runs entirely inside your own GitHub Actions runner. It does not
+collect, transmit, or share your data with the maintainer or any third party,
+and it contains no telemetry or analytics. See [PRIVACY.md](PRIVACY.md) for
+details.
+
+## Support
+
+This is a free, open-source hobby project. Please report bugs and ask questions
+via [GitHub Issues](https://github.com/maxbirkner/coveragemap/issues). See
+[SUPPORT.md](SUPPORT.md) for what to include. For security reports, see
+[SECURITY.md](SECURITY.md).
+
+## Disclaimer
+
+This software is provided **"AS IS"**, without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability, fitness
+for a particular purpose, and noninfringement. In no event shall the authors or
+copyright holders be liable for any claim, damages, or other liability, whether
+in an action of contract, tort, or otherwise, arising from, out of, or in
+connection with the software or the use or other dealings in the software.
+
+You are responsible for reviewing the action and pinning it to a specific
+version or commit SHA before using it in your workflows. See the
+[LICENSE](LICENSE) file for the full terms.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
