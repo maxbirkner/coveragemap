@@ -8,6 +8,7 @@ const execAsync = promisify(exec);
 export class GitUtils {
   static getPullRequestHead(): string {
     // Use GitHub context which is most reliable for PR events
+    // (the GitHub Actions context is populated from the event payload).
     if (context.payload.pull_request?.head?.sha) {
       const contextSha = context.payload.pull_request.head.sha;
       core.info(`📌 Using PR head from GitHub context: ${contextSha}`);
