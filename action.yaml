@@ -29,6 +29,11 @@ inputs:
     description: |
       Optional label for identification (enables multiple instances).
     required: false
+  treemap-title:
+    description: |
+      Optional title rendered at the top of the treemap image.
+      Defaults to "Coverage Treemap".
+    required: false
   source-code-pattern:
     description: |
       Optional glob pattern(s) for source code files to include in coverage analysis.

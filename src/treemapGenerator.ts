@@ -26,6 +26,9 @@ export interface TreemapOptions {
   width: number;
   height: number;
   outputPath: string;
+  title: string;
+  /** Optional second line under the title, e.g. commit hash and date. */
+  subtitle?: string;
 }
 
 export class TreemapGenerator {
@@ -33,6 +36,7 @@ export class TreemapGenerator {
     width: 1200,
     height: 800,
     outputPath: "./coverage-treemap.png",
+    title: "Coverage Treemap",
   };
 
   private static readonly COLORS = {
@@ -42,12 +46,19 @@ export class TreemapGenerator {
     background: "#f8fafc",
     border: "#e2e8f0",
     text: "#334155",
+    subtitle: "#64748b",
   };
 
   private static readonly PIXELS_PER_CHAR = 7;
   private static readonly ELLIPSIS_LENGTH = 3;
   private static readonly MIN_FUNCTION_SIZE_ESTIMATE = 10;
   private static readonly DEFAULT_FUNCTION_LINE_COUNT = 10;
+
+  // Vertical space reserved at the top for the title, subtitle and legend so
+  // none of them overlap the coverage tiles below.
+  private static readonly HEADER_HEIGHT = 70;
+  private static readonly SIDE_MARGIN = 20;
+  private static readonly BOTTOM_MARGIN = 20;
 
   /**
    * Generate treemap data from coverage analysis
@@ -168,21 +179,41 @@ export class TreemapGenerator {
         .sort((a, b) => (b.value || 0) - (a.value || 0));
 
       const treemapLayout = treemap<TreemapData | TreemapNode>()
-        .size([opts.width - 40, opts.height - 80]) // Leave margin for title
+        .size([
+          opts.width - this.SIDE_MARGIN * 2,
+          opts.height - (this.HEADER_HEIGHT + this.BOTTOM_MARGIN),
+        ])
         .padding(2);
 
       treemapLayout(root);
 
-      // Draw title
+      // Draw title (left-aligned in the reserved header band)
       svg
         .append("text")
-        .attr("x", opts.width / 2)
-        .attr("y", 30)
-        .attr("text-anchor", "middle")
+        .attr("x", this.SIDE_MARGIN)
+        .attr("y", 35)
+        .attr("text-anchor", "start")
         .attr("font-family", "Arial, sans-serif")
         .attr("font-size", "24px")
         .attr("fill", this.COLORS.text)
-        .text("Coverage Treemap");
+        .text(opts.title);
+
+      // Draw subtitle (commit hash, generation date) under the title
+      if (opts.subtitle) {
+        svg
+          .append("text")
+          .attr("x", this.SIDE_MARGIN)
+          .attr("y", 56)
+          .attr("text-anchor", "start")
+          .attr("font-family", "Arial, sans-serif")
+          .attr("font-size", "12px")
+          .attr("fill", this.COLORS.subtitle)
+          .text(opts.subtitle);
+      }
+
+      // Draw the legend on the same line as the title, aligned to the right
+      // edge. It lives in the reserved header band so it never overlaps tiles.
+      this.drawSVGLegend(svg, opts.width - this.SIDE_MARGIN, 35);
 
       // Draw treemap rectangles
       const leaves = root.leaves();
@@ -200,8 +231,8 @@ export class TreemapGenerator {
           continue;
 
         const node = leaf.data as TreemapNode;
-        const x = leaf.x0 + 20; // Account for margin
-        const y = leaf.y0 + 60; // Account for title and margin
+        const x = leaf.x0 + this.SIDE_MARGIN; // Account for side margin
+        const y = leaf.y0 + this.HEADER_HEIGHT; // Account for header band
         const width = leaf.x1 - leaf.x0;
         const height = leaf.y1 - leaf.y0;
 
@@ -266,9 +297,6 @@ export class TreemapGenerator {
         }
       }
 
-      // Draw the legend last so it stays on top of the treemap rectangles.
-      this.drawSVGLegend(svg, opts.width - 200, 50);
-
       // Convert SVG to string
       const svgString = dom.window.document.body.innerHTML;
 
@@ -296,12 +324,13 @@ export class TreemapGenerator {
   }
 
   /**
-   * Draw SVG legend for the treemap
+   * Draw a horizontal legend ending at `rightEdge`, vertically centred on
+   * `centerY` so it sits on the same line as the title.
    */
   private static drawSVGLegend(
     svg: d3.Selection<SVGSVGElement, unknown, null, undefined>,
-    x: number,
-    y: number,
+    rightEdge: number,
+    centerY: number,
   ): void {
     const legendItems = [
       { label: "Fully Covered", color: this.COLORS.full },
@@ -309,43 +338,29 @@ export class TreemapGenerator {
       { label: "Not Covered", color: this.COLORS.none },
     ];
 
+    const swatchSize = 12;
+    const swatchGap = 6; // between a swatch and its label
+    const itemGap = 20; // between legend entries
+
+    const itemWidths = legendItems.map(
+      (item) =>
+        swatchSize + swatchGap + item.label.length * this.PIXELS_PER_CHAR,
+    );
+    const totalWidth =
+      itemWidths.reduce((sum, w) => sum + w, 0) +
+      itemGap * (legendItems.length - 1);
+
     const legendGroup = svg.append("g").attr("class", "legend");
 
-    // Opaque background panel so the legend stays readable on top of the
-    // treemap rectangles it overlaps.
-    const rowHeight = 20;
-    const panelPadding = 8;
-    const swatchSize = 12;
-    const labelOffset = 18;
-    const longestLabel = Math.max(
-      ...legendItems.map((item) => item.label.length),
-    );
-    const panelWidth =
-      labelOffset + longestLabel * this.PIXELS_PER_CHAR + panelPadding * 2;
-    const panelHeight =
-      legendItems.length * rowHeight - (rowHeight - swatchSize) + panelPadding;
-
-    legendGroup
-      .append("rect")
-      .attr("x", x - panelPadding)
-      .attr("y", y - panelPadding)
-      .attr("width", panelWidth)
-      .attr("height", panelHeight)
-      .attr("rx", 4)
-      .attr("fill", this.COLORS.background)
-      .attr("fill-opacity", 0.85)
-      .attr("stroke", this.COLORS.border)
-      .attr("stroke-width", 1);
-
+    let cursorX = rightEdge - totalWidth;
     for (let i = 0; i < legendItems.length; i++) {
       const item = legendItems[i];
-      const itemY = y + i * rowHeight;
 
-      // Draw color square
+      // Draw color square, vertically centred on the title line
       legendGroup
         .append("rect")
-        .attr("x", x)
-        .attr("y", itemY)
+        .attr("x", cursorX)
+        .attr("y", centerY - swatchSize / 2)
         .attr("width", swatchSize)
         .attr("height", swatchSize)
         .attr("fill", item.color)
@@ -355,12 +370,14 @@ export class TreemapGenerator {
       // Draw label
       legendGroup
         .append("text")
-        .attr("x", x + labelOffset)
-        .attr("y", itemY + 9)
+        .attr("x", cursorX + swatchSize + swatchGap)
+        .attr("y", centerY + 4)
         .attr("font-family", "Arial, sans-serif")
         .attr("font-size", "12px")
         .attr("fill", this.COLORS.text)
         .text(item.label);
+
+      cursorX += itemWidths[i] + itemGap;
     }
   }
 

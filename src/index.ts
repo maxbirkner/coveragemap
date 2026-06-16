@@ -1,4 +1,5 @@
 import * as core from "@actions/core";
+import * as github from "@actions/github";
 import { ChangesetService } from "./changesetService";
 import { LcovParser, LcovReport } from "./lcov";
 import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
@@ -19,6 +20,7 @@ export interface ActionInputs {
   testCodePattern?: string;
   githubAppId?: string;
   githubAppPrivateKey?: string;
+  treemapTitle?: string;
 }
 
 export function getInputs(): ActionInputs {
@@ -32,6 +34,7 @@ export function getInputs(): ActionInputs {
   const githubAppId = core.getInput("github-app-id") || undefined;
   const githubAppPrivateKey =
     core.getInput("github-app-private-key") || undefined;
+  const treemapTitle = core.getInput("treemap-title") || undefined;
 
   return {
     lcovFile,
@@ -43,6 +46,7 @@ export function getInputs(): ActionInputs {
     testCodePattern,
     githubAppId,
     githubAppPrivateKey,
+    treemapTitle,
   };
 }
 
@@ -127,8 +131,21 @@ export async function analyzeCoverageAndGating(
   return { analysis, gatingResult };
 }
 
+export function buildTreemapSubtitle(): string {
+  // The commit of the repository the action runs in. On pull_request events
+  // GITHUB_SHA is a synthetic merge commit, so prefer the PR head sha.
+  const sha =
+    github.context.payload.pull_request?.head?.sha ||
+    process.env.GITHUB_SHA ||
+    "";
+  const shortSha = sha ? sha.substring(0, 7) : "unknown";
+  const generatedAt = new Date().toISOString().slice(0, 16).replace("T", " ");
+  return `commit ${shortSha} · generated ${generatedAt} UTC`;
+}
+
 export async function generateAndUploadTreemap(
   analysis: CoverageAnalysis,
+  title?: string,
 ): Promise<ArtifactInfo | null> {
   core.startGroup("🗺️ Generating coverage treemap");
 
@@ -147,6 +164,8 @@ export async function generateAndUploadTreemap(
         width: 1200,
         height: 800,
         outputPath: "./coverage-treemap.png",
+        title: title || "Coverage Treemap",
+        subtitle: buildTreemapSubtitle(),
       });
 
       core.info(`✅ Treemap generated: ${treemapPath}`);
@@ -314,7 +333,10 @@ export async function run(): Promise<void> {
       threshold,
     );
 
-    const treemapArtifact = await generateAndUploadTreemap(analysis);
+    const treemapArtifact = await generateAndUploadTreemap(
+      analysis,
+      inputs.treemapTitle,
+    );
 
     const prCommentUrl = await postPrComment(
       analysis,
