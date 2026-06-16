@@ -94,19 +94,37 @@ export class PrCommentService {
     treemapArtifact?: ArtifactInfo,
   ): string {
     const title = this.getCommentTitle();
-    const thresholdEmoji = gatingResult.meetsThreshold ? "✅" : "❌";
-    const diffEmoji =
-      data.coverageDifference > 0
-        ? "📈"
-        : data.coverageDifference < 0
-          ? "📉"
-          : "➖";
-    const diffSign = data.coverageDifference > 0 ? "+" : "";
+
+    // When the PR touches no lines that carry coverage data there is nothing
+    // to compare, so we render placeholders instead of a misleading 100% /
+    // +diff / green threshold.
+    const hasChangedLines = data.changedFilesCoverage.linesFound > 0;
 
     const thresholdDisplay =
       gatingResult.mode === "baseline"
         ? `≥ Project Avg (${gatingResult.overallProjectCoveragePercentage}%)`
         : `${gatingResult.threshold}%`;
+
+    const changedFilesCell = hasChangedLines
+      ? `${data.changedFilesCoverage.percentage}% | ${this.formatLines(
+          data.changedFilesCoverage.linesHit,
+          data.changedFilesCoverage.linesFound,
+        )}`
+      : `– | –`;
+
+    const differenceCell = hasChangedLines
+      ? `${
+          data.coverageDifference > 0
+            ? "📈"
+            : data.coverageDifference < 0
+              ? "📉"
+              : "➖"
+        } ${data.coverageDifference > 0 ? "+" : ""}${data.coverageDifference}%`
+      : `–`;
+
+    const thresholdCell = hasChangedLines
+      ? `${gatingResult.meetsThreshold ? "✅" : "❌"} ${thresholdDisplay}`
+      : `➖ ${thresholdDisplay} (no changed lines)`;
 
     let markdown = `## ${title}\n\n`;
 
@@ -119,14 +137,9 @@ export class PrCommentService {
       data.totalCoverage.linesHit,
       data.totalCoverage.linesFound,
     )} |\n`;
-    markdown += `| **Changed Files** | ${
-      data.changedFilesCoverage.percentage
-    }% | ${this.formatLines(
-      data.changedFilesCoverage.linesHit,
-      data.changedFilesCoverage.linesFound,
-    )} |\n`;
-    markdown += `| **Difference** | ${diffEmoji} ${diffSign}${data.coverageDifference}% | - |\n`;
-    markdown += `| **Threshold** | ${thresholdEmoji} ${thresholdDisplay} | - |\n\n`;
+    markdown += `| **Changed Files** | ${changedFilesCell} |\n`;
+    markdown += `| **Difference** | ${differenceCell} | - |\n`;
+    markdown += `| **Threshold** | ${thresholdCell} | - |\n\n`;
 
     // File breakdown if there are any files with coverage data
     if (data.fileBreakdown.length > 0) {
