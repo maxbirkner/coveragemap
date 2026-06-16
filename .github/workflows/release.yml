@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update-major-tag:
+    name: Update major version tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout
+      uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      with:
+        fetch-depth: 0
+
+    - name: Move major version tag
+      env:
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
+      run: |-
+        set -euo pipefail
+        if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::notice::Release tag '$RELEASE_TAG' is not a vX.Y.Z tag; skipping major tag update."
+          exit 0
+        fi
+        MAJOR_TAG="${RELEASE_TAG%%.*}"
+        echo "Pointing $MAJOR_TAG at $RELEASE_TAG"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git tag -f "$MAJOR_TAG" "$RELEASE_TAG"
+        git push origin "refs/tags/$MAJOR_TAG" --force
