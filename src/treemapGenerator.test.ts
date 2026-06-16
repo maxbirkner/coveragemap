@@ -292,6 +292,156 @@ describe("TreemapGenerator", () => {
       expect(result.children[0].coverage).toBe("partial"); // 66.67%
       expect(result.children[0].functionName).toBeUndefined();
     });
+
+    it("should mark a fully covered function as full", () => {
+      const mockAnalysis: CoverageAnalysis = {
+        changeset: {
+          baseCommit: "abc123",
+          headCommit: "def456",
+          targetBranch: "main",
+          files: [],
+          totalFiles: 1,
+        },
+        changedFiles: [
+          {
+            path: "src/full.ts",
+            status: "modified",
+            coverage: {
+              path: "src/full.ts",
+              // Two functions so the first one's line range is bounded by the
+              // second (lines 1..3), and every line in that range is hit.
+              functions: [
+                { name: "fullFn", line: 1, hit: 5 },
+                { name: "tailFn", line: 4, hit: 1 },
+              ],
+              lines: [
+                { line: 1, hit: 5 },
+                { line: 2, hit: 5 },
+                { line: 3, hit: 5 },
+                { line: 4, hit: 1 },
+              ],
+              branches: [],
+              summary: {
+                functionsFound: 2,
+                functionsHit: 2,
+                linesFound: 4,
+                linesHit: 4,
+                branchesFound: 0,
+                branchesHit: 0,
+              },
+            },
+            analysis: {
+              totalLines: 4,
+              coveredLines: 4,
+              totalFunctions: 2,
+              coveredFunctions: 2,
+              totalBranches: 0,
+              coveredBranches: 0,
+              linesCoveragePercentage: 100,
+              functionsCoveragePercentage: 100,
+              branchesCoveragePercentage: 0,
+              overallCoveragePercentage: 100,
+            },
+          },
+        ],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 4,
+            coveredLines: 4,
+            totalFunctions: 2,
+            coveredFunctions: 2,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 100,
+            functionsCoveragePercentage: 100,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 100,
+          },
+        },
+      };
+
+      const result = TreemapGenerator.generateTreemapData(mockAnalysis);
+
+      const fullFn = result.children.find(
+        (child) => child.name === "full.ts::fullFn",
+      );
+      expect(fullFn?.coverage).toBe("full");
+    });
+
+    it.each([
+      { percentage: 100, expected: "full" },
+      { percentage: 0, expected: "none" },
+    ])(
+      "should map a function-less file at $percentage% to $expected",
+      ({ percentage, expected }) => {
+        const mockAnalysis: CoverageAnalysis = {
+          changeset: {
+            baseCommit: "abc123",
+            headCommit: "def456",
+            targetBranch: "main",
+            files: [],
+            totalFiles: 1,
+          },
+          changedFiles: [
+            {
+              path: "src/script.ts",
+              status: "modified",
+              coverage: {
+                path: "src/script.ts",
+                functions: [],
+                lines: [{ line: 1, hit: percentage === 0 ? 0 : 1 }],
+                branches: [],
+                summary: {
+                  functionsFound: 0,
+                  functionsHit: 0,
+                  linesFound: 1,
+                  linesHit: percentage === 0 ? 0 : 1,
+                  branchesFound: 0,
+                  branchesHit: 0,
+                },
+              },
+              analysis: {
+                totalLines: 10,
+                coveredLines: percentage === 0 ? 0 : 10,
+                totalFunctions: 0,
+                coveredFunctions: 0,
+                totalBranches: 0,
+                coveredBranches: 0,
+                linesCoveragePercentage: percentage,
+                functionsCoveragePercentage: 0,
+                branchesCoveragePercentage: 0,
+                overallCoveragePercentage: percentage,
+              },
+            },
+          ],
+          summary: {
+            totalChangedFiles: 1,
+            filesWithCoverage: 1,
+            filesWithoutCoverage: 0,
+            overallCoverage: {
+              totalLines: 10,
+              coveredLines: percentage === 0 ? 0 : 10,
+              totalFunctions: 0,
+              coveredFunctions: 0,
+              totalBranches: 0,
+              coveredBranches: 0,
+              linesCoveragePercentage: percentage,
+              functionsCoveragePercentage: 0,
+              branchesCoveragePercentage: 0,
+              overallCoveragePercentage: percentage,
+            },
+          },
+        };
+
+        const result = TreemapGenerator.generateTreemapData(mockAnalysis);
+
+        expect(result.children).toHaveLength(1);
+        expect(result.children[0].coverage).toBe(expected);
+      },
+    );
   });
 
   describe("generatePNG", () => {
