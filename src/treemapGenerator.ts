@@ -1,11 +1,11 @@
 import * as fs from "fs";
 import * as path from "path";
-import sharp from "sharp";
 import { JSDOM } from "jsdom";
 import * as d3 from "d3";
 import { hierarchy, treemap, HierarchyRectangularNode } from "d3-hierarchy";
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { FunctionCoverage, FileCoverage } from "./lcov";
+import { rasteriseSvgToPng } from "./svgRasteriser";
 
 export interface TreemapNode {
   name: string;
@@ -272,8 +272,9 @@ export class TreemapGenerator {
       // Convert SVG to string
       const svgString = dom.window.document.body.innerHTML;
 
-      // Use Sharp to convert SVG to PNG
-      const buffer = await sharp(Buffer.from(svgString)).png().toBuffer();
+      // Rasterise the SVG to PNG. The font is bundled explicitly so the labels
+      // are not dropped by resvg's font-less WASM runtime.
+      const buffer = await rasteriseSvgToPng(svgString);
 
       fs.writeFileSync(opts.outputPath, buffer);
 
