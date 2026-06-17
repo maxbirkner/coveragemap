@@ -14,37 +14,54 @@ import { toErrorMessage } from "./errors";
 const TREEMAP_OUTPUT_PATH = "./coverage-treemap.png";
 const ARTIFACT_RETENTION_DAYS = 30;
 
+/**
+ * Runs `fn` inside a collapsible log group, guaranteeing the group is closed
+ * even when `fn` throws. Centralising the start/end pairing removes the
+ * repeated try/finally scaffolding from each pipeline step. `fn` may be sync or
+ * async so the helper stays usable for either kind of step.
+ */
+async function withGroup<T>(
+  label: string,
+  fn: () => T | Promise<T>,
+): Promise<T> {
+  core.startGroup(label);
+  try {
+    return await fn();
+  } finally {
+    core.endGroup();
+  }
+}
+
 export async function detectChangeset(
   targetBranch: string,
   sourceCodePattern?: string,
   testCodePattern?: string,
 ): Promise<Changeset> {
-  core.startGroup("🕵️‍♂️ Determining changeset");
-  const changeset = await ChangesetService.detectCodeChanges(
-    targetBranch,
-    undefined,
-    sourceCodePattern,
-    testCodePattern,
-  );
-  ChangesetService.outputChangeset(changeset);
-  core.endGroup();
-  return changeset;
+  return withGroup("🕵️‍♂️ Determining changeset", async () => {
+    const changeset = await ChangesetService.detectCodeChanges(
+      targetBranch,
+      undefined,
+      sourceCodePattern,
+      testCodePattern,
+    );
+    ChangesetService.outputChangeset(changeset);
+    return changeset;
+  });
 }
 
 export async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
-  core.startGroup("📊 Parsing LCOV report");
+  return withGroup("📊 Parsing LCOV report", async () => {
+    core.info(`📂 Reading LCOV file: ${lcovFile}`);
 
-  core.info(`📂 Reading LCOV file: ${lcovFile}`);
+    const report = LcovParser.parseFile(lcovFile);
 
-  const report = LcovParser.parseFile(lcovFile);
+    core.info(`✅ Parsed ${report.summary.totalFiles} files from LCOV report`);
+    core.info(
+      `📈 Overall coverage: ${report.summary.linesHit}/${report.summary.linesFound} lines, ${report.summary.functionsHit}/${report.summary.functionsFound} functions`,
+    );
 
-  core.info(`✅ Parsed ${report.summary.totalFiles} files from LCOV report`);
-  core.info(
-    `📈 Overall coverage: ${report.summary.linesHit}/${report.summary.linesFound} lines, ${report.summary.functionsHit}/${report.summary.functionsFound} functions`,
-  );
-
-  core.endGroup();
-  return report;
+    return report;
+  });
 }
 
 export async function analyzeCoverageAndGating(
@@ -52,26 +69,29 @@ export async function analyzeCoverageAndGating(
   lcovReport: LcovReport,
   threshold: number,
 ): Promise<{ analysis: CoverageAnalysis; gatingResult: GatingResult }> {
-  core.startGroup("🔍 Analyzing coverage for changed files");
+  return withGroup("🔍 Analyzing coverage for changed files", async () => {
+    const analysis = CoverageAnalyzer.analyze(changeset, lcovReport);
 
-  const analysis = CoverageAnalyzer.analyze(changeset, lcovReport);
+    core.info(CoverageAnalyzer.format(analysis));
 
-  core.info(CoverageAnalyzer.format(analysis));
+    const gatingResult = CoverageGating.evaluate(
+      analysis,
+      lcovReport,
+      threshold,
+    );
 
-  const gatingResult = CoverageGating.evaluate(analysis, lcovReport, threshold);
+    core.info(CoverageGating.format(gatingResult));
 
-  core.info(CoverageGating.format(gatingResult));
+    core.setOutput(
+      "coverage-percentage",
+      analysis.summary.overallCoverage.overallCoveragePercentage,
+    );
+    core.setOutput("meets-threshold", gatingResult.meetsThreshold);
+    core.setOutput("files-analyzed", analysis.summary.totalChangedFiles);
+    core.setOutput("files-with-coverage", analysis.summary.filesWithCoverage);
 
-  core.setOutput(
-    "coverage-percentage",
-    analysis.summary.overallCoverage.overallCoveragePercentage,
-  );
-  core.setOutput("meets-threshold", gatingResult.meetsThreshold);
-  core.setOutput("files-analyzed", analysis.summary.totalChangedFiles);
-  core.setOutput("files-with-coverage", analysis.summary.filesWithCoverage);
-
-  core.endGroup();
-  return { analysis, gatingResult };
+    return { analysis, gatingResult };
+  });
 }
 
 export function buildTreemapSubtitle(): string {
@@ -90,45 +110,45 @@ export async function generateAndUploadTreemap(
   analysis: CoverageAnalysis,
   title?: string,
 ): Promise<ArtifactInfo | null> {
-  core.startGroup("🗺️ Generating coverage treemap");
+  return withGroup("🗺️ Generating coverage treemap", async () => {
+    try {
+      const filesWithCoverage = analysis.changedFiles.filter((f) => f.coverage);
+      if (filesWithCoverage.length === 0) {
+        core.info(
+          "⏭️ Skipping treemap generation - no files with coverage data",
+        );
+        return null;
+      }
 
-  try {
-    const filesWithCoverage = analysis.changedFiles.filter((f) => f.coverage);
-    if (filesWithCoverage.length === 0) {
-      core.info("⏭️ Skipping treemap generation - no files with coverage data");
+      core.info("🎨 Generating treemap visualization...");
+      const treemapPath = await TreemapGenerator.generatePNG(analysis, {
+        width: 1200,
+        height: 800,
+        outputPath: TREEMAP_OUTPUT_PATH,
+        title: title || "Coverage Treemap",
+        subtitle: buildTreemapSubtitle(),
+      });
+      core.info(`✅ Treemap generated: ${treemapPath}`);
+
+      const artifactService = new ArtifactService();
+      const artifactName = artifactService.generateTreemapArtifactName();
+
+      core.info("📤 Uploading treemap as artifact...");
+      const artifactInfo = await artifactService.uploadArtifact(
+        artifactName,
+        treemapPath,
+        ARTIFACT_RETENTION_DAYS,
+      );
+
+      await artifactService.cleanupTempFiles([treemapPath]);
+
+      core.info("✅ Treemap uploaded successfully");
+      return artifactInfo;
+    } catch (error) {
+      core.warning(`Failed to generate treemap: ${toErrorMessage(error)}`);
       return null;
     }
-
-    core.info("🎨 Generating treemap visualization...");
-    const treemapPath = await TreemapGenerator.generatePNG(analysis, {
-      width: 1200,
-      height: 800,
-      outputPath: TREEMAP_OUTPUT_PATH,
-      title: title || "Coverage Treemap",
-      subtitle: buildTreemapSubtitle(),
-    });
-    core.info(`✅ Treemap generated: ${treemapPath}`);
-
-    const artifactService = new ArtifactService();
-    const artifactName = artifactService.generateTreemapArtifactName();
-
-    core.info("📤 Uploading treemap as artifact...");
-    const artifactInfo = await artifactService.uploadArtifact(
-      artifactName,
-      treemapPath,
-      ARTIFACT_RETENTION_DAYS,
-    );
-
-    await artifactService.cleanupTempFiles([treemapPath]);
-
-    core.info("✅ Treemap uploaded successfully");
-    return artifactInfo;
-  } catch (error) {
-    core.warning(`Failed to generate treemap: ${toErrorMessage(error)}`);
-    return null;
-  } finally {
-    core.endGroup();
-  }
+  });
 }
 
 export async function postPrComment(
@@ -139,35 +159,33 @@ export async function postPrComment(
   label?: string,
   treemapArtifact?: ArtifactInfo,
 ): Promise<string | null> {
-  core.startGroup("💬 Posting PR comment");
+  return withGroup("💬 Posting PR comment", async () => {
+    try {
+      const commentService = new PrCommentService({
+        githubToken,
+        label,
+      });
 
-  try {
-    const commentService = new PrCommentService({
-      githubToken,
-      label,
-    });
+      const commentUrl = await commentService.postComment(
+        analysis,
+        lcovReport,
+        gatingResult,
+        treemapArtifact,
+      );
 
-    const commentUrl = await commentService.postComment(
-      analysis,
-      lcovReport,
-      gatingResult,
-      treemapArtifact,
-    );
-
-    core.info("✅ PR comment posted successfully");
-    if (commentUrl) {
-      core.info(`💬 View PR comment: ${commentUrl}`);
+      core.info("✅ PR comment posted successfully");
+      if (commentUrl) {
+        core.info(`💬 View PR comment: ${commentUrl}`);
+      }
+      return commentUrl;
+    } catch (error) {
+      core.warning(`Failed to post PR comment: ${toErrorMessage(error)}`);
+      core.info(
+        "🔍 This might be because the action is not running in a PR context or lacks permissions",
+      );
+      return null;
     }
-    return commentUrl;
-  } catch (error) {
-    core.warning(`Failed to post PR comment: ${toErrorMessage(error)}`);
-    core.info(
-      "🔍 This might be because the action is not running in a PR context or lacks permissions",
-    );
-    return null;
-  } finally {
-    core.endGroup();
-  }
+  });
 }
 
 export async function postCheckAnnotations(
@@ -187,51 +205,53 @@ export async function postCheckAnnotations(
     return;
   }
 
-  core.startGroup("📝 Posting check annotations");
+  return withGroup("📝 Posting check annotations", async () => {
+    try {
+      const checksService = new ChecksService({
+        githubAppId: githubAppId!,
+        githubAppPrivateKey: githubAppPrivateKey!,
+        githubToken,
+        coverageThreshold,
+        label,
+      });
 
-  try {
-    const checksService = new ChecksService({
-      githubAppId: githubAppId!,
-      githubAppPrivateKey: githubAppPrivateKey!,
-      githubToken,
-      coverageThreshold,
-      label,
-    });
+      const annotations = checksService.generateAnnotations(analysis);
 
-    const annotations = checksService.generateAnnotations(analysis);
+      if (annotations.length === 0) {
+        core.info("ℹ️ No annotations to post - all files have good coverage");
+        return;
+      }
 
-    if (annotations.length === 0) {
-      core.info("ℹ️ No annotations to post - all files have good coverage");
-      return;
+      const annotationsPath =
+        await checksService.createAnnotationsArtifact(annotations);
+
+      const artifactService = new ArtifactService();
+      const artifactName = `coverage-annotations-${Date.now()}`;
+      await artifactService.uploadArtifact(
+        artifactName,
+        annotationsPath,
+        ARTIFACT_RETENTION_DAYS,
+      );
+
+      await checksService.postAnnotations(
+        analysis,
+        gatingResult,
+        annotations,
+        prCommentUrl,
+      );
+
+      await artifactService.cleanupTempFiles([annotationsPath]);
+
+      core.info(
+        `✅ Posted ${annotations.length} check annotations successfully`,
+      );
+    } catch (error) {
+      core.warning(
+        `Failed to post check annotations: ${toErrorMessage(error)}`,
+      );
+      core.info(
+        "🔍 This might be because the action lacks permissions for the Checks API or GitHub App is not properly configured",
+      );
     }
-
-    const annotationsPath =
-      await checksService.createAnnotationsArtifact(annotations);
-
-    const artifactService = new ArtifactService();
-    const artifactName = `coverage-annotations-${Date.now()}`;
-    await artifactService.uploadArtifact(
-      artifactName,
-      annotationsPath,
-      ARTIFACT_RETENTION_DAYS,
-    );
-
-    await checksService.postAnnotations(
-      analysis,
-      gatingResult,
-      annotations,
-      prCommentUrl,
-    );
-
-    await artifactService.cleanupTempFiles([annotationsPath]);
-
-    core.info(`✅ Posted ${annotations.length} check annotations successfully`);
-  } catch (error) {
-    core.warning(`Failed to post check annotations: ${toErrorMessage(error)}`);
-    core.info(
-      "🔍 This might be because the action lacks permissions for the Checks API or GitHub App is not properly configured",
-    );
-  } finally {
-    core.endGroup();
-  }
+  });
 }
