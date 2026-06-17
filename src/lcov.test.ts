@@ -319,9 +319,6 @@ end_of_record`;
   // tests use a representative real-world report shape so that regressing
   // FNL/FNA support — or breaking C++ template name handling — fails loudly.
   describe("LCOV 2.x regression", () => {
-    // Mirrors the structure of a real merged C++ report: FNF/FNH summary noise,
-    // several files, FNL/FNA with multiple aliases sharing one location index,
-    // demangled C++ template names containing commas, and operator names.
     const REAL_WORLD_LCOV_2X = `TN:
 SF:src/talos_framework/logger/log_message.cpp
 FNF:2
@@ -365,7 +362,6 @@ end_of_record`;
     it("extracts every function with its name, line and hit count", () => {
       const report = LcovParser.parse(REAL_WORLD_LCOV_2X);
 
-      // 2 + 3 (two aliases at index 0) + 1 = 6 functions across 3 files.
       expect(report.summary.totalFiles).toBe(3);
       expect(report.summary.functionsFound).toBe(6);
       expect(report.summary.functionsHit).toBe(5);
@@ -381,7 +377,6 @@ end_of_record`;
       expect(templated.name).toBe(
         "talos::LogMessage::LogMessage(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)",
       );
-      // The FNA line is taken from the matching FNL location, never 0.
       expect(templated.line).toBe(18);
       expect(templated.hit).toBe(6335);
     });
@@ -412,9 +407,6 @@ end_of_record`;
     });
 
     it("never truncates a function name (no unbalanced parentheses)", () => {
-      // A truncated name — the failure mode of a naive comma split — would cut
-      // a signature mid-argument and leave unbalanced parentheses. Guard the
-      // whole report against that class of regression.
       const report = LcovParser.parse(REAL_WORLD_LCOV_2X);
 
       for (const file of report.files.values()) {
@@ -422,14 +414,12 @@ end_of_record`;
           const open = (fn.name.match(/\(/g) ?? []).length;
           const close = (fn.name.match(/\)/g) ?? []).length;
           expect(open).toBe(close);
-          // FNA lines are always resolved from their FNL location.
           expect(fn.line).toBeGreaterThan(0);
         }
       }
     });
 
     it("still parses the legacy FN/FNDA format alongside 2.x support", () => {
-      // Locks legacy support so the dispatch table cannot silently drop it.
       const legacy = `TN:
 SF:src/legacy.ts
 FN:5,legacyFunction
@@ -446,8 +436,6 @@ end_of_record`;
     });
 
     it("ignores coverage records that appear before any SF record", () => {
-      // Defensive: a malformed report whose data records precede the first
-      // SF must not throw and must produce no files.
       const orphaned = `TN:
 FNL:0,1,2
 FNA:0,1,orphan
