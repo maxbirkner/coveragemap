@@ -142,6 +142,62 @@ describe("TreemapGenerator", () => {
     });
   });
 
+  describe("wrapText", () => {
+    const PIXELS_PER_CHAR = 7;
+
+    it("returns the text unchanged when it already fits", () => {
+      expect(TreemapGenerator.wrapText("doWork", 200, 2)).toEqual(["doWork"]);
+    });
+
+    it("wraps a long camelCase name onto multiple lines that each fit", () => {
+      const maxWidth = 70; // ~10 characters per line
+      const lines = TreemapGenerator.wrapText(
+        "handleUserAuthentication",
+        maxWidth,
+        3,
+      );
+
+      expect(lines.length).toBeGreaterThan(1);
+      for (const line of lines) {
+        expect(line.length).toBeLessThanOrEqual(
+          Math.floor(maxWidth / PIXELS_PER_CHAR),
+        );
+      }
+      // The whole name is preserved across the lines (no characters dropped).
+      expect(lines.join("")).toBe("handleUserAuthentication");
+    });
+
+    it("breaks file paths on separators", () => {
+      const lines = TreemapGenerator.wrapText(
+        "src/deep/nested/widget.ts",
+        70,
+        4,
+      );
+
+      expect(lines.length).toBeGreaterThan(1);
+      expect(lines.join("")).toBe("src/deep/nested/widget.ts");
+    });
+
+    it("hard-splits unbreakable tokens with no natural boundaries", () => {
+      const maxWidth = 70; // 10 characters per line
+      const lines = TreemapGenerator.wrapText("a".repeat(25), maxWidth, 5);
+
+      for (const line of lines) {
+        expect(line.length).toBeLessThanOrEqual(10);
+      }
+      expect(lines.join("")).toBe("a".repeat(25));
+    });
+
+    it("ends the final line with an ellipsis once the content exceeds maxLines", () => {
+      const lines = TreemapGenerator.wrapText("a".repeat(60), 70, 2);
+
+      expect(lines).toHaveLength(2);
+      expect(lines[1].endsWith("...")).toBe(true);
+      // The cut-off line never exceeds the available width.
+      expect(lines[1].length).toBeLessThanOrEqual(10);
+    });
+  });
+
   describe("generateTreemapData", () => {
     it("should generate treemap data for files with coverage", () => {
       const mockAnalysis: CoverageAnalysis = {

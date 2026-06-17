@@ -183,4 +183,135 @@ describe("TreemapGenerator rendering", () => {
       expect.any(Buffer),
     );
   });
+
+  it("grows the canvas so small tiles clear a minimum readable size", async () => {
+    // Many single-line functions would each render below the readable minimum
+    // at the default 1200x800 canvas, so the generator should scale the whole
+    // image up uniformly.
+    const functions = Array.from({ length: 160 }, (_, i) => ({
+      name: `fn${i}`,
+      line: i + 1,
+      hit: i % 2,
+    }));
+    const lines = Array.from({ length: 160 }, (_, i) => ({
+      line: i + 1,
+      hit: i % 2,
+    }));
+
+    const analysis: CoverageAnalysis = {
+      changeset: {
+        baseCommit: "abc123",
+        headCommit: "def456",
+        targetBranch: "main",
+        files: [],
+        totalFiles: 1,
+      },
+      changedFiles: [fileWithFunctions("src/many.ts", functions, lines)],
+      summary: {
+        totalChangedFiles: 1,
+        filesWithCoverage: 1,
+        filesWithoutCoverage: 0,
+        overallCoverage: {
+          totalLines: 160,
+          coveredLines: 80,
+          totalFunctions: 160,
+          coveredFunctions: 80,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 50,
+          functionsCoveragePercentage: 50,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 50,
+        },
+      },
+    };
+
+    await TreemapGenerator.generatePNG(analysis, {
+      title: "Coverage Treemap",
+      outputPath: "./out.png",
+      width: 1200,
+      height: 800,
+    });
+
+    const svg = mockedRasterise.mock.calls[0][0];
+    const width = Number(/<svg[^>]*\bwidth="(\d+)"/.exec(svg)?.[1]);
+    const height = Number(/<svg[^>]*\bheight="(\d+)"/.exec(svg)?.[1]);
+
+    // The canvas grew past the requested size to give every tile room.
+    expect(width).toBeGreaterThan(1200);
+    expect(height).toBeGreaterThan(800);
+
+    // Every drawn tile clears the minimum tile width. Scope the search to the
+    // leaves layer so legend swatches and group outlines are excluded.
+    const leavesLayer = /<g class="leaves">([\s\S]*)<\/g><\/svg>/.exec(
+      svg,
+    )?.[1];
+    expect(leavesLayer).toBeDefined();
+    const tileWidths = Array.from(
+      (leavesLayer as string).matchAll(/<rect[^>]*\bwidth="([\d.]+)"/g),
+      (match) => Number(match[1]),
+    );
+    const smallestTile = Math.min(...tileWidths);
+    expect(smallestTile).toBeGreaterThanOrEqual(90);
+  });
+
+  it("wraps long function names instead of clipping them off", async () => {
+    const longName =
+      "renderTheEntireUserAuthenticationAndAuthorizationWorkflowForEnterpriseCustomers";
+
+    const analysis: CoverageAnalysis = {
+      changeset: {
+        baseCommit: "abc123",
+        headCommit: "def456",
+        targetBranch: "main",
+        files: [],
+        totalFiles: 1,
+      },
+      changedFiles: [
+        fileWithFunctions(
+          "src/wrap.ts",
+          // Sixteen equal-sized functions keep every tile narrow enough that
+          // the long name cannot fit on one line.
+          Array.from({ length: 16 }, (_, i) => ({
+            name: i === 0 ? longName : `helper${i}`,
+            line: i + 1,
+            hit: i % 2,
+          })),
+          Array.from({ length: 16 }, (_, i) => ({
+            line: i + 1,
+            hit: i % 2,
+          })),
+        ),
+      ],
+      summary: {
+        totalChangedFiles: 1,
+        filesWithCoverage: 1,
+        filesWithoutCoverage: 0,
+        overallCoverage: {
+          totalLines: 16,
+          coveredLines: 8,
+          totalFunctions: 16,
+          coveredFunctions: 8,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 50,
+          functionsCoveragePercentage: 50,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 50,
+        },
+      },
+    };
+
+    await TreemapGenerator.generatePNG(analysis, {
+      title: "Coverage Treemap",
+      outputPath: "./out.png",
+    });
+
+    const svg = mockedRasterise.mock.calls[0][0];
+
+    // The name is too long for a single tile line, so it is never drawn whole.
+    expect(svg).not.toContain(longName);
+    // But it is not dropped either: an early fragment is still rendered.
+    expect(svg).toContain("render");
+  });
 });

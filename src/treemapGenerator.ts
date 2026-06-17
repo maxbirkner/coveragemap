@@ -68,6 +68,25 @@ export class TreemapGenerator {
   private static readonly MIN_FUNCTION_SIZE_ESTIMATE = 10;
   private static readonly DEFAULT_FUNCTION_LINE_COUNT = 10;
 
+  // Smallest tile the layout is allowed to produce. When the proportional
+  // treemap would draw a tile below these bounds, the whole canvas is scaled
+  // up uniformly so every label has room to breathe. Readers can zoom into the
+  // larger image rather than squint at unreadable thumbnails.
+  private static readonly MIN_TILE_WIDTH = 96;
+  private static readonly MIN_TILE_HEIGHT = 56;
+
+  // Upper bound for the auto-grown canvas. Past this point we accept that some
+  // tiles stay small ("too much to render") instead of emitting an enormous
+  // image that no viewer can open.
+  private static readonly MAX_CANVAS_WIDTH = 5000;
+  private static readonly MAX_CANVAS_HEIGHT = 4000;
+
+  // Line heights used when stacking wrapped labels inside a tile.
+  private static readonly TILE_NAME_LINE_HEIGHT = 14;
+  private static readonly TILE_PERCENT_HEIGHT = 24;
+  private static readonly TILE_LINES_HEIGHT = 14;
+  private static readonly MAX_TILE_NAME_LINES = 2;
+
   // Vertical space reserved at the top for the title, subtitle and legend so
   // none of them overlap the coverage tiles below.
   private static readonly HEADER_HEIGHT = 70;
@@ -193,39 +212,58 @@ export class TreemapGenerator {
     // document/window patching is required.
     const { document } = parseHTML(`<!DOCTYPE html><html><body></body></html>`);
 
-    // Create SVG element
-    const svg = d3
-      .select(document.body)
-      .append("svg")
-      .attr("width", opts.width)
-      .attr("height", opts.height)
-      .attr("xmlns", "http://www.w3.org/2000/svg");
-
-    // Add background
-    svg
-      .append("rect")
-      .attr("width", opts.width)
-      .attr("height", opts.height)
-      .attr("fill", this.COLORS.background);
-
     // Create D3 treemap layout
     const root = hierarchy<TreemapData | TreemapFileGroup | TreemapNode>(data)
       .sum((d) => (d as TreemapNode).value || 0)
       .sort((a, b) => (b.value || 0) - (a.value || 0));
 
-    const treemapLayout = treemap<
-      TreemapData | TreemapFileGroup | TreemapNode
-    >()
-      .size([
-        opts.width - this.SIDE_MARGIN * 2,
-        opts.height - (this.HEADER_HEIGHT + this.BOTTOM_MARGIN),
-      ])
-      .paddingOuter(2)
-      // Reserve a header band on each file group for its path label.
-      .paddingTop((d) => (d.depth === 1 ? this.FILE_HEADER_HEIGHT : 2))
-      .paddingInner(2);
+    // Lay the tiles out for a given drawable area (excluding the title header
+    // band and the page margins). The layout mutates `root` in place.
+    const layoutInto = (innerWidth: number, innerHeight: number) => {
+      treemap<TreemapData | TreemapFileGroup | TreemapNode>()
+        .size([innerWidth, innerHeight])
+        .paddingOuter(2)
+        // Reserve a header band on each file group for its path label.
+        .paddingTop((d) => (d.depth === 1 ? this.FILE_HEADER_HEIGHT : 2))
+        .paddingInner(2)(root);
+    };
 
-    treemapLayout(root);
+    const baseInnerWidth = opts.width - this.SIDE_MARGIN * 2;
+    const baseInnerHeight =
+      opts.height - (this.HEADER_HEIGHT + this.BOTTOM_MARGIN);
+
+    // Lay out once at the requested size, then grow the canvas uniformly if the
+    // smallest tile would be too cramped to read. Scaling both dimensions by
+    // the same factor keeps the squarified layout identical, just larger.
+    layoutInto(baseInnerWidth, baseInnerHeight);
+    const scale = this.scaleForMinimumTileSize(
+      root.leaves() as HierarchyRectangularNode<
+        TreemapData | TreemapFileGroup | TreemapNode
+      >[],
+      opts.width,
+      opts.height,
+    );
+
+    const canvasWidth = Math.round(opts.width * scale);
+    const canvasHeight = Math.round(opts.height * scale);
+    if (scale > 1) {
+      layoutInto(baseInnerWidth * scale, baseInnerHeight * scale);
+    }
+
+    // Create SVG element
+    const svg = d3
+      .select(document.body)
+      .append("svg")
+      .attr("width", canvasWidth)
+      .attr("height", canvasHeight)
+      .attr("xmlns", "http://www.w3.org/2000/svg");
+
+    // Add background
+    svg
+      .append("rect")
+      .attr("width", canvasWidth)
+      .attr("height", canvasHeight)
+      .attr("fill", this.COLORS.background);
 
     // Draw title (left-aligned in the reserved header band)
     svg
@@ -253,7 +291,7 @@ export class TreemapGenerator {
 
     // Draw the legend on the same line as the title, aligned to the right
     // edge. It lives in the reserved header band so it never overlaps tiles.
-    this.drawSVGLegend(svg, opts.width - this.SIDE_MARGIN, 35);
+    this.drawSVGLegend(svg, canvasWidth - this.SIDE_MARGIN, 35);
 
     // Draw a labelled box around each file's functions. The file path lives on
     // this header once, so the function tiles below only show the function
@@ -348,59 +386,11 @@ export class TreemapGenerator {
         .attr("stroke-width", 1);
 
       // Draw "ticker style" labels when the tile is large enough: the function
-      // name sits at the top like a ticker symbol, with the coverage
-      // percentage as the headline figure in the middle and the line count
-      // beneath it. The file path is already on the group header above.
-      if (width > 80 && height > 30) {
-        const textGroup = nodeGroup.append("g");
-        const centerX = x + width / 2;
-        const ticker = this.formatTickerLines(node);
-
-        let topOffset = 0;
-        if (ticker.name) {
-          topOffset = 16;
-          // Function name pinned to the top.
-          textGroup
-            .append("text")
-            .attr("x", centerX)
-            .attr("y", y + topOffset)
-            .attr("text-anchor", "middle")
-            .attr("font-family", "Arial, sans-serif")
-            .attr("font-size", "12px")
-            .attr("font-weight", "bold")
-            .attr("fill", this.COLORS.text)
-            .text(this.truncateText(ticker.name, width - 10));
-        }
-
-        if (height > 50) {
-          const centerY = y + height / 2;
-
-          // Headline percentage, centred like a ticker quote.
-          textGroup
-            .append("text")
-            .attr("x", centerX)
-            .attr("y", centerY + 4)
-            .attr("text-anchor", "middle")
-            .attr("font-family", "Arial, sans-serif")
-            .attr("font-size", "22px")
-            .attr("font-weight", "bold")
-            .attr("fill", this.COLORS.text)
-            .text(ticker.percent);
-
-          if (height > 70) {
-            // Covered/total line count just below the headline figure.
-            textGroup
-              .append("text")
-              .attr("x", centerX)
-              .attr("y", centerY + 22)
-              .attr("text-anchor", "middle")
-              .attr("font-family", "Arial, sans-serif")
-              .attr("font-size", "11px")
-              .attr("fill", this.COLORS.text)
-              .text(this.truncateText(ticker.lines, width - 10));
-          }
-        }
-      }
+      // name sits on top like a ticker symbol, the coverage percentage is the
+      // headline figure, and the line count sits beneath it. Long names wrap
+      // onto multiple lines instead of being clipped. The file path is already
+      // on the group header above.
+      this.drawTileLabels(nodeGroup, node, x, y, width, height);
     }
 
     // Convert SVG to string
@@ -476,6 +466,204 @@ export class TreemapGenerator {
    */
   static colorForCoverage(coverage: TreemapNode["coverage"]): string {
     return this.COLORS[coverage] ?? this.COLORS.none;
+  }
+
+  /**
+   * Determine how much the canvas must grow so the smallest tile clears the
+   * minimum readable size. Both dimensions are scaled by the same factor, which
+   * keeps the squarified layout identical while enlarging every tile. The
+   * factor is capped so pathological inputs cannot produce an unopenable image.
+   */
+  private static scaleForMinimumTileSize(
+    leaves: HierarchyRectangularNode<
+      TreemapData | TreemapFileGroup | TreemapNode
+    >[],
+    width: number,
+    height: number,
+  ): number {
+    let scale = 1;
+    for (const leaf of leaves) {
+      if (
+        leaf.x0 === undefined ||
+        leaf.y0 === undefined ||
+        leaf.x1 === undefined ||
+        leaf.y1 === undefined
+      )
+        continue;
+
+      const tileWidth = leaf.x1 - leaf.x0;
+      const tileHeight = leaf.y1 - leaf.y0;
+      if (tileWidth <= 0 || tileHeight <= 0) continue;
+
+      scale = Math.max(
+        scale,
+        this.MIN_TILE_WIDTH / tileWidth,
+        this.MIN_TILE_HEIGHT / tileHeight,
+      );
+    }
+
+    const maxScale = Math.max(
+      1,
+      Math.min(this.MAX_CANVAS_WIDTH / width, this.MAX_CANVAS_HEIGHT / height),
+    );
+    return Math.min(scale, maxScale);
+  }
+
+  /**
+   * Draw the centred "ticker style" labels inside a tile: the (wrapped)
+   * function name, the headline coverage percentage and the covered/total line
+   * count. Rows are revealed progressively so a short tile still shows its
+   * headline figure, and the whole stack is vertically centred.
+   */
+  private static drawTileLabels(
+    parent: d3.Selection<SVGGElement, unknown, null, undefined>,
+    node: TreemapNode,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): void {
+    // Below this the tile cannot host even a single readable figure.
+    if (width < 60 || height < 28) return;
+
+    const ticker = this.formatTickerLines(node);
+    const centerX = x + width / 2;
+
+    const nameLines = ticker.name
+      ? this.wrapText(ticker.name, width - 10, this.MAX_TILE_NAME_LINES)
+      : [];
+    const nameBlock = nameLines.length * this.TILE_NAME_LINE_HEIGHT;
+
+    const showName =
+      nameLines.length > 0 &&
+      height >= nameBlock + this.TILE_PERCENT_HEIGHT + 8;
+    const showLines =
+      height >=
+      (showName ? nameBlock : 0) +
+        this.TILE_PERCENT_HEIGHT +
+        this.TILE_LINES_HEIGHT +
+        8;
+
+    let stackHeight = this.TILE_PERCENT_HEIGHT;
+    if (showName) stackHeight += nameBlock;
+    if (showLines) stackHeight += this.TILE_LINES_HEIGHT;
+
+    const textGroup = parent.append("g");
+    const drawRow = (
+      text: string,
+      baselineY: number,
+      fontSize: number,
+      bold: boolean,
+    ): void => {
+      const element = textGroup
+        .append("text")
+        .attr("x", centerX)
+        .attr("y", baselineY)
+        .attr("text-anchor", "middle")
+        .attr("font-family", "Arial, sans-serif")
+        .attr("font-size", `${fontSize}px`)
+        .attr("fill", this.COLORS.text);
+      if (bold) element.attr("font-weight", "bold");
+      element.text(text);
+    };
+
+    let top = y + (height - stackHeight) / 2;
+
+    if (showName) {
+      nameLines.forEach((line, index) => {
+        drawRow(line, top + index * this.TILE_NAME_LINE_HEIGHT + 11, 12, true);
+      });
+      top += nameBlock;
+    }
+
+    drawRow(ticker.percent, top + 18, 22, true);
+    top += this.TILE_PERCENT_HEIGHT;
+
+    if (showLines) {
+      drawRow(ticker.lines, top + 11, 11, false);
+    }
+  }
+
+  /**
+   * Wrap text onto at most `maxLines` lines, each fitting within `maxWidth`.
+   * Breaks prefer natural boundaries (path separators, dots, camelCase) and
+   * fall back to hard character splits for unbreakable tokens. When the content
+   * still overflows `maxLines`, the final line ends with an ellipsis — this is
+   * the "too much text to render" cut-off.
+   */
+  static wrapText(text: string, maxWidth: number, maxLines: number): string[] {
+    const maxChars = Math.max(1, Math.floor(maxWidth / this.PIXELS_PER_CHAR));
+    if (text.length <= maxChars) return [text];
+
+    const segments = this.segmentText(text).flatMap((segment) =>
+      segment.length <= maxChars
+        ? [segment]
+        : this.hardSplit(segment, maxChars),
+    );
+
+    const lines: string[] = [];
+    let line = "";
+    for (const segment of segments) {
+      if (line.length > 0 && line.length + segment.length > maxChars) {
+        lines.push(line);
+        line = segment;
+      } else {
+        line += segment;
+      }
+    }
+    if (line.length > 0) lines.push(line);
+
+    if (lines.length <= maxLines) return lines;
+
+    const kept = lines.slice(0, maxLines);
+    const lastIndex = maxLines - 1;
+    const last = kept[lastIndex] ?? "";
+    const room = Math.max(0, maxChars - this.ELLIPSIS_LENGTH);
+    kept[lastIndex] =
+      (last.length > room ? last.substring(0, room) : last) + "...";
+    return kept;
+  }
+
+  /**
+   * Split text into break-friendly segments. A segment ends after a separator
+   * (`/`, `.`, `_`, `-`, space) or before a camelCase hump, so wrapping favours
+   * readable boundaries within identifiers and file paths.
+   */
+  private static segmentText(text: string): string[] {
+    const segments: string[] = [];
+    let current = "";
+    for (let index = 0; index < text.length; index++) {
+      const char = text[index] as string;
+      const next = text[index + 1];
+      current += char;
+
+      const isSeparator =
+        char === "/" ||
+        char === "." ||
+        char === "_" ||
+        char === "-" ||
+        char === " ";
+      const isCamelBoundary =
+        next !== undefined && /[a-z0-9]/.test(char) && /[A-Z]/.test(next);
+
+      if (isSeparator || isCamelBoundary) {
+        segments.push(current);
+        current = "";
+      }
+    }
+    if (current.length > 0) segments.push(current);
+    return segments;
+  }
+
+  /**
+   * Hard-split an unbreakable token into chunks of at most `maxChars`.
+   */
+  private static hardSplit(text: string, maxChars: number): string[] {
+    const chunks: string[] = [];
+    for (let index = 0; index < text.length; index += maxChars) {
+      chunks.push(text.substring(index, index + maxChars));
+    }
+    return chunks;
   }
 
   /**
