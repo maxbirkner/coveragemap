@@ -36,6 +36,14 @@ export class ChecksService {
       : "Coverage Treemap Action";
   }
 
+  private getServerUrl(): string {
+    return (
+      github.context.serverUrl ||
+      process.env.GITHUB_SERVER_URL ||
+      "https://github.com"
+    );
+  }
+
   static isEnabled(
     githubAppId?: string,
     githubAppPrivateKey?: string,
@@ -241,10 +249,7 @@ export class ChecksService {
         `📈 Coverage: ${analysis.summary.overallCoverage.overallCoveragePercentage}% (Threshold: ${this.config.coverageThreshold}%)`,
       );
 
-      const serverUrl =
-        github.context.serverUrl ||
-        process.env.GITHUB_SERVER_URL ||
-        "https://github.com";
+      const serverUrl = this.getServerUrl();
       const runId = process.env.GITHUB_RUN_ID;
       const actionsUrl = runId
         ? `${serverUrl}/${owner}/${repo}/actions/runs/${runId}`
@@ -308,10 +313,7 @@ export class ChecksService {
       lines.push("", "### ⚠️ Files Without Coverage");
       const { owner, repo } = github.context.repo;
       const headSha = github.context.payload.pull_request?.head.sha;
-      const serverUrl =
-        github.context.serverUrl ||
-        process.env.GITHUB_SERVER_URL ||
-        "https://github.com";
+      const serverUrl = this.getServerUrl();
 
       analysis.changedFiles
         .filter((f) => !f.coverage)
