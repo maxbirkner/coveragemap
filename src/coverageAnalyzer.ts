@@ -1,5 +1,10 @@
 import { Changeset, FileChange } from "./changeset";
-import { LcovReport, FileCoverage, FunctionCoverage } from "./lcov";
+import {
+  LcovReport,
+  FileCoverage,
+  FunctionCoverage,
+  CoverageCounts,
+} from "./lcov";
 
 export interface FileChangeWithCoverage extends FileChange {
   coverage?: FileCoverage;
@@ -48,6 +53,36 @@ export class CoverageAnalyzer {
   // as 0% in the totals — is misleading. We normalize them to empty coverage.
   private static readonly EMPTY_REPORT_FUNCTION_NAME = "(empty-report)";
 
+  // Distinct from calculateFileAnalysis's 100% for empty-but-coverable
+  // metrics: a file with no coverage data at all reports 0% across the board.
+  private static readonly EMPTY_FILE_ANALYSIS: FileChangeWithCoverage["analysis"] =
+    {
+      totalLines: 0,
+      coveredLines: 0,
+      totalFunctions: 0,
+      coveredFunctions: 0,
+      totalBranches: 0,
+      coveredBranches: 0,
+      linesCoveragePercentage: 0,
+      functionsCoveragePercentage: 0,
+      branchesCoveragePercentage: 0,
+      overallCoveragePercentage: 0,
+    };
+
+  private static percentage(hit: number, found: number): number {
+    return found > 0 ? (hit / found) * 100 : 100;
+  }
+
+  private static round2(value: number): number {
+    return Math.round(value * 100) / 100;
+  }
+
+  private static withCoverage(
+    file: FileChangeWithCoverage,
+  ): file is FileChangeWithCoverage & { coverage: FileCoverage } {
+    return !!file.coverage;
+  }
+
   /**
    * Analyze coverage for the changed files in a changeset
    */
@@ -72,18 +107,7 @@ export class CoverageAnalyzer {
           // File has no coverage data (e.g., not instrumented or no tests)
           return {
             ...fileChange,
-            analysis: {
-              totalLines: 0,
-              coveredLines: 0,
-              totalFunctions: 0,
-              coveredFunctions: 0,
-              totalBranches: 0,
-              coveredBranches: 0,
-              linesCoveragePercentage: 0,
-              functionsCoveragePercentage: 0,
-              branchesCoveragePercentage: 0,
-              overallCoveragePercentage: 0,
-            },
+            analysis: { ...this.EMPTY_FILE_ANALYSIS },
           };
         }
       },
@@ -128,50 +152,44 @@ export class CoverageAnalyzer {
   }
 
   /**
+   * Build a rounded analysis object from aggregate found/hit counts. Overall
+   * coverage is the weighted average across all lines, functions and branches.
+   */
+  private static analysisFromCounts(
+    counts: CoverageCounts,
+  ): FileChangeWithCoverage["analysis"] {
+    const totalElements =
+      counts.linesFound + counts.functionsFound + counts.branchesFound;
+    const coveredElements =
+      counts.linesHit + counts.functionsHit + counts.branchesHit;
+
+    return {
+      totalLines: counts.linesFound,
+      coveredLines: counts.linesHit,
+      totalFunctions: counts.functionsFound,
+      coveredFunctions: counts.functionsHit,
+      totalBranches: counts.branchesFound,
+      coveredBranches: counts.branchesHit,
+      linesCoveragePercentage: this.round2(
+        this.percentage(counts.linesHit, counts.linesFound),
+      ),
+      functionsCoveragePercentage: this.round2(
+        this.percentage(counts.functionsHit, counts.functionsFound),
+      ),
+      branchesCoveragePercentage: this.round2(
+        this.percentage(counts.branchesHit, counts.branchesFound),
+      ),
+      overallCoveragePercentage: this.round2(
+        this.percentage(coveredElements, totalElements),
+      ),
+    };
+  }
+
+  /**
    * Calculate coverage analysis for a single file
    */
   private static calculateFileAnalysis(coverage: FileCoverage) {
-    const { summary } = coverage;
-
-    const linesCoveragePercentage =
-      summary.linesFound > 0
-        ? (summary.linesHit / summary.linesFound) * 100
-        : 100;
-
-    const functionsCoveragePercentage =
-      summary.functionsFound > 0
-        ? (summary.functionsHit / summary.functionsFound) * 100
-        : 100;
-
-    const branchesCoveragePercentage =
-      summary.branchesFound > 0
-        ? (summary.branchesHit / summary.branchesFound) * 100
-        : 100;
-
-    // Calculate overall coverage as weighted average
-    const totalElements =
-      summary.linesFound + summary.functionsFound + summary.branchesFound;
-    const coveredElements =
-      summary.linesHit + summary.functionsHit + summary.branchesHit;
-
-    const overallCoveragePercentage =
-      totalElements > 0 ? (coveredElements / totalElements) * 100 : 100;
-
-    return {
-      totalLines: summary.linesFound,
-      coveredLines: summary.linesHit,
-      totalFunctions: summary.functionsFound,
-      coveredFunctions: summary.functionsHit,
-      totalBranches: summary.branchesFound,
-      coveredBranches: summary.branchesHit,
-      linesCoveragePercentage: Math.round(linesCoveragePercentage * 100) / 100,
-      functionsCoveragePercentage:
-        Math.round(functionsCoveragePercentage * 100) / 100,
-      branchesCoveragePercentage:
-        Math.round(branchesCoveragePercentage * 100) / 100,
-      overallCoveragePercentage:
-        Math.round(overallCoveragePercentage * 100) / 100,
-    };
+    return this.analysisFromCounts(coverage.summary);
   }
 
   /**
@@ -181,58 +199,29 @@ export class CoverageAnalyzer {
     const filesWithCoverage = changedFiles.filter((f) => f.coverage).length;
     const filesWithoutCoverage = changedFiles.length - filesWithCoverage;
 
-    // Aggregate coverage data
-    let totalLines = 0;
-    let coveredLines = 0;
-    let totalFunctions = 0;
-    let coveredFunctions = 0;
-    let totalBranches = 0;
-    let coveredBranches = 0;
+    const aggregate: CoverageCounts = {
+      linesFound: 0,
+      linesHit: 0,
+      functionsFound: 0,
+      functionsHit: 0,
+      branchesFound: 0,
+      branchesHit: 0,
+    };
 
     for (const file of changedFiles) {
-      totalLines += file.analysis.totalLines;
-      coveredLines += file.analysis.coveredLines;
-      totalFunctions += file.analysis.totalFunctions;
-      coveredFunctions += file.analysis.coveredFunctions;
-      totalBranches += file.analysis.totalBranches;
-      coveredBranches += file.analysis.coveredBranches;
+      aggregate.linesFound += file.analysis.totalLines;
+      aggregate.linesHit += file.analysis.coveredLines;
+      aggregate.functionsFound += file.analysis.totalFunctions;
+      aggregate.functionsHit += file.analysis.coveredFunctions;
+      aggregate.branchesFound += file.analysis.totalBranches;
+      aggregate.branchesHit += file.analysis.coveredBranches;
     }
-
-    const linesCoveragePercentage =
-      totalLines > 0 ? (coveredLines / totalLines) * 100 : 100;
-
-    const functionsCoveragePercentage =
-      totalFunctions > 0 ? (coveredFunctions / totalFunctions) * 100 : 100;
-
-    const branchesCoveragePercentage =
-      totalBranches > 0 ? (coveredBranches / totalBranches) * 100 : 100;
-
-    const totalElements = totalLines + totalFunctions + totalBranches;
-    const coveredElements = coveredLines + coveredFunctions + coveredBranches;
-
-    const overallCoveragePercentage =
-      totalElements > 0 ? (coveredElements / totalElements) * 100 : 100;
 
     return {
       totalChangedFiles: changedFiles.length,
       filesWithCoverage,
       filesWithoutCoverage,
-      overallCoverage: {
-        totalLines,
-        coveredLines,
-        totalFunctions,
-        coveredFunctions,
-        totalBranches,
-        coveredBranches,
-        linesCoveragePercentage:
-          Math.round(linesCoveragePercentage * 100) / 100,
-        functionsCoveragePercentage:
-          Math.round(functionsCoveragePercentage * 100) / 100,
-        branchesCoveragePercentage:
-          Math.round(branchesCoveragePercentage * 100) / 100,
-        overallCoveragePercentage:
-          Math.round(overallCoveragePercentage * 100) / 100,
-      },
+      overallCoverage: this.analysisFromCounts(aggregate),
     };
   }
 
@@ -244,10 +233,7 @@ export class CoverageAnalyzer {
     functions: FunctionCoverage[];
   }> {
     return analysis.changedFiles
-      .filter(
-        (file): file is FileChangeWithCoverage & { coverage: FileCoverage } =>
-          !!file.coverage,
-      )
+      .filter(this.withCoverage)
       .map((file) => ({
         file: file.path,
         functions: file.coverage.functions.filter((fn) => fn.hit === 0),
@@ -263,10 +249,7 @@ export class CoverageAnalyzer {
     lines: number[];
   }> {
     return analysis.changedFiles
-      .filter(
-        (file): file is FileChangeWithCoverage & { coverage: FileCoverage } =>
-          !!file.coverage,
-      )
+      .filter(this.withCoverage)
       .map((file) => ({
         file: file.path,
         lines: file.coverage.lines

@@ -27,42 +27,34 @@ export class CoverageGating {
           )
         : 100;
 
-    if (threshold === 0) {
-      // Project baseline mode
-      const meetsThreshold =
-        prCoveragePercentage >= overallProjectCoveragePercentage;
+    // When threshold is 0 we gate against the project's own coverage
+    // (baseline mode); otherwise against the explicit threshold.
+    const isBaseline = threshold === 0;
+    const requiredCoverage = isBaseline
+      ? overallProjectCoveragePercentage
+      : threshold;
+    const meetsThreshold = prCoveragePercentage >= requiredCoverage;
 
-      return {
-        meetsThreshold,
-        threshold,
-        mode: "baseline",
-        prCoveragePercentage,
-        overallProjectCoveragePercentage,
-        description: meetsThreshold
-          ? `✅ PR coverage (${prCoveragePercentage}%) meets or exceeds overall project coverage (${overallProjectCoveragePercentage}%)`
-          : `❌ PR coverage (${prCoveragePercentage}%) is below overall project coverage (${overallProjectCoveragePercentage}%)`,
-        errorMessage: meetsThreshold
-          ? undefined
-          : `Coverage gating failed: PR changes coverage (${prCoveragePercentage}%) is lower than overall project coverage (${overallProjectCoveragePercentage}%)`,
-      };
-    } else {
-      // Standard threshold mode
-      const meetsThreshold = prCoveragePercentage >= threshold;
+    const target = isBaseline
+      ? `overall project coverage (${overallProjectCoveragePercentage}%)`
+      : `threshold (${threshold}%)`;
+    const failureReason = isBaseline
+      ? `is lower than overall project coverage (${overallProjectCoveragePercentage}%)`
+      : `is below threshold (${threshold}%)`;
 
-      return {
-        meetsThreshold,
-        threshold,
-        mode: "standard",
-        prCoveragePercentage,
-        overallProjectCoveragePercentage,
-        description: meetsThreshold
-          ? `✅ PR coverage (${prCoveragePercentage}%) meets or exceeds threshold (${threshold}%)`
-          : `❌ PR coverage (${prCoveragePercentage}%) is below threshold (${threshold}%)`,
-        errorMessage: meetsThreshold
-          ? undefined
-          : `Coverage gating failed: PR changes coverage (${prCoveragePercentage}%) is below threshold (${threshold}%)`,
-      };
-    }
+    return {
+      meetsThreshold,
+      threshold,
+      mode: isBaseline ? "baseline" : "standard",
+      prCoveragePercentage,
+      overallProjectCoveragePercentage,
+      description: meetsThreshold
+        ? `✅ PR coverage (${prCoveragePercentage}%) meets or exceeds ${target}`
+        : `❌ PR coverage (${prCoveragePercentage}%) is below ${target}`,
+      errorMessage: meetsThreshold
+        ? undefined
+        : `Coverage gating failed: PR changes coverage (${prCoveragePercentage}%) ${failureReason}`,
+    };
   }
 
   static format(result: GatingResult): string {
