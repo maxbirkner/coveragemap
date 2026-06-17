@@ -227,9 +227,7 @@ export async function postCheckAnnotations(
 
     core.info(`✅ Posted ${annotations.length} check annotations successfully`);
   } catch (error) {
-    core.warning(
-      `Failed to post check annotations: ${toErrorMessage(error)}`,
-    );
+    core.warning(`Failed to post check annotations: ${toErrorMessage(error)}`);
     core.info(
       "🔍 This might be because the action lacks permissions for the Checks API or GitHub App is not properly configured",
     );
