@@ -1,4 +1,5 @@
 import picomatch from "picomatch";
+import { CODE_LANGUAGE_EXTENSIONS } from "./codeExtensions";
 
 export interface FileChange {
   path: string;
@@ -14,19 +15,8 @@ export interface Changeset {
 }
 
 export class ChangesetUtils {
-  private static readonly DEFAULT_SOURCE_PATTERNS = [
-    "**/*.ts",
-    "**/*.js",
-    "**/*.tsx",
-    "**/*.jsx",
-    "**/*.py",
-    "**/*.java",
-    "**/*.cs",
-    "**/*.cpp",
-    "**/*.c",
-    "**/*.go",
-    "**/*.rs",
-  ];
+  private static readonly DEFAULT_SOURCE_PATTERNS =
+    CODE_LANGUAGE_EXTENSIONS.map((ext) => `**/*.${ext}`);
 
   private static readonly DEFAULT_TEST_PATTERNS = [
     "**/*.test.*",
@@ -95,11 +85,7 @@ export class ChangesetUtils {
       return matchesSource && !matchesTest;
     });
 
-    return {
-      ...changeset,
-      files: filteredFiles,
-      totalFiles: filteredFiles.length,
-    };
+    return ChangesetUtils.withFiles(changeset, filteredFiles);
   }
 
   static filterByExtensions(
@@ -110,11 +96,14 @@ export class ChangesetUtils {
       extensions.some((ext) => file.path.endsWith(ext)),
     );
 
-    return {
-      ...changeset,
-      files: filteredFiles,
-      totalFiles: filteredFiles.length,
-    };
+    return ChangesetUtils.withFiles(changeset, filteredFiles);
+  }
+
+  private static withFiles(
+    changeset: Changeset,
+    files: FileChange[],
+  ): Changeset {
+    return { ...changeset, files, totalFiles: files.length };
   }
 
   static isEmpty(changeset: Changeset): boolean {
