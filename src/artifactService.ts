@@ -3,6 +3,7 @@ import * as github from "@actions/github";
 import artifact from "@actions/artifact";
 import * as fs from "fs";
 import * as path from "path";
+import { formatFileSize } from "./formatBytes";
 
 export interface ArtifactInfo {
   name: string;
@@ -38,7 +39,7 @@ export class ArtifactService {
 
       core.info(`📤 Uploading artifact: ${artifactName}`);
       core.info(`📁 File path: ${filePath}`);
-      core.info(`📊 File size: ${this.formatFileSize(stats.size)}`);
+      core.info(`📊 File size: ${formatFileSize(stats.size)}`);
 
       const uploadResponse = await this.artifactClient.uploadArtifact(
         artifactName,
@@ -89,19 +90,6 @@ export class ArtifactService {
       github.context.serverUrl ||
       "https://github.com"
     );
-  }
-
-  private formatFileSize(bytes: number): string {
-    const units = ["B", "KB", "MB", "GB"];
-    let size = bytes;
-    let unitIndex = 0;
-
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
-    }
-
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
   }
 
   async cleanupTempFiles(filePaths: string[]): Promise<void> {
