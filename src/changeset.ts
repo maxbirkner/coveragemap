@@ -14,19 +14,26 @@ export interface Changeset {
 }
 
 export class ChangesetUtils {
-  private static readonly DEFAULT_SOURCE_PATTERNS = [
-    "**/*.ts",
-    "**/*.js",
-    "**/*.tsx",
-    "**/*.jsx",
-    "**/*.py",
-    "**/*.java",
-    "**/*.cs",
-    "**/*.cpp",
-    "**/*.c",
-    "**/*.go",
-    "**/*.rs",
+  // Single source of truth for the languages treated as source code.
+  // Both the default glob patterns below and downstream extension filtering
+  // describe this same set, so deriving the globs here prevents the two from
+  // drifting apart.
+  private static readonly CODE_LANGUAGE_EXTENSIONS = [
+    "ts",
+    "js",
+    "tsx",
+    "jsx",
+    "py",
+    "java",
+    "cs",
+    "cpp",
+    "c",
+    "go",
+    "rs",
   ];
+
+  private static readonly DEFAULT_SOURCE_PATTERNS =
+    ChangesetUtils.CODE_LANGUAGE_EXTENSIONS.map((ext) => `**/*.${ext}`);
 
   private static readonly DEFAULT_TEST_PATTERNS = [
     "**/*.test.*",
@@ -95,11 +102,7 @@ export class ChangesetUtils {
       return matchesSource && !matchesTest;
     });
 
-    return {
-      ...changeset,
-      files: filteredFiles,
-      totalFiles: filteredFiles.length,
-    };
+    return ChangesetUtils.withFiles(changeset, filteredFiles);
   }
 
   static filterByExtensions(
@@ -110,11 +113,14 @@ export class ChangesetUtils {
       extensions.some((ext) => file.path.endsWith(ext)),
     );
 
-    return {
-      ...changeset,
-      files: filteredFiles,
-      totalFiles: filteredFiles.length,
-    };
+    return ChangesetUtils.withFiles(changeset, filteredFiles);
+  }
+
+  private static withFiles(
+    changeset: Changeset,
+    files: FileChange[],
+  ): Changeset {
+    return { ...changeset, files, totalFiles: files.length };
   }
 
   static isEmpty(changeset: Changeset): boolean {

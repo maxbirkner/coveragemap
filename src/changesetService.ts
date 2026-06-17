@@ -2,6 +2,23 @@ import * as core from "@actions/core";
 import { GitUtils } from "./git";
 import { Changeset, ChangesetUtils } from "./changeset";
 
+// Default file extensions treated as source code when no glob patterns are
+// supplied. Mirrors the languages covered by ChangesetUtils' default source
+// patterns.
+const DEFAULT_CODE_EXTENSIONS = [
+  ".ts",
+  ".js",
+  ".tsx",
+  ".jsx",
+  ".py",
+  ".java",
+  ".cs",
+  ".cpp",
+  ".c",
+  ".go",
+  ".rs",
+];
+
 export class ChangesetService {
   static async detectChanges(targetBranch: string): Promise<Changeset> {
     try {
@@ -29,7 +46,7 @@ export class ChangesetService {
     } catch (error) {
       const errorMessage = "Failed to detect changes in pull request";
       core.error(`${errorMessage}: ${error}`);
-      throw new Error(errorMessage);
+      throw new Error(errorMessage, { cause: error });
     }
   }
 
@@ -51,21 +68,10 @@ export class ChangesetService {
     }
 
     // Fall back to extension-based filtering
-    const defaultExtensions = extensions || [
-      ".ts",
-      ".js",
-      ".tsx",
-      ".jsx",
-      ".py",
-      ".java",
-      ".cs",
-      ".cpp",
-      ".c",
-      ".go",
-      ".rs",
-    ];
-
-    return ChangesetUtils.filterByExtensions(changeset, defaultExtensions);
+    return ChangesetUtils.filterByExtensions(
+      changeset,
+      extensions || DEFAULT_CODE_EXTENSIONS,
+    );
   }
 
   static outputChangeset(changeset: Changeset): void {

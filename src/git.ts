@@ -6,27 +6,27 @@ import { context } from "@actions/github";
 const execAsync = promisify(exec);
 
 export class GitUtils {
-  static getPullRequestHead(): string {
-    // Use GitHub context which is most reliable for PR events
-    // (the GitHub Actions context is populated from the event payload).
-    if (context.payload.pull_request?.head?.sha) {
-      const contextSha = context.payload.pull_request.head.sha;
-      core.info(`📌 Using PR head from GitHub context: ${contextSha}`);
-      return contextSha;
+  // The GitHub context is populated from the event payload, which is the most
+  // reliable source of PR SHAs during pull_request events.
+  private static getPullRequestSha(
+    ref: "head" | "base",
+    emoji: string,
+  ): string {
+    const sha = context.payload.pull_request?.[ref]?.sha;
+    if (sha) {
+      core.info(`${emoji} Using PR ${ref} from GitHub context: ${sha}`);
+      return sha;
     }
 
-    throw new Error("PR head SHA not available in GitHub context");
+    throw new Error(`PR ${ref} SHA not available in GitHub context`);
+  }
+
+  static getPullRequestHead(): string {
+    return GitUtils.getPullRequestSha("head", "📌");
   }
 
   static getPullRequestBase(): string {
-    // Use GitHub context which is most reliable for PR events
-    if (context.payload.pull_request?.base?.sha) {
-      const contextSha = context.payload.pull_request.base.sha;
-      core.info(`🎯 Using PR base from GitHub context: ${contextSha}`);
-      return contextSha;
-    }
-
-    throw new Error("PR base SHA not available in GitHub context");
+    return GitUtils.getPullRequestSha("base", "🎯");
   }
 
   static async getChangedFiles(
