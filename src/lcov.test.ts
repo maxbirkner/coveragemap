@@ -119,6 +119,81 @@ end_of_record`;
       expect(file!.summary.branchesHit).toBe(1);
     });
 
+    it("should parse modern LCOV 2.x FNL/FNA function records", () => {
+      const content = `TN:
+SF:src/example.ts
+FNL:0,5,8
+FNA:0,3,myFunction
+FNL:1,10,14
+FNA:1,0,anotherFunction
+FNF:2
+FNH:1
+DA:5,3
+DA:10,0
+LF:2
+LH:1
+end_of_record`;
+
+      const report = LcovParser.parse(content);
+
+      const file = report.files.get("src/example.ts");
+      expect(file).toBeDefined();
+      expect(file!.functions).toHaveLength(2);
+
+      // Function index 0 maps to the FNL start line (5) with the FNA hit count.
+      expect(file!.functions[0].name).toBe("myFunction");
+      expect(file!.functions[0].line).toBe(5);
+      expect(file!.functions[0].hit).toBe(3);
+
+      expect(file!.functions[1].name).toBe("anotherFunction");
+      expect(file!.functions[1].line).toBe(10);
+      expect(file!.functions[1].hit).toBe(0);
+
+      expect(file!.summary.functionsFound).toBe(2);
+      expect(file!.summary.functionsHit).toBe(1);
+    });
+
+    it("should parse aliased FNA records sharing a single FNL location", () => {
+      // A single function location may carry several aliased FNA records, each
+      // a distinct mangled/templated instantiation sharing the same lines.
+      const content = `TN:
+SF:src/aliased.ts
+FNL:0,16,16
+FNA:0,45,talos::AutoFlushedOutput::make_logger_pointer()
+FNL:1,21,21
+FNA:1,281,talos::ILogOutput::~ILogOutput()
+FNA:1,288,talos::ILogOutput::ILogOutput()
+FNF:2
+FNH:3
+DA:16,45
+DA:21,569
+LF:2
+LH:2
+end_of_record`;
+
+      const report = LcovParser.parse(content);
+
+      const file = report.files.get("src/aliased.ts");
+      expect(file).toBeDefined();
+      // Three function names total: one for index 0, two aliases for index 1.
+      expect(file!.functions).toHaveLength(3);
+
+      expect(file!.functions[0].name).toBe(
+        "talos::AutoFlushedOutput::make_logger_pointer()",
+      );
+      expect(file!.functions[0].line).toBe(16);
+      expect(file!.functions[0].hit).toBe(45);
+
+      // Both aliases inherit the start line of FNL index 1.
+      expect(file!.functions[1].line).toBe(21);
+      expect(file!.functions[1].hit).toBe(281);
+      expect(file!.functions[2].line).toBe(21);
+      expect(file!.functions[2].hit).toBe(288);
+
+      expect(file!.summary.functionsFound).toBe(3);
+      expect(file!.summary.functionsHit).toBe(3);
+    });
+
     it("should parse multiple files", () => {
       const content = `TN:
 SF:src/file1.ts

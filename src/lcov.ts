@@ -47,6 +47,205 @@ export interface LcovReport {
   };
 }
 
+/**
+ * Mutable per-file accumulator used while scanning an LCOV file. It is
+ * finalised into an immutable {@link FileCoverage} when the record ends.
+ */
+interface CurrentFile {
+  path: string;
+  functions: FunctionCoverage[];
+  lines: LineCoverage[];
+  branches: BranchCoverage[];
+  /**
+   * Maps the per-file function index used by modern LCOV 2.x FNL/FNA records
+   * to the line on which the function starts. Empty for legacy reports.
+   */
+  functionLineByIndex: Map<number, number>;
+}
+
+/** Running state threaded through the per-record handlers. */
+interface ParseState {
+  files: Map<string, FileCoverage>;
+  current: CurrentFile | null;
+}
+
+/**
+ * Handles a single LCOV record. `payload` is the text after the `TOKEN:`
+ * prefix (empty for tokens without a colon, such as `end_of_record`).
+ */
+type RecordHandler = (state: ParseState, payload: string) => void;
+
+function startNewFile(state: ParseState, path: string): void {
+  finalizeCurrentFile(state);
+  state.current = {
+    path,
+    functions: [],
+    lines: [],
+    branches: [],
+    functionLineByIndex: new Map<number, number>(),
+  };
+}
+
+function finalizeCurrentFile(state: ParseState): void {
+  const current = state.current;
+  if (!current) {
+    return;
+  }
+
+  const functionsHit = current.functions.filter((f) => f.hit > 0).length;
+  const linesHit = current.lines.filter((l) => l.hit > 0).length;
+  const branchesHit = current.branches.filter((b) => b.taken > 0).length;
+
+  state.files.set(current.path, {
+    path: current.path,
+    functions: current.functions,
+    lines: current.lines,
+    branches: current.branches,
+    summary: {
+      functionsFound: current.functions.length,
+      functionsHit,
+      linesFound: current.lines.length,
+      linesHit,
+      branchesFound: current.branches.length,
+      branchesHit,
+    },
+  });
+  state.current = null;
+}
+
+/**
+ * Split an LCOV record payload into its leading numeric/fixed fields and a
+ * trailing free-form name. LCOV function and test names may themselves contain
+ * commas (notably C++ template signatures), so only the first `fixedFields`
+ * commas are treated as separators and the remainder is rejoined as the name.
+ */
+function splitTrailingName(
+  payload: string,
+  fixedFields: number,
+): { fields: string[]; name: string } {
+  const parts = payload.split(",");
+  const fields = parts.slice(0, fixedFields);
+  const name = parts.slice(fixedFields).join(",");
+  return { fields, name };
+}
+
+/**
+ * Dispatch table keyed by the LCOV record token (the text before the first
+ * colon). Using a lookup map keeps record handling flat and order-independent,
+ * and lets legacy (FN/FNDA) and modern LCOV 2.x (FNL/FNA) function records be
+ * supported side by side without a chain of conditionals.
+ *
+ * Spec: https://github.com/linux-test-project/lcov/blob/master/man/geninfo.1
+ */
+const RECORD_HANDLERS: Record<string, RecordHandler> = {
+  // Source file - start of a new file record.
+  SF: (state, payload) => startNewFile(state, payload),
+
+  // Modern LCOV 2.x function location: FNL:<index>,<start_line>,<end_line>
+  FNL: (state, payload) => {
+    if (!state.current) {
+      return;
+    }
+    const [indexStr, startStr] = payload.split(",");
+    if (indexStr !== undefined && startStr !== undefined) {
+      state.current.functionLineByIndex.set(
+        parseInt(indexStr, 10),
+        parseInt(startStr, 10),
+      );
+    }
+  },
+
+  // Modern LCOV 2.x function data: FNA:<index>,<hit>,<name>
+  // A single FNL location may carry several aliased FNA records, each a
+  // distinct function name sharing the same line range.
+  FNA: (state, payload) => {
+    if (!state.current) {
+      return;
+    }
+    const { fields, name } = splitTrailingName(payload, 2);
+    const [indexStr, hitStr] = fields;
+    if (indexStr !== undefined && hitStr !== undefined && name.length > 0) {
+      const line = state.current.functionLineByIndex.get(
+        parseInt(indexStr, 10),
+      );
+      state.current.functions.push({
+        name,
+        line: line ?? 0,
+        hit: parseInt(hitStr, 10),
+      });
+    }
+  },
+
+  // Legacy function definition: FN:<line>,<name>
+  FN: (state, payload) => {
+    if (!state.current) {
+      return;
+    }
+    const { fields, name } = splitTrailingName(payload, 1);
+    const [lineStr] = fields;
+    if (lineStr !== undefined && name.length > 0) {
+      state.current.functions.push({
+        name,
+        line: parseInt(lineStr, 10),
+        hit: 0,
+      });
+    }
+  },
+
+  // Legacy function data: FNDA:<hit>,<name>
+  FNDA: (state, payload) => {
+    if (!state.current) {
+      return;
+    }
+    const { fields, name } = splitTrailingName(payload, 1);
+    const [hitStr] = fields;
+    if (hitStr !== undefined && name.length > 0) {
+      const func = state.current.functions.find((f) => f.name === name);
+      if (func) {
+        func.hit = parseInt(hitStr, 10);
+      }
+    }
+  },
+
+  // Line data: DA:<line>,<hit>
+  DA: (state, payload) => {
+    if (!state.current) {
+      return;
+    }
+    const [lineStr, hitStr] = payload.split(",");
+    if (lineStr !== undefined && hitStr !== undefined) {
+      state.current.lines.push({
+        line: parseInt(lineStr, 10),
+        hit: parseInt(hitStr, 10),
+      });
+    }
+  },
+
+  // Branch data: BRDA:<line>,<block>,<branch>,<taken>
+  BRDA: (state, payload) => {
+    if (!state.current) {
+      return;
+    }
+    const [lineStr, blockStr, branchStr, takenStr] = payload.split(",");
+    if (
+      lineStr !== undefined &&
+      blockStr !== undefined &&
+      branchStr !== undefined &&
+      takenStr !== undefined
+    ) {
+      state.current.branches.push({
+        line: parseInt(lineStr, 10),
+        block: parseInt(blockStr, 10),
+        branch: parseInt(branchStr, 10),
+        taken: takenStr === "-" ? 0 : parseInt(takenStr, 10),
+      });
+    }
+  },
+
+  // End of the current file record.
+  end_of_record: (state) => finalizeCurrentFile(state),
+};
+
 export class LcovParser {
   /**
    * Parse an LCOV file from filesystem into a structured report
@@ -66,143 +265,33 @@ export class LcovParser {
    * Parse an LCOV file content string into a structured report
    */
   static parse(content: string): LcovReport {
-    const lines = content
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    const files = new Map<string, FileCoverage>();
-
-    let currentFile: Partial<FileCoverage> | null = null;
-    let currentFunctions: FunctionCoverage[] = [];
-    let currentLines: LineCoverage[] = [];
-    let currentBranches: BranchCoverage[] = [];
-
-    for (const line of lines) {
-      if (line.startsWith("SF:")) {
-        // Source file - start of new file record
-        if (currentFile && currentFile.path) {
-          // Save previous file if exists
-          const fileCoverage = this.finalizeFileCoverage(
-            currentFile,
-            currentFunctions,
-            currentLines,
-            currentBranches,
-          );
-          files.set(fileCoverage.path, fileCoverage);
-        }
-
-        // Start new file
-        currentFile = { path: line.substring(3) };
-        currentFunctions = [];
-        currentLines = [];
-        currentBranches = [];
-      } else if (line.startsWith("FN:")) {
-        // Function definition: FN:<line>,<name>
-        const [lineStr, ...nameParts] = line.substring(3).split(",");
-        if (lineStr !== undefined && nameParts.length > 0) {
-          const lineNum = parseInt(lineStr, 10);
-          const name = nameParts.join(","); // In case function name contains commas
-          currentFunctions.push({ name, line: lineNum, hit: 0 });
-        }
-      } else if (line.startsWith("FNDA:")) {
-        // Function data: FNDA:<hit>,<name>
-        const [hitStr, ...nameParts] = line.substring(5).split(",");
-        if (hitStr !== undefined && nameParts.length > 0) {
-          const hit = parseInt(hitStr, 10);
-          const name = nameParts.join(",");
-
-          // Update existing function with hit count
-          const func = currentFunctions.find((f) => f.name === name);
-          if (func) {
-            func.hit = hit;
-          }
-        }
-      } else if (line.startsWith("DA:")) {
-        // Line data: DA:<line>,<hit>
-        const [lineStr, hitStr] = line.substring(3).split(",");
-        if (lineStr !== undefined && hitStr !== undefined) {
-          const lineNum = parseInt(lineStr, 10);
-          const hit = parseInt(hitStr, 10);
-          currentLines.push({ line: lineNum, hit });
-        }
-      } else if (line.startsWith("BRDA:")) {
-        // Branch data: BRDA:<line>,<block>,<branch>,<taken>
-        const [lineStr, blockStr, branchStr, takenStr] = line
-          .substring(5)
-          .split(",");
-        if (
-          lineStr !== undefined &&
-          blockStr !== undefined &&
-          branchStr !== undefined &&
-          takenStr !== undefined
-        ) {
-          const lineNum = parseInt(lineStr, 10);
-          const block = parseInt(blockStr, 10);
-          const branch = parseInt(branchStr, 10);
-          const taken = takenStr === "-" ? 0 : parseInt(takenStr, 10);
-          currentBranches.push({ line: lineNum, block, branch, taken });
-        }
-      } else if (line === "end_of_record") {
-        // End of current file record
-        if (currentFile && currentFile.path) {
-          const fileCoverage = this.finalizeFileCoverage(
-            currentFile,
-            currentFunctions,
-            currentLines,
-            currentBranches,
-          );
-          files.set(fileCoverage.path, fileCoverage);
-          currentFile = null;
-        }
-      }
-    }
-
-    // Handle case where file doesn't end with end_of_record
-    if (currentFile && currentFile.path) {
-      const fileCoverage = this.finalizeFileCoverage(
-        currentFile,
-        currentFunctions,
-        currentLines,
-        currentBranches,
-      );
-      files.set(fileCoverage.path, fileCoverage);
-    }
-
-    const summary = this.calculateSummary(files);
-
-    return {
-      files,
-      summary,
+    const state: ParseState = {
+      files: new Map<string, FileCoverage>(),
+      current: null,
     };
-  }
 
-  private static finalizeFileCoverage(
-    file: Partial<FileCoverage>,
-    functions: FunctionCoverage[],
-    lines: LineCoverage[],
-    branches: BranchCoverage[],
-  ): FileCoverage {
-    if (file.path === undefined) {
-      throw new Error("File path is undefined in finalizeFileCoverage");
+    for (const rawLine of content.split("\n")) {
+      const line = rawLine.trim();
+      if (line.length === 0) {
+        continue;
+      }
+
+      // Records are `TOKEN:payload`; tokens without a payload (e.g.
+      // `end_of_record`) have no colon. Dispatching on the token keeps the
+      // record handling flat and order-independent.
+      const colonIndex = line.indexOf(":");
+      const token = colonIndex === -1 ? line : line.substring(0, colonIndex);
+      const payload = colonIndex === -1 ? "" : line.substring(colonIndex + 1);
+
+      RECORD_HANDLERS[token]?.(state, payload);
     }
 
-    const functionsHit = functions.filter((f) => f.hit > 0).length;
-    const linesHit = lines.filter((l) => l.hit > 0).length;
-    const branchesHit = branches.filter((b) => b.taken > 0).length;
+    // Handle a trailing file that doesn't end with end_of_record.
+    finalizeCurrentFile(state);
 
     return {
-      path: file.path,
-      functions,
-      lines,
-      branches,
-      summary: {
-        functionsFound: functions.length,
-        functionsHit,
-        linesFound: lines.length,
-        linesHit,
-        branchesFound: branches.length,
-        branchesHit,
-      },
+      files: state.files,
+      summary: this.calculateSummary(state.files),
     };
   }
 
