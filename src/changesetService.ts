@@ -1,23 +1,14 @@
 import * as core from "@actions/core";
 import { GitUtils } from "./git";
 import { Changeset, ChangesetUtils } from "./changeset";
+import { CODE_LANGUAGE_EXTENSIONS } from "./codeExtensions";
 
 // Default file extensions treated as source code when no glob patterns are
-// supplied. Mirrors the languages covered by ChangesetUtils' default source
-// patterns.
-const DEFAULT_CODE_EXTENSIONS = [
-  ".ts",
-  ".js",
-  ".tsx",
-  ".jsx",
-  ".py",
-  ".java",
-  ".cs",
-  ".cpp",
-  ".c",
-  ".go",
-  ".rs",
-];
+// supplied, derived from the shared language list so it stays in sync with the
+// changeset default source patterns.
+const DEFAULT_CODE_EXTENSIONS = CODE_LANGUAGE_EXTENSIONS.map(
+  (ext) => `.${ext}`,
+);
 
 export class ChangesetService {
   static async detectChanges(targetBranch: string): Promise<Changeset> {

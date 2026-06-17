@@ -1,4 +1,5 @@
 import picomatch from "picomatch";
+import { CODE_LANGUAGE_EXTENSIONS } from "./codeExtensions";
 
 export interface FileChange {
   path: string;
@@ -14,26 +15,8 @@ export interface Changeset {
 }
 
 export class ChangesetUtils {
-  // Single source of truth for the languages treated as source code.
-  // Both the default glob patterns below and downstream extension filtering
-  // describe this same set, so deriving the globs here prevents the two from
-  // drifting apart.
-  private static readonly CODE_LANGUAGE_EXTENSIONS = [
-    "ts",
-    "js",
-    "tsx",
-    "jsx",
-    "py",
-    "java",
-    "cs",
-    "cpp",
-    "c",
-    "go",
-    "rs",
-  ];
-
   private static readonly DEFAULT_SOURCE_PATTERNS =
-    ChangesetUtils.CODE_LANGUAGE_EXTENSIONS.map((ext) => `**/*.${ext}`);
+    CODE_LANGUAGE_EXTENSIONS.map((ext) => `**/*.${ext}`);
 
   private static readonly DEFAULT_TEST_PATTERNS = [
     "**/*.test.*",
