@@ -226,6 +226,157 @@ describe("generateTreemapData", () => {
     expect(scriptTile.functionName).toBeUndefined();
   });
 
+  it("omits instrumented files that have no coverable code", () => {
+    // A normalized V8 (empty-report) file: coverage is present but empty, so
+    // there is nothing meaningful to draw. It must not produce a tile.
+    const mockAnalysis: CoverageAnalysis = {
+      changeset: {
+        baseCommit: "abc123",
+        headCommit: "def456",
+        targetBranch: "main",
+        files: [],
+        totalFiles: 2,
+      },
+      changedFiles: [
+        {
+          path: "src/types.ts",
+          status: "modified",
+          coverage: {
+            path: "src/types.ts",
+            functions: [],
+            lines: [],
+            branches: [],
+            summary: {
+              functionsFound: 0,
+              functionsHit: 0,
+              linesFound: 0,
+              linesHit: 0,
+              branchesFound: 0,
+              branchesHit: 0,
+            },
+          },
+          analysis: {
+            totalLines: 0,
+            coveredLines: 0,
+            totalFunctions: 0,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 100,
+            functionsCoveragePercentage: 100,
+            branchesCoveragePercentage: 100,
+            overallCoveragePercentage: 100,
+          },
+        },
+        {
+          path: "src/real.ts",
+          status: "modified",
+          coverage: {
+            path: "src/real.ts",
+            functions: [],
+            lines: [{ line: 1, hit: 1 }],
+            branches: [],
+            summary: {
+              functionsFound: 0,
+              functionsHit: 0,
+              linesFound: 1,
+              linesHit: 1,
+              branchesFound: 0,
+              branchesHit: 0,
+            },
+          },
+          analysis: {
+            totalLines: 1,
+            coveredLines: 1,
+            totalFunctions: 0,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 100,
+            functionsCoveragePercentage: 100,
+            branchesCoveragePercentage: 100,
+            overallCoveragePercentage: 100,
+          },
+        },
+      ],
+      summary: {
+        totalChangedFiles: 2,
+        filesWithCoverage: 2,
+        filesWithoutCoverage: 0,
+        overallCoverage: {
+          totalLines: 1,
+          coveredLines: 1,
+          totalFunctions: 0,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 100,
+          functionsCoveragePercentage: 100,
+          branchesCoveragePercentage: 100,
+          overallCoveragePercentage: 100,
+        },
+      },
+    };
+
+    const result = generateTreemapData(mockAnalysis);
+
+    expect(result.children).toHaveLength(1);
+    expect(result.children[0].name).toBe("real.ts");
+  });
+
+  it("still shows uninstrumented files (no coverage object) as tiles", () => {
+    const mockAnalysis: CoverageAnalysis = {
+      changeset: {
+        baseCommit: "abc123",
+        headCommit: "def456",
+        targetBranch: "main",
+        files: [],
+        totalFiles: 1,
+      },
+      changedFiles: [
+        {
+          path: "src/missing.ts",
+          status: "added",
+          coverage: undefined,
+          analysis: {
+            totalLines: 0,
+            coveredLines: 0,
+            totalFunctions: 0,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 0,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 0,
+          },
+        },
+      ],
+      summary: {
+        totalChangedFiles: 1,
+        filesWithCoverage: 0,
+        filesWithoutCoverage: 1,
+        overallCoverage: {
+          totalLines: 0,
+          coveredLines: 0,
+          totalFunctions: 0,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 0,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 0,
+        },
+      },
+    };
+
+    const result = generateTreemapData(mockAnalysis);
+
+    expect(result.children).toHaveLength(1);
+    expect(result.children[0].children[0].coverage).toBe("none");
+  });
+
   it("should mark a fully covered function as full", () => {
     const mockAnalysis: CoverageAnalysis = {
       changeset: {

@@ -22,8 +22,24 @@ const MIN_FUNCTION_SIZE_ESTIMATE = 10;
 export function generateTreemapData(analysis: CoverageAnalysis): TreemapData {
   return {
     name: "Coverage Analysis",
-    children: analysis.changedFiles.map(buildFileGroup),
+    children: analysis.changedFiles
+      .filter((file) => !hasNoCoverableCode(file))
+      .map(buildFileGroup),
   };
+}
+
+/**
+ * A file that was instrumented but contains no coverable code (e.g. a
+ * type-only module) carries an empty coverage object after normalization. There
+ * is nothing meaningful to visualise for it, so it is omitted from the treemap.
+ * Files without any coverage data are still shown as uncovered tiles.
+ */
+function hasNoCoverableCode(file: FileChangeWithCoverage): boolean {
+  return (
+    file.coverage !== undefined &&
+    file.coverage.functions.length === 0 &&
+    file.analysis.totalLines === 0
+  );
 }
 
 function buildFileGroup(file: FileChangeWithCoverage): TreemapFileGroup {
