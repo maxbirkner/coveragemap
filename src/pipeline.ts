@@ -17,9 +17,13 @@ const ARTIFACT_RETENTION_DAYS = 30;
 /**
  * Runs `fn` inside a collapsible log group, guaranteeing the group is closed
  * even when `fn` throws. Centralising the start/end pairing removes the
- * repeated try/finally scaffolding from each pipeline step.
+ * repeated try/finally scaffolding from each pipeline step. `fn` may be sync or
+ * async so the helper stays usable for either kind of step.
  */
-async function withGroup<T>(label: string, fn: () => Promise<T>): Promise<T> {
+async function withGroup<T>(
+  label: string,
+  fn: () => T | Promise<T>,
+): Promise<T> {
   core.startGroup(label);
   try {
     return await fn();
