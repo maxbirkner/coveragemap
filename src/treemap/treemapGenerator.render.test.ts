@@ -1,5 +1,5 @@
 import { TreemapGenerator } from "./treemapGenerator";
-import { CoverageAnalysis } from "./coverageAnalyzer";
+import { CoverageAnalysis } from "../coverageAnalyzer";
 import * as fs from "fs";
 
 // Render with the real d3, d3-hierarchy and linkedom so the SVG drawing path

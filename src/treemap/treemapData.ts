@@ -1,6 +1,6 @@
 import * as path from "path";
-import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
-import { FunctionCoverage, FileCoverage } from "./lcov";
+import { CoverageAnalysis, FileChangeWithCoverage } from "../coverageAnalyzer";
+import { FunctionCoverage, FileCoverage } from "../lcov";
 import {
   CoverageState,
   TreemapData,

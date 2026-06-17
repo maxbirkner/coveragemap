@@ -1,5 +1,5 @@
 import { TreemapGenerator } from "./treemapGenerator";
-import { CoverageAnalysis } from "./coverageAnalyzer";
+import { CoverageAnalysis } from "../coverageAnalyzer";
 import * as fs from "fs";
 
 // Stub the rasteriser so the facade test stays hermetic; the real SVG drawing

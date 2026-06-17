@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import { CoverageAnalysis } from "./coverageAnalyzer";
+import { CoverageAnalysis } from "../coverageAnalyzer";
 import { generateTreemapData } from "./treemapData";
 import { TreemapData, TreemapOptions } from "./treemapModel";
 import { renderTreemapSvg } from "./treemapRenderer";

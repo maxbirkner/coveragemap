@@ -6,7 +6,7 @@ import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
 import { Changeset } from "./changeset";
 import { PrCommentService } from "./prComment";
 import { CoverageGating, GatingResult } from "./coverageGating";
-import { TreemapGenerator } from "./treemapGenerator";
+import { TreemapGenerator } from "./treemap/treemapGenerator";
 import { ArtifactService, ArtifactInfo } from "./artifactService";
 import { ChecksService } from "./checksService";
 import { toErrorMessage } from "./errors";
