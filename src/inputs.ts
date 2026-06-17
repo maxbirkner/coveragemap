@@ -13,18 +13,21 @@ export interface ActionInputs {
   treemapTitle?: string;
 }
 
+function optionalInput(name: string): string | undefined {
+  return core.getInput(name) || undefined;
+}
+
 export function getInputs(): ActionInputs {
   const lcovFile = core.getInput("lcov-file") || "coverage/lcov.info";
   const coverageThreshold = core.getInput("coverage-threshold") || "80";
   const targetBranch = core.getInput("target-branch") || "main";
   const githubToken = core.getInput("github-token", { required: true });
-  const label = core.getInput("label") || undefined;
-  const sourceCodePattern = core.getInput("source-code-pattern") || undefined;
-  const testCodePattern = core.getInput("test-code-pattern") || undefined;
-  const githubAppId = core.getInput("github-app-id") || undefined;
-  const githubAppPrivateKey =
-    core.getInput("github-app-private-key") || undefined;
-  const treemapTitle = core.getInput("treemap-title") || undefined;
+  const label = optionalInput("label");
+  const sourceCodePattern = optionalInput("source-code-pattern");
+  const testCodePattern = optionalInput("test-code-pattern");
+  const githubAppId = optionalInput("github-app-id");
+  const githubAppPrivateKey = optionalInput("github-app-private-key");
+  const treemapTitle = optionalInput("treemap-title");
 
   return {
     lcovFile,
