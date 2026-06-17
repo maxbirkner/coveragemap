@@ -40,6 +40,14 @@ export interface CoverageAnalysis {
 }
 
 export class CoverageAnalyzer {
+  // V8 emits a synthetic record for files it instrumented but found no
+  // coverable code in (type-only modules, re-export barrels, ambient
+  // declarations). The record is a single placeholder function with this exact
+  // name plus every source line marked uncovered. Such files have nothing to
+  // test, so flagging their lines/functions as "uncovered" — and counting them
+  // as 0% in the totals — is misleading. We normalize them to empty coverage.
+  private static readonly EMPTY_REPORT_FUNCTION_NAME = "(empty-report)";
+
   /**
    * Analyze coverage for the changed files in a changeset
    */
@@ -49,7 +57,10 @@ export class CoverageAnalyzer {
   ): CoverageAnalysis {
     const changedFiles: FileChangeWithCoverage[] = changeset.files.map(
       (fileChange) => {
-        const coverage = lcovReport.files.get(fileChange.path);
+        const rawCoverage = lcovReport.files.get(fileChange.path);
+        const coverage = rawCoverage
+          ? this.normalizeEmptyReport(rawCoverage)
+          : undefined;
 
         if (coverage) {
           return {
@@ -84,6 +95,35 @@ export class CoverageAnalyzer {
       changeset,
       changedFiles,
       summary,
+    };
+  }
+
+  /**
+   * Detect V8's "(empty-report)" placeholder and replace it with genuinely
+   * empty coverage. A file with no coverable code is fully covered by
+   * definition, so this keeps it out of uncovered-line/function annotations and
+   * stops its phantom lines from dragging down the aggregate percentages.
+   */
+  private static normalizeEmptyReport(coverage: FileCoverage): FileCoverage {
+    const isEmptyReport =
+      coverage.functions.length === 1 &&
+      coverage.functions[0]?.name === this.EMPTY_REPORT_FUNCTION_NAME;
+
+    if (!isEmptyReport) return coverage;
+
+    return {
+      path: coverage.path,
+      functions: [],
+      lines: [],
+      branches: [],
+      summary: {
+        functionsFound: 0,
+        functionsHit: 0,
+        linesFound: 0,
+        linesHit: 0,
+        branchesFound: 0,
+        branchesHit: 0,
+      },
     };
   }
 

@@ -99,6 +99,109 @@ describe("CoverageAnalyzer", () => {
         50,
       );
     });
+
+    it("normalizes V8 (empty-report) files to fully-covered empty coverage", () => {
+      // V8 emits this synthetic record for files with no coverable code (e.g.
+      // type-only modules): a single "(empty-report)" function and every source
+      // line marked uncovered.
+      const emptyReport: FileCoverage = {
+        path: "src/types.ts",
+        functions: [{ name: "(empty-report)", line: 1, hit: 0 }],
+        lines: Array.from({ length: 52 }, (_, i) => ({ line: i + 1, hit: 0 })),
+        branches: [{ line: 1, block: 0, branch: 0, taken: 0 }],
+        summary: {
+          functionsFound: 1,
+          functionsHit: 0,
+          linesFound: 52,
+          linesHit: 0,
+          branchesFound: 1,
+          branchesHit: 0,
+        },
+      };
+      const report: LcovReport = {
+        files: new Map([["src/types.ts", emptyReport]]),
+        summary: {
+          totalFiles: 1,
+          functionsFound: 1,
+          functionsHit: 0,
+          linesFound: 52,
+          linesHit: 0,
+          branchesFound: 1,
+          branchesHit: 0,
+        },
+      };
+      const changeset = ChangesetUtils.createChangeset(
+        ["src/types.ts"],
+        "abc123",
+        "def456",
+        "main",
+      );
+
+      const analysis = CoverageAnalyzer.analyze(changeset, report);
+      const file = analysis.changedFiles[0];
+
+      // The phantom function and lines are stripped so nothing is flagged.
+      expect(file.coverage?.functions).toEqual([]);
+      expect(file.coverage?.lines).toEqual([]);
+      expect(file.coverage?.branches).toEqual([]);
+
+      // A file with no coverable code is fully covered by definition and must
+      // not drag the aggregate percentages toward zero.
+      expect(file.analysis.totalLines).toBe(0);
+      expect(file.analysis.overallCoveragePercentage).toBe(100);
+      expect(analysis.summary.overallCoverage.totalLines).toBe(0);
+      expect(analysis.summary.overallCoverage.overallCoveragePercentage).toBe(
+        100,
+      );
+    });
+
+    it("keeps a genuine single-function file with uncovered lines intact", () => {
+      // A real function named like the sentinel would be a false positive, so
+      // detection also relies on it being the sole function; here the file has
+      // real covered lines and must be preserved.
+      const realCoverage: FileCoverage = {
+        path: "src/real.ts",
+        functions: [{ name: "doWork", line: 1, hit: 0 }],
+        lines: [
+          { line: 1, hit: 0 },
+          { line: 2, hit: 1 },
+        ],
+        branches: [],
+        summary: {
+          functionsFound: 1,
+          functionsHit: 0,
+          linesFound: 2,
+          linesHit: 1,
+          branchesFound: 0,
+          branchesHit: 0,
+        },
+      };
+      const report: LcovReport = {
+        files: new Map([["src/real.ts", realCoverage]]),
+        summary: {
+          totalFiles: 1,
+          functionsFound: 1,
+          functionsHit: 0,
+          linesFound: 2,
+          linesHit: 1,
+          branchesFound: 0,
+          branchesHit: 0,
+        },
+      };
+      const changeset = ChangesetUtils.createChangeset(
+        ["src/real.ts"],
+        "abc123",
+        "def456",
+        "main",
+      );
+
+      const analysis = CoverageAnalyzer.analyze(changeset, report);
+      const file = analysis.changedFiles[0];
+
+      expect(file.coverage?.lines).toHaveLength(2);
+      expect(file.analysis.totalLines).toBe(2);
+      expect(file.analysis.coveredLines).toBe(1);
+    });
   });
 
   describe("getUncoveredFunctions", () => {
