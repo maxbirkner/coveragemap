@@ -310,4 +310,172 @@ end_of_record`;
       expect(file!.summary.branchesHit).toBe(1);
     });
   });
+
+  // Regression coverage for the LCOV 2.x function record format. Reports
+  // produced by lcov 2.x describe functions with FNL/FNA records instead of
+  // the legacy FN/FNDA pair. The parser previously only understood the legacy
+  // form, so real-world reports silently produced zero functions (and the
+  // treemap lost every function name) while the unit suite stayed green. These
+  // tests use a representative real-world report shape so that regressing
+  // FNL/FNA support — or breaking C++ template name handling — fails loudly.
+  describe("LCOV 2.x regression", () => {
+    // Mirrors the structure of a real merged C++ report: FNF/FNH summary noise,
+    // several files, FNL/FNA with multiple aliases sharing one location index,
+    // demangled C++ template names containing commas, and operator names.
+    const REAL_WORLD_LCOV_2X = `TN:
+SF:src/talos_framework/logger/log_message.cpp
+FNF:2
+FNH:2
+FNL:0,11,14
+FNA:0,831,talos::LogMessage::LogMessage()
+FNL:1,18,21
+FNA:1,6335,talos::LogMessage::LogMessage(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)
+DA:11,831
+DA:18,6335
+LF:2
+LH:2
+end_of_record
+SF:src/talos_framework/logger/i_log_output.h
+FNF:2
+FNH:2
+FNL:0,16,16
+FNA:0,288,talos::ILogOutput::ILogOutput()
+FNA:0,281,talos::ILogOutput::~ILogOutput()
+FNL:1,21,21
+FNA:1,0,talos::ILogOutput::unused()
+DA:16,569
+DA:21,0
+BRDA:16,0,0,5
+BRDA:16,0,1,-
+LF:2
+LH:1
+BRF:2
+BRH:1
+end_of_record
+SF:src/talos_video/simulation/net_simulator.cpp
+FNF:1
+FNH:1
+FNL:0,42,57
+FNA:0,12,talos_video::simulation::operator<<(std::basic_ostream<char, std::char_traits<char> >&, talos_video::simulation::NetSimulator const&)
+DA:42,12
+LF:1
+LH:1
+end_of_record`;
+
+    it("extracts every function with its name, line and hit count", () => {
+      const report = LcovParser.parse(REAL_WORLD_LCOV_2X);
+
+      // 2 + 3 (two aliases at index 0) + 1 = 6 functions across 3 files.
+      expect(report.summary.totalFiles).toBe(3);
+      expect(report.summary.functionsFound).toBe(6);
+      expect(report.summary.functionsHit).toBe(5);
+    });
+
+    it("preserves commas inside C++ template signatures", () => {
+      const report = LcovParser.parse(REAL_WORLD_LCOV_2X);
+      const file = report.files.get(
+        "src/talos_framework/logger/log_message.cpp",
+      );
+
+      const templated = file!.functions[1];
+      expect(templated.name).toBe(
+        "talos::LogMessage::LogMessage(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&)",
+      );
+      // The FNA line is taken from the matching FNL location, never 0.
+      expect(templated.line).toBe(18);
+      expect(templated.hit).toBe(6335);
+    });
+
+    it("keeps operator names containing angle brackets intact", () => {
+      const report = LcovParser.parse(REAL_WORLD_LCOV_2X);
+      const file = report.files.get(
+        "src/talos_video/simulation/net_simulator.cpp",
+      );
+
+      expect(file!.functions[0].name).toBe(
+        "talos_video::simulation::operator<<(std::basic_ostream<char, std::char_traits<char> >&, talos_video::simulation::NetSimulator const&)",
+      );
+    });
+
+    it("treats aliased FNA records sharing one FNL index as distinct functions", () => {
+      const report = LcovParser.parse(REAL_WORLD_LCOV_2X);
+      const file = report.files.get(
+        "src/talos_framework/logger/i_log_output.h",
+      );
+
+      const aliases = file!.functions.filter((f) => f.line === 16);
+      expect(aliases.map((f) => f.name)).toEqual([
+        "talos::ILogOutput::ILogOutput()",
+        "talos::ILogOutput::~ILogOutput()",
+      ]);
+      expect(aliases.map((f) => f.hit)).toEqual([288, 281]);
+    });
+
+    it("never truncates a function name (no unbalanced parentheses)", () => {
+      // A truncated name — the failure mode of a naive comma split — would cut
+      // a signature mid-argument and leave unbalanced parentheses. Guard the
+      // whole report against that class of regression.
+      const report = LcovParser.parse(REAL_WORLD_LCOV_2X);
+
+      for (const file of report.files.values()) {
+        for (const fn of file.functions) {
+          const open = (fn.name.match(/\(/g) ?? []).length;
+          const close = (fn.name.match(/\)/g) ?? []).length;
+          expect(open).toBe(close);
+          // FNA lines are always resolved from their FNL location.
+          expect(fn.line).toBeGreaterThan(0);
+        }
+      }
+    });
+
+    it("still parses the legacy FN/FNDA format alongside 2.x support", () => {
+      // Locks legacy support so the dispatch table cannot silently drop it.
+      const legacy = `TN:
+SF:src/legacy.ts
+FN:5,legacyFunction
+FNDA:7,legacyFunction
+DA:5,7
+end_of_record`;
+
+      const report = LcovParser.parse(legacy);
+      const file = report.files.get("src/legacy.ts");
+
+      expect(file!.functions).toEqual([
+        { name: "legacyFunction", line: 5, hit: 7 },
+      ]);
+    });
+
+    it("ignores coverage records that appear before any SF record", () => {
+      // Defensive: a malformed report whose data records precede the first
+      // SF must not throw and must produce no files.
+      const orphaned = `TN:
+FNL:0,1,2
+FNA:0,1,orphan
+FN:1,legacyOrphan
+FNDA:1,legacyOrphan
+DA:1,1
+BRDA:1,0,0,1
+end_of_record`;
+
+      const report = LcovParser.parse(orphaned);
+
+      expect(report.files.size).toBe(0);
+      expect(report.summary.totalFiles).toBe(0);
+    });
+
+    it("falls back to line 0 when an FNA references an unknown FNL index", () => {
+      const content = `TN:
+SF:src/example.ts
+FNA:9,3,danglingAlias
+DA:1,1
+end_of_record`;
+
+      const report = LcovParser.parse(content);
+      const file = report.files.get("src/example.ts");
+
+      expect(file!.functions).toEqual([
+        { name: "danglingAlias", line: 0, hit: 3 },
+      ]);
+    });
+  });
 });
