@@ -13,7 +13,7 @@ jest.mock("./lcov");
 jest.mock("./coverageAnalyzer");
 jest.mock("./prComment");
 jest.mock("./coverageGating");
-jest.mock("./treemapGenerator");
+jest.mock("./treemap/treemapGenerator");
 jest.mock("./artifactService");
 
 const mockedCore = core as jest.Mocked<typeof core>;

@@ -1,5 +1,5 @@
 import { generateTreemapData } from "./treemapData";
-import { CoverageAnalysis } from "./coverageAnalyzer";
+import { CoverageAnalysis } from "../coverageAnalyzer";
 
 describe("generateTreemapData", () => {
   it("should generate treemap data for files with coverage", () => {

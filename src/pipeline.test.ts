@@ -69,7 +69,7 @@ jest.mock("./lcov");
 jest.mock("./coverageAnalyzer");
 jest.mock("./prComment");
 jest.mock("./coverageGating");
-jest.mock("./treemapGenerator");
+jest.mock("./treemap/treemapGenerator");
 jest.mock("./artifactService");
 
 const mockedCore = core as jest.Mocked<typeof core>;
@@ -87,12 +87,13 @@ const mockedCoverageGating = CoverageGating as jest.Mocked<
   typeof CoverageGating
 >;
 // Mock TreemapGenerator
-jest.mock("./treemapGenerator", () => ({
+jest.mock("./treemap/treemapGenerator", () => ({
   TreemapGenerator: {
     generatePNG: jest.fn(),
   },
 }));
-const mockedTreemapGenerator = require("./treemapGenerator").TreemapGenerator;
+const mockedTreemapGenerator =
+  require("./treemap/treemapGenerator").TreemapGenerator;
 const mockedArtifactService = ArtifactService as jest.MockedClass<
   typeof ArtifactService
 >;
