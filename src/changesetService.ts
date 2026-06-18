@@ -37,12 +37,17 @@ export class ChangesetService {
       }
 
       const changedFiles = await GitUtils.getChangedFiles(diffBase, headRef);
+      const changedLinesByFile = await GitUtils.getChangedLinesByFile(
+        diffBase,
+        headRef,
+      );
 
       const changeset = ChangesetUtils.createChangeset(
         changedFiles,
         diffBase,
         headRef,
         targetBranch,
+        changedLinesByFile,
       );
 
       core.info("✅ Changeset detection completed");

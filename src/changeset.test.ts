@@ -56,6 +56,26 @@ describe("ChangesetUtils", () => {
         totalFiles: 0,
       });
     });
+
+    it("should attach changed lines from the provided line map", () => {
+      const files = ["src/file1.ts", "src/file2.ts"];
+      const changedLinesByFile = new Map<string, number[]>([
+        ["src/file1.ts", [3, 4, 5]],
+      ]);
+
+      const changeset = ChangesetUtils.createChangeset(
+        files,
+        "abc123",
+        "def456",
+        "main",
+        changedLinesByFile,
+      );
+
+      expect(changeset.files).toEqual([
+        { path: "src/file1.ts", status: "modified", changedLines: [3, 4, 5] },
+        { path: "src/file2.ts", status: "modified" },
+      ]);
+    });
   });
 
   describe("filterByExtensions", () => {

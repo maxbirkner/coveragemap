@@ -246,4 +246,106 @@ describe("GitUtils", () => {
       expect(mockedCore.info).toHaveBeenCalledWith("  - src/file2.js");
     });
   });
+
+  describe("getChangedLinesByFile", () => {
+    it("should map files to the new-side lines their hunks added", async () => {
+      const diff = [
+        "diff --git a/src/file1.ts b/src/file1.ts",
+        "index 1111111..2222222 100644",
+        "--- a/src/file1.ts",
+        "+++ b/src/file1.ts",
+        "@@ -10,0 +11,3 @@",
+        "+const a = 1;",
+        "+const b = 2;",
+        "+const c = 3;",
+        "@@ -20,1 +24,1 @@",
+        "-old();",
+        "+new();",
+        "",
+      ].join("\n");
+      mockExecSuccess(diff);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.get("src/file1.ts")).toEqual([11, 12, 13, 24]);
+      expect(mockedExecFile).toHaveBeenCalledWith(
+        "git",
+        ["diff", "--unified=0", "--diff-filter=AM", "base..head"],
+        expect.any(Function),
+      );
+    });
+
+    it("should default an omitted hunk count to a single line", async () => {
+      const diff = [
+        "--- a/src/file2.ts",
+        "+++ b/src/file2.ts",
+        "@@ -5 +5 @@",
+        "-old();",
+        "+new();",
+        "",
+      ].join("\n");
+      mockExecSuccess(diff);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.get("src/file2.ts")).toEqual([5]);
+    });
+
+    it("should ignore pure deletions that add no new lines", async () => {
+      const diff = [
+        "--- a/src/file3.ts",
+        "+++ b/src/file3.ts",
+        "@@ -7,2 +6,0 @@",
+        "-removed();",
+        "-removed();",
+        "",
+      ].join("\n");
+      mockExecSuccess(diff);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.has("src/file3.ts")).toBe(false);
+    });
+
+    it("should track multiple files independently", async () => {
+      const diff = [
+        "--- a/src/a.ts",
+        "+++ b/src/a.ts",
+        "@@ -0,0 +1,2 @@",
+        "+a();",
+        "+a();",
+        "--- a/src/b.ts",
+        "+++ b/src/b.ts",
+        "@@ -0,0 +1 @@",
+        "+b();",
+        "",
+      ].join("\n");
+      mockExecSuccess(diff);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.get("src/a.ts")).toEqual([1, 2]);
+      expect(result.get("src/b.ts")).toEqual([1]);
+    });
+
+    it("should return an empty map for empty diff output", async () => {
+      mockExecSuccess("");
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.size).toBe(0);
+    });
+
+    it("should throw error when git command fails", async () => {
+      mockExecError(new Error("Git command failed"));
+
+      await expect(
+        GitUtils.getChangedLinesByFile("base", "head"),
+      ).rejects.toThrow("Failed to get changed lines between base and head");
+
+      expect(mockedCore.error).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to get changed lines"),
+      );
+    });
+  });
 });

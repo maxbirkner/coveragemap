@@ -104,4 +104,69 @@ export class GitUtils {
       throw new Error(errorMessage, { cause: error });
     }
   }
+
+  // Maps each added/modified file to the set of line numbers the PR introduced
+  // on the head side. Coverage annotations should only flag uncovered code the
+  // changeset actually touched, so we need line-level granularity rather than
+  // the whole-file list `getChangedFiles` provides. We diff with
+  // `--unified=0` so each hunk header reflects only the changed lines (no
+  // surrounding context), making the new-side ranges exact.
+  static async getChangedLinesByFile(
+    base: string,
+    head: string = "HEAD",
+  ): Promise<Map<string, number[]>> {
+    try {
+      core.info(`🔎 Getting changed lines between ${base} and ${head}`);
+
+      const { stdout } = await execFileAsync("git", [
+        "diff",
+        "--unified=0",
+        "--diff-filter=AM",
+        `${base}..${head}`,
+      ]);
+
+      return GitUtils.parseChangedLines(stdout);
+    } catch (error) {
+      const errorMessage = `Failed to get changed lines between ${base} and ${head}`;
+      core.error(`${errorMessage}: ${error}`);
+      throw new Error(errorMessage, { cause: error });
+    }
+  }
+
+  // Parses unified diff output (produced with `--unified=0`) into a map of file
+  // path -> changed line numbers on the new side. Only the `+++ b/<path>` file
+  // header and `@@ ... +start,count @@` hunk headers are needed: the new-side
+  // range `start..start+count-1` lists exactly the added/modified lines.
+  private static parseChangedLines(diff: string): Map<string, number[]> {
+    const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
+    const changedLines = new Map<string, number[]>();
+    let currentFile: string | undefined;
+
+    for (const line of diff.split("\n")) {
+      if (line.startsWith("+++ ")) {
+        const target = line.slice(4).trim();
+        // `/dev/null` marks a deletion target and has no head-side lines.
+        currentFile =
+          target === "/dev/null" ? undefined : target.replace(/^b\//, "");
+        continue;
+      }
+
+      const match = currentFile ? HUNK_HEADER.exec(line) : null;
+      if (!match) continue;
+
+      const start = Number(match[1]);
+      // An omitted count defaults to 1; a count of 0 marks a pure deletion that
+      // adds no head-side lines, so there is nothing to annotate.
+      const count = match[2] === undefined ? 1 : Number(match[2]);
+      if (count === 0) continue;
+
+      const lines = changedLines.get(currentFile!) ?? [];
+      for (let offset = 0; offset < count; offset++) {
+        lines.push(start + offset);
+      }
+      changedLines.set(currentFile!, lines);
+    }
+
+    return changedLines;
+  }
 }

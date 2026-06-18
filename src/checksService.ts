@@ -76,7 +76,17 @@ export class ChecksService {
         this.generateUncoveredFunctionAnnotations(file);
       annotations.push(...uncoveredFunctionAnnotations);
 
-      if (file.analysis.overallCoveragePercentage < 80) {
+      // The low-coverage notice only complements changeset-touched uncovered
+      // code: skip it when the changeset introduced no uncovered lines or
+      // functions, even if the file's overall coverage is below the threshold.
+      const touchedUncoveredCode =
+        uncoveredLineAnnotations.length > 0 ||
+        uncoveredFunctionAnnotations.length > 0;
+
+      if (
+        touchedUncoveredCode &&
+        file.analysis.overallCoveragePercentage < 80
+      ) {
         annotations.push({
           path: file.path,
           start_line: 1,
@@ -97,7 +107,9 @@ export class ChecksService {
   ): CheckAnnotation[] {
     if (!file.coverage) return [];
 
-    const uncoveredLines = file.coverage.lines.filter((line) => line.hit === 0);
+    const uncoveredLines = file.coverage.lines.filter(
+      (line) => line.hit === 0 && this.isLineInChangeset(file, line.line),
+    );
     const annotations: CheckAnnotation[] = [];
 
     const lineGroups = this.groupConsecutiveLines(
@@ -131,7 +143,7 @@ export class ChecksService {
     if (!file.coverage) return [];
 
     const uncoveredFunctions = file.coverage.functions.filter(
-      (fn) => fn.hit === 0,
+      (fn) => fn.hit === 0 && this.isLineInChangeset(file, fn.line),
     );
     const annotations: CheckAnnotation[] = [];
 
@@ -147,6 +159,18 @@ export class ChecksService {
     }
 
     return annotations;
+  }
+
+  // Restricts uncovered-code annotations to lines the changeset actually
+  // touched. When line-level diff data is unavailable (changedLines undefined)
+  // we fall back to annotating every uncovered line so behaviour degrades
+  // gracefully rather than silently dropping all annotations.
+  private isLineInChangeset(
+    file: FileChangeWithCoverage,
+    line: number,
+  ): boolean {
+    if (!file.changedLines) return true;
+    return file.changedLines.includes(line);
   }
 
   private groupConsecutiveLines(lines: number[]): number[][] {

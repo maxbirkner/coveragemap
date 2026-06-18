@@ -4,6 +4,10 @@ import { CODE_LANGUAGE_EXTENSIONS } from "./codeExtensions";
 export interface FileChange {
   path: string;
   status: "added" | "modified" | "deleted";
+  // Line numbers on the head side that the changeset added or modified. Used to
+  // restrict coverage annotations to code the PR actually touched. Absent when
+  // line-level diff data was not collected.
+  changedLines?: number[];
 }
 
 export interface Changeset {
@@ -52,11 +56,16 @@ export class ChangesetUtils {
     baseCommit: string,
     headCommit: string = "HEAD",
     targetBranch: string = "main",
+    changedLinesByFile?: Map<string, number[]>,
   ): Changeset {
-    const fileChanges: FileChange[] = files.map((file) => ({
-      path: file,
-      status: "modified" as const, // For now, treat all as modified
-    }));
+    const fileChanges: FileChange[] = files.map((file) => {
+      const changedLines = changedLinesByFile?.get(file);
+      return {
+        path: file,
+        status: "modified" as const, // For now, treat all as modified
+        ...(changedLines ? { changedLines } : {}),
+      };
+    });
 
     return {
       baseCommit,

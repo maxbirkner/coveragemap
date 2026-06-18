@@ -30,6 +30,8 @@ describe("ChangesetService", () => {
     // Default to a resolvable merge base so detectCodeChanges tests exercise
     // the normal (non-shallow) path; detectChanges tests override as needed.
     mockedGitUtils.getMergeBase.mockResolvedValue("base-sha");
+    // Line-level diff data defaults to empty; tests that assert on it override.
+    mockedGitUtils.getChangedLinesByFile.mockResolvedValue(new Map());
   });
 
   describe("detectChanges", () => {
@@ -38,6 +40,10 @@ describe("ChangesetService", () => {
       const mockPrBaseSha = "pr-base-sha456";
       const mockMergeBaseSha = "merge-base-sha789";
       const mockChangedFiles = ["src/file1.ts", "src/file2.js"];
+      const mockChangedLines = new Map<string, number[]>([
+        ["src/file1.ts", [1, 2, 3]],
+        ["src/file2.js", [10]],
+      ]);
       const mockChangeset = {
         baseCommit: mockMergeBaseSha,
         headCommit: mockPrHeadSha,
@@ -53,6 +59,7 @@ describe("ChangesetService", () => {
       mockedGitUtils.getPullRequestBase.mockReturnValue(mockPrBaseSha);
       mockedGitUtils.getMergeBase.mockResolvedValue(mockMergeBaseSha);
       mockedGitUtils.getChangedFiles.mockResolvedValue(mockChangedFiles);
+      mockedGitUtils.getChangedLinesByFile.mockResolvedValue(mockChangedLines);
       mockedChangesetUtils.createChangeset.mockReturnValue(mockChangeset);
       mockedChangesetUtils.getSummary.mockReturnValue(
         "2 files changed compared to main",
@@ -71,11 +78,16 @@ describe("ChangesetService", () => {
         mockMergeBaseSha,
         mockPrHeadSha,
       );
+      expect(mockedGitUtils.getChangedLinesByFile).toHaveBeenCalledWith(
+        mockMergeBaseSha,
+        mockPrHeadSha,
+      );
       expect(mockedChangesetUtils.createChangeset).toHaveBeenCalledWith(
         mockChangedFiles,
         mockMergeBaseSha,
         mockPrHeadSha,
         "main",
+        mockChangedLines,
       );
       expect(mockedCore.info).toHaveBeenCalledWith(
         "🚀 Starting changeset detection",
@@ -153,6 +165,7 @@ describe("ChangesetService", () => {
         mockPrBaseSha,
         mockPrHeadSha,
         "main",
+        expect.any(Map),
       );
       expect(mockedCore.warning).toHaveBeenCalledWith(
         expect.stringContaining("Merge base unavailable"),

@@ -216,6 +216,176 @@ describe("ChecksService", () => {
       });
     });
 
+    it("should only annotate uncovered lines and functions the changeset touched", () => {
+      const fileWithCoverage: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        // The PR only touched line 7 and the function on line 5.
+        changedLines: [5, 7],
+        coverage: {
+          path: "src/test.ts",
+          functions: [
+            { name: "touchedFn", hit: 0, line: 5 },
+            { name: "untouchedFn", hit: 0, line: 15 },
+          ],
+          branches: [],
+          lines: [
+            { line: 3, hit: 0 },
+            { line: 7, hit: 0 },
+            { line: 12, hit: 0 },
+          ],
+          summary: {
+            functionsFound: 2,
+            functionsHit: 0,
+            linesFound: 20,
+            linesHit: 10,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 20,
+          coveredLines: 10,
+          totalFunctions: 2,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 50,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 50,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithCoverage],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 20,
+            coveredLines: 10,
+            totalFunctions: 2,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 50,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 50,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+
+      const lineAnnotations = annotations.filter(
+        (a) => a.title === "Uncovered Lines",
+      );
+      const functionAnnotations = annotations.filter(
+        (a) => a.title === "Uncovered Function",
+      );
+
+      expect(lineAnnotations).toEqual([
+        {
+          path: "src/test.ts",
+          start_line: 7,
+          end_line: 7,
+          annotation_level: "warning",
+          title: "Uncovered Lines",
+          message: "Line 7 is not covered by tests",
+        },
+      ]);
+      expect(functionAnnotations).toEqual([
+        {
+          path: "src/test.ts",
+          start_line: 5,
+          end_line: 5,
+          annotation_level: "warning",
+          title: "Uncovered Function",
+          message: "Function 'touchedFn' is not covered by tests",
+        },
+      ]);
+    });
+
+    it("should emit no uncovered annotations when the changeset only touched covered code", () => {
+      const fileWithCoverage: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        // The PR only touched line 7, which is covered.
+        changedLines: [7],
+        coverage: {
+          path: "src/test.ts",
+          functions: [{ name: "untouchedFn", hit: 0, line: 15 }],
+          branches: [],
+          lines: [
+            { line: 3, hit: 0 },
+            { line: 7, hit: 1 },
+          ],
+          summary: {
+            functionsFound: 1,
+            functionsHit: 0,
+            linesFound: 20,
+            linesHit: 10,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 20,
+          coveredLines: 10,
+          totalFunctions: 1,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 50,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 50,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithCoverage],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 20,
+            coveredLines: 10,
+            totalFunctions: 1,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 50,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 50,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+
+      // No changeset-touched uncovered code, so not even the low-coverage
+      // notice is emitted despite the file sitting at 50%.
+      expect(annotations).toEqual([]);
+    });
+
     it("should generate annotation for file without coverage", () => {
       const fileWithoutCoverage: FileChangeWithCoverage = {
         path: "src/test.ts",
