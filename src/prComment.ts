@@ -44,9 +44,7 @@ export class PrCommentService {
   }
 
   private getCommentTitle(): string {
-    return this.label
-      ? `Coveragemap Action: ${this.label}`
-      : "Coveragemap Action";
+    return buildReportTitle(this.label);
   }
 
   static createCommentData(
@@ -191,6 +189,34 @@ export class PrCommentService {
 }
 
 const PR_COMMENT_TITLE = "Coveragemap Action";
+
+/**
+ * Build the report title, optionally suffixed with a label so multiple action
+ * instances render distinct headings. Shared by the PR comment and the job
+ * summary so both stay in sync.
+ */
+export function buildReportTitle(label?: string): string {
+  return label ? `${PR_COMMENT_TITLE}: ${label}` : PR_COMMENT_TITLE;
+}
+
+/**
+ * Render the full coverage report markdown from analysis data. Reused by the
+ * PR comment and the GitHub job summary so both surfaces share one renderer.
+ */
+export function renderCoverageReport(
+  analysis: CoverageAnalysis,
+  lcovReport: LcovReport,
+  gatingResult: GatingResult,
+  options?: { label?: string; treemapArtifact?: ArtifactInfo },
+): string {
+  const data = PrCommentService.createCommentData(analysis, lcovReport);
+  return buildCommentBody(
+    buildReportTitle(options?.label),
+    data,
+    gatingResult,
+    options?.treemapArtifact,
+  );
+}
 
 /**
  * Build the markdown body for a coverage PR comment. Pure function shared by

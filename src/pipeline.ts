@@ -4,7 +4,7 @@ import { ChangesetService } from "./changesetService";
 import { LcovParser, LcovReport } from "./lcov";
 import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
 import { Changeset } from "./changeset";
-import { PrCommentService } from "./prComment";
+import { PrCommentService, renderCoverageReport } from "./prComment";
 import { CoverageGating, GatingResult } from "./coverageGating";
 import { TreemapGenerator } from "./treemap/treemapGenerator";
 import { ArtifactService, ArtifactInfo } from "./artifactService";
@@ -186,6 +186,29 @@ export async function postPrComment(
         "🔍 This might be because the action is not running in a PR context or lacks permissions",
       );
       return null;
+    }
+  });
+}
+
+export async function writeJobSummary(
+  analysis: CoverageAnalysis,
+  lcovReport: LcovReport,
+  gatingResult: GatingResult,
+  label?: string,
+  treemapArtifact?: ArtifactInfo,
+): Promise<void> {
+  return withGroup("📝 Writing job summary", async () => {
+    try {
+      const body = renderCoverageReport(analysis, lcovReport, gatingResult, {
+        label,
+        treemapArtifact,
+      });
+
+      await core.summary.addRaw(body).addEOL().write();
+
+      core.info("✅ Job summary written successfully");
+    } catch (error) {
+      core.warning(`Failed to write job summary: ${toErrorMessage(error)}`);
     }
   });
 }

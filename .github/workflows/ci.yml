@@ -158,3 +158,7 @@ jobs:
         github-app-private-key: ${{ secrets.COVERAGEMAP_APP_PRIVATE_KEY }}
         source-code-pattern: "src/**/*.ts"
         test-code-pattern: "src/**/*.test.ts, src/__mocks__/**/*"
+        # Self-test the report surfaces: keep the PR comment and also write the
+        # coverage summary to the workflow run's job summary page.
+        pr-comment: "true"
+        job-summary: "true"

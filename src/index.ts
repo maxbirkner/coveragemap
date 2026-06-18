@@ -6,6 +6,7 @@ import {
   analyzeCoverageAndGating,
   generateAndUploadTreemap,
   postPrComment,
+  writeJobSummary,
   postCheckAnnotations,
 } from "./pipeline";
 import { toErrorMessage } from "./errors";
@@ -35,14 +36,26 @@ export async function run(): Promise<void> {
       inputs.treemapTitle,
     );
 
-    const prCommentUrl = await postPrComment(
-      analysis,
-      lcovReport,
-      gatingResult,
-      inputs.githubToken,
-      inputs.label,
-      treemapArtifact || undefined,
-    );
+    const prCommentUrl = inputs.prComment
+      ? await postPrComment(
+          analysis,
+          lcovReport,
+          gatingResult,
+          inputs.githubToken,
+          inputs.label,
+          treemapArtifact || undefined,
+        )
+      : null;
+
+    if (inputs.jobSummary) {
+      await writeJobSummary(
+        analysis,
+        lcovReport,
+        gatingResult,
+        inputs.label,
+        treemapArtifact || undefined,
+      );
+    }
 
     await postCheckAnnotations(
       analysis,

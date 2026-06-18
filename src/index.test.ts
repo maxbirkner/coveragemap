@@ -178,4 +178,44 @@ describe("run", () => {
 
     expect(mockedCore.setFailed).toHaveBeenCalledWith("String error");
   });
+
+  it("should skip the PR comment when pr-comment is disabled", async () => {
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      if (name === "lcov-file") return "coverage/lcov.info";
+      if (name === "coverage-threshold") return "80";
+      if (name === "target-branch") return "main";
+      if (name === "pr-comment") return "false";
+      return "";
+    });
+
+    await run();
+
+    expect(mockedPrCommentService).not.toHaveBeenCalled();
+    expect(mockedCore.setFailed).not.toHaveBeenCalled();
+  });
+
+  it("should write the job summary when job-summary is enabled", async () => {
+    const writeMock = mockedCore.summary.write as unknown as jest.Mock;
+    const addRawMock = mockedCore.summary.addRaw as unknown as jest.Mock;
+    writeMock.mockResolvedValue(undefined);
+    addRawMock.mockReturnValue(mockedCore.summary);
+    (mockedCore.summary.addEOL as unknown as jest.Mock).mockReturnValue(
+      mockedCore.summary,
+    );
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      if (name === "lcov-file") return "coverage/lcov.info";
+      if (name === "coverage-threshold") return "80";
+      if (name === "target-branch") return "main";
+      if (name === "job-summary") return "true";
+      return "";
+    });
+
+    await run();
+
+    expect(addRawMock).toHaveBeenCalled();
+    expect(writeMock).toHaveBeenCalled();
+    expect(mockedCore.setFailed).not.toHaveBeenCalled();
+  });
 });

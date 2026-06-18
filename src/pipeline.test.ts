@@ -52,13 +52,14 @@ import {
   parseLcovReport,
   analyzeCoverageAndGating,
   postPrComment,
+  writeJobSummary,
   generateAndUploadTreemap,
   buildTreemapSubtitle,
 } from "./pipeline";
 import { ChangesetService } from "./changesetService";
 import { LcovParser } from "./lcov";
 import { CoverageAnalyzer } from "./coverageAnalyzer";
-import { PrCommentService } from "./prComment";
+import { PrCommentService, renderCoverageReport } from "./prComment";
 import { CoverageGating } from "./coverageGating";
 import { ArtifactService } from "./artifactService";
 
@@ -82,6 +83,9 @@ const mockedCoverageAnalyzer = CoverageAnalyzer as jest.Mocked<
 >;
 const mockedPrCommentService = PrCommentService as jest.MockedClass<
   typeof PrCommentService
+>;
+const mockedRenderCoverageReport = renderCoverageReport as jest.MockedFunction<
+  typeof renderCoverageReport
 >;
 const mockedCoverageGating = CoverageGating as jest.Mocked<
   typeof CoverageGating
@@ -512,6 +516,112 @@ describe("postPrComment", () => {
     expect(mockedCore.warning).toHaveBeenCalledWith(
       "Failed to post PR comment: String error",
     );
+  });
+});
+
+describe("writeJobSummary", () => {
+  const mockAnalysis = {
+    changeset: {
+      baseCommit: "abc123",
+      headCommit: "def456",
+      targetBranch: "main",
+      files: [],
+      totalFiles: 0,
+    },
+    changedFiles: [],
+    summary: {
+      totalChangedFiles: 1,
+      filesWithCoverage: 1,
+      filesWithoutCoverage: 0,
+      overallCoverage: {
+        overallCoveragePercentage: 85.5,
+        totalLines: 100,
+        coveredLines: 85,
+        totalFunctions: 20,
+        coveredFunctions: 18,
+        totalBranches: 10,
+        coveredBranches: 8,
+        linesCoveragePercentage: 85.0,
+        functionsCoveragePercentage: 90.0,
+        branchesCoveragePercentage: 80.0,
+      },
+    },
+  };
+  const mockLcovReport = {
+    files: new Map(),
+    summary: {
+      totalFiles: 5,
+      linesFound: 100,
+      linesHit: 80,
+      functionsFound: 20,
+      functionsHit: 18,
+      branchesFound: 10,
+      branchesHit: 8,
+    },
+  };
+  const mockGatingResult = {
+    meetsThreshold: true,
+    threshold: 80,
+    mode: "standard" as const,
+    prCoveragePercentage: 85.5,
+    description: "Coverage meets threshold",
+  };
+
+  let writeMock: jest.Mock;
+  let addRawMock: jest.Mock;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    // @actions/core is auto-mocked, so core.summary already exists with mocked
+    // methods. Wire the chain (addRaw -> addEOL -> write) to return the summary
+    // and resolve on write.
+    writeMock = mockedCore.summary.write as unknown as jest.Mock;
+    addRawMock = mockedCore.summary.addRaw as unknown as jest.Mock;
+    writeMock.mockResolvedValue(undefined);
+    addRawMock.mockReturnValue(mockedCore.summary);
+    (mockedCore.summary.addEOL as unknown as jest.Mock).mockReturnValue(
+      mockedCore.summary,
+    );
+  });
+
+  it("should render the report and write it to the job summary", async () => {
+    mockedRenderCoverageReport.mockReturnValue("## Coverage body");
+
+    await writeJobSummary(
+      mockAnalysis,
+      mockLcovReport,
+      mockGatingResult,
+      "coverage",
+      undefined,
+    );
+
+    expect(mockedCore.startGroup).toHaveBeenCalledWith(
+      "📝 Writing job summary",
+    );
+    expect(mockedRenderCoverageReport).toHaveBeenCalledWith(
+      mockAnalysis,
+      mockLcovReport,
+      mockGatingResult,
+      { label: "coverage", treemapArtifact: undefined },
+    );
+    expect(addRawMock).toHaveBeenCalledWith("## Coverage body");
+    expect(writeMock).toHaveBeenCalled();
+    expect(mockedCore.info).toHaveBeenCalledWith(
+      "✅ Job summary written successfully",
+    );
+    expect(mockedCore.endGroup).toHaveBeenCalled();
+  });
+
+  it("should warn when writing the job summary fails", async () => {
+    mockedRenderCoverageReport.mockReturnValue("## Coverage body");
+    writeMock.mockRejectedValue(new Error("disk full"));
+
+    await writeJobSummary(mockAnalysis, mockLcovReport, mockGatingResult);
+
+    expect(mockedCore.warning).toHaveBeenCalledWith(
+      "Failed to write job summary: disk full",
+    );
+    expect(mockedCore.endGroup).toHaveBeenCalled();
   });
 });
 

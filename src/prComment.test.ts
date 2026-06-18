@@ -2,6 +2,8 @@ import {
   PrCommentService,
   CommentData,
   generateCommentBody,
+  renderCoverageReport,
+  buildReportTitle,
   formatFileSize,
   formatLineCount,
 } from "./prComment";
@@ -882,5 +884,139 @@ describe("PrCommentService", () => {
         ),
       ).rejects.toThrow("Failed to post PR comment: API Error");
     });
+  });
+});
+
+describe("buildReportTitle", () => {
+  test("returns the bare title when no label is provided", () => {
+    expect(buildReportTitle()).toBe("Coveragemap Action");
+  });
+
+  test("appends the label when provided", () => {
+    expect(buildReportTitle("backend")).toBe("Coveragemap Action: backend");
+  });
+});
+
+describe("renderCoverageReport", () => {
+  const mockLcovReport: LcovReport = {
+    files: new Map(),
+    summary: {
+      totalFiles: 5,
+      linesFound: 1000,
+      linesHit: 800,
+      functionsFound: 100,
+      functionsHit: 85,
+      branchesFound: 50,
+      branchesHit: 40,
+    },
+  };
+
+  const mockAnalysis: CoverageAnalysis = {
+    changeset: {
+      baseCommit: "abc123",
+      headCommit: "def456",
+      targetBranch: "main",
+      files: [{ path: "src/example.ts", status: "modified" }],
+      totalFiles: 1,
+    },
+    changedFiles: [
+      {
+        path: "src/example.ts",
+        status: "modified",
+        coverage: {
+          path: "src/example.ts",
+          summary: {
+            linesFound: 50,
+            linesHit: 40,
+            functionsFound: 5,
+            functionsHit: 4,
+            branchesFound: 10,
+            branchesHit: 8,
+          },
+          lines: [],
+          functions: [],
+          branches: [],
+        },
+        analysis: {
+          totalLines: 50,
+          coveredLines: 40,
+          totalFunctions: 5,
+          coveredFunctions: 4,
+          totalBranches: 10,
+          coveredBranches: 8,
+          linesCoveragePercentage: 80,
+          functionsCoveragePercentage: 80,
+          branchesCoveragePercentage: 80,
+          overallCoveragePercentage: 80,
+        },
+      },
+    ],
+    summary: {
+      totalChangedFiles: 1,
+      filesWithCoverage: 1,
+      filesWithoutCoverage: 0,
+      overallCoverage: {
+        totalLines: 50,
+        coveredLines: 40,
+        totalFunctions: 5,
+        coveredFunctions: 4,
+        totalBranches: 10,
+        coveredBranches: 8,
+        linesCoveragePercentage: 80,
+        functionsCoveragePercentage: 80,
+        branchesCoveragePercentage: 80,
+        overallCoveragePercentage: 80,
+      },
+    },
+  };
+
+  const gatingResult: GatingResult = {
+    meetsThreshold: true,
+    threshold: 80,
+    mode: "standard",
+    prCoveragePercentage: 80,
+    description: "Coverage meets threshold",
+  };
+
+  test("renders the same markdown the PR comment uses, with the default title", () => {
+    const result = renderCoverageReport(
+      mockAnalysis,
+      mockLcovReport,
+      gatingResult,
+    );
+
+    expect(result).toContain("## Coveragemap Action");
+    expect(result).toContain("| **Total Coverage** | 80% | 800/1,000 |");
+    expect(result).toContain("✅ `src/example.ts` | 80% | 40/50");
+  });
+
+  test("applies the label to the title when provided", () => {
+    const result = renderCoverageReport(
+      mockAnalysis,
+      mockLcovReport,
+      gatingResult,
+      { label: "backend" },
+    );
+
+    expect(result).toContain("## Coveragemap Action: backend");
+  });
+
+  test("includes the treemap section when an artifact is provided", () => {
+    const result = renderCoverageReport(
+      mockAnalysis,
+      mockLcovReport,
+      gatingResult,
+      {
+        treemapArtifact: {
+          name: "coverage-treemap-pr-123",
+          path: "./coverage-treemap.png",
+          downloadUrl: "https://example.com/treemap",
+          size: 2048,
+        },
+      },
+    );
+
+    expect(result).toContain("### 📊 Coverage Treemap Visualization");
+    expect(result).toContain("coverage-treemap-pr-123");
   });
 });
