@@ -249,6 +249,7 @@ describe("PrCommentService", () => {
             percentage: 80,
           },
         ],
+        hasFunctionData: true,
       };
 
       const gatingResult: GatingResult = {
@@ -289,6 +290,7 @@ describe("PrCommentService", () => {
         changedFilesCoverage: { linesHit: 40, linesFound: 50, percentage: 60 },
         coverageDifference: -20,
         fileBreakdown: [],
+        hasFunctionData: true,
       };
 
       const gatingResult: GatingResult = {
@@ -334,6 +336,7 @@ describe("PrCommentService", () => {
             percentage: 20,
           },
         ],
+        hasFunctionData: true,
       };
 
       const gatingResult: GatingResult = {
@@ -377,6 +380,7 @@ describe("PrCommentService", () => {
             percentage: 85,
           },
         ],
+        hasFunctionData: true,
       };
 
       const gatingResult: GatingResult = {
@@ -423,6 +427,7 @@ describe("PrCommentService", () => {
             percentage: 60,
           },
         ],
+        hasFunctionData: true,
       };
 
       const gatingResult: GatingResult = {
@@ -486,10 +491,65 @@ describe("PrCommentService", () => {
         "https://github.com/owner/repo/actions/runs/123",
       );
       expect(result).toContain(
-        "A visual treemap has been generated showing coverage by function/method",
+        "A visual treemap has been generated showing file-level coverage, broken down by function where the report provides function data",
       );
+      expect(result).not.toContain("**Green**: Fully covered functions");
+      expect(result).not.toContain("**Orange**: Partially covered functions");
+      expect(result).not.toContain("**Red**: Uncovered functions");
       expect(result).toContain("direct download");
       expect(result).toContain("📥 **[Download treemap visualization]");
+    });
+  });
+
+  describe("treemap description wording", () => {
+    const artifactInfo = {
+      name: "coverage-treemap-pr-123",
+      path: "./coverage-treemap.png",
+      downloadUrl:
+        "https://github.com/owner/repo/actions/runs/123/artifacts/coverage-treemap",
+      size: 2048,
+    };
+
+    const buildBody = (hasFunctionData: boolean): string => {
+      const service = new PrCommentService({ githubToken: "test-token" });
+      const commentData: CommentData = {
+        totalCoverage: { linesHit: 800, linesFound: 1000, percentage: 80 },
+        changedFilesCoverage: { linesHit: 40, linesFound: 50, percentage: 80 },
+        coverageDifference: 0,
+        fileBreakdown: [],
+        hasFunctionData,
+      };
+      const gatingResult: GatingResult = {
+        meetsThreshold: true,
+        threshold: 80,
+        mode: "standard",
+        prCoveragePercentage: 80,
+        description: "ok",
+      };
+      return (
+        service as unknown as {
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+            treemapArtifact?: typeof artifactInfo,
+          ) => string;
+        }
+      ).generateCommentBody(commentData, gatingResult, artifactInfo);
+    };
+
+    test("mentions function breakdown when the report carries function data", () => {
+      const result = buildBody(true);
+      expect(result).toContain(
+        "showing file-level coverage, broken down by function where the report provides function data",
+      );
+    });
+
+    test("describes file-level coverage only when no function data exists", () => {
+      const result = buildBody(false);
+      expect(result).toContain(
+        "A visual treemap has been generated showing file-level coverage.",
+      );
+      expect(result).not.toContain("broken down by function");
     });
   });
 
@@ -523,6 +583,7 @@ describe("PrCommentService", () => {
         changedFilesCoverage: { linesHit: 45, linesFound: 50, percentage: 90 },
         coverageDifference,
         fileBreakdown: [],
+        hasFunctionData: true,
       };
       const gatingResult: GatingResult = {
         meetsThreshold: true,
@@ -572,6 +633,7 @@ describe("PrCommentService", () => {
         changedFilesCoverage: { linesHit: 0, linesFound: 0, percentage: 100 },
         coverageDifference: 37.18,
         fileBreakdown: [],
+        hasFunctionData: true,
       };
       const gatingResult: GatingResult = {
         meetsThreshold: true,
