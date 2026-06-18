@@ -152,6 +152,7 @@ jobs:
       id: coveragemap
       with:
         lcov-file: "./coverage/lcov.info"
+        gate-mode: threshold
         coverage-threshold: "80"
         github-token: ${{ secrets.GITHUB_TOKEN }}
         github-app-id: ${{ secrets.COVERAGEMAP_APP_ID }}
