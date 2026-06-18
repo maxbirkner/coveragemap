@@ -603,7 +603,7 @@ describe("writeJobSummary", () => {
       mockAnalysis,
       mockLcovReport,
       mockGatingResult,
-      { label: "coverage", treemapArtifact: undefined },
+      { label: "coverage", treemapArtifact: undefined, checkRunUrl: undefined },
     );
     expect(addRawMock).toHaveBeenCalledWith("## Coverage body");
     expect(writeMock).toHaveBeenCalled();
