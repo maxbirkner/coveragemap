@@ -36,16 +36,28 @@ export async function run(): Promise<void> {
       inputs.treemapTitle,
     );
 
-    const prCommentUrl = inputs.prComment
-      ? await postPrComment(
-          analysis,
-          lcovReport,
-          gatingResult,
-          inputs.githubToken,
-          inputs.label,
-          treemapArtifact || undefined,
-        )
-      : null;
+    const checkRunUrl = await postCheckAnnotations(
+      analysis,
+      gatingResult,
+      inputs.githubToken,
+      threshold,
+      inputs.githubAppId,
+      inputs.githubAppPrivateKey,
+      undefined,
+      inputs.label,
+    );
+
+    if (inputs.prComment) {
+      await postPrComment(
+        analysis,
+        lcovReport,
+        gatingResult,
+        inputs.githubToken,
+        inputs.label,
+        treemapArtifact || undefined,
+        checkRunUrl || undefined,
+      );
+    }
 
     if (inputs.jobSummary) {
       await writeJobSummary(
@@ -54,19 +66,9 @@ export async function run(): Promise<void> {
         gatingResult,
         inputs.label,
         treemapArtifact || undefined,
+        checkRunUrl || undefined,
       );
     }
-
-    await postCheckAnnotations(
-      analysis,
-      gatingResult,
-      inputs.githubToken,
-      threshold,
-      inputs.githubAppId,
-      inputs.githubAppPrivateKey,
-      prCommentUrl || undefined,
-      inputs.label,
-    );
 
     if (!gatingResult.meetsThreshold) {
       core.setFailed(

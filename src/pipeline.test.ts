@@ -377,6 +377,7 @@ describe("postPrComment", () => {
       mockLcovReport,
       mockGatingResult,
       undefined,
+      undefined,
     );
     expect(mockedCore.info).toHaveBeenCalledWith(
       "✅ PR comment posted successfully",

@@ -95,12 +95,14 @@ export class PrCommentService {
     data: CommentData,
     gatingResult: GatingResult,
     treemapArtifact?: ArtifactInfo,
+    checkRunUrl?: string,
   ): string {
     return buildCommentBody(
       this.getCommentTitle(),
       data,
       gatingResult,
       treemapArtifact,
+      checkRunUrl,
     );
   }
 
@@ -133,6 +135,7 @@ export class PrCommentService {
     lcovReport: LcovReport,
     gatingResult: GatingResult,
     treemapArtifact?: ArtifactInfo,
+    checkRunUrl?: string,
   ): Promise<string | null> {
     const { context } = github;
 
@@ -141,7 +144,12 @@ export class PrCommentService {
     }
 
     const data = PrCommentService.createCommentData(analysis, lcovReport);
-    const body = this.generateCommentBody(data, gatingResult, treemapArtifact);
+    const body = this.generateCommentBody(
+      data,
+      gatingResult,
+      treemapArtifact,
+      checkRunUrl,
+    );
 
     try {
       const existingCommentId = await this.findExistingComment();
@@ -207,7 +215,11 @@ export function renderCoverageReport(
   analysis: CoverageAnalysis,
   lcovReport: LcovReport,
   gatingResult: GatingResult,
-  options?: { label?: string; treemapArtifact?: ArtifactInfo },
+  options?: {
+    label?: string;
+    treemapArtifact?: ArtifactInfo;
+    checkRunUrl?: string;
+  },
 ): string {
   const data = PrCommentService.createCommentData(analysis, lcovReport);
   return buildCommentBody(
@@ -215,6 +227,7 @@ export function renderCoverageReport(
     data,
     gatingResult,
     options?.treemapArtifact,
+    options?.checkRunUrl,
   );
 }
 
@@ -228,6 +241,7 @@ function buildCommentBody(
   data: CommentData,
   gatingResult: GatingResult,
   treemapArtifact?: ArtifactInfo,
+  checkRunUrl?: string,
 ): string {
   // When the PR touches no lines that carry coverage data there is nothing
   // to compare, so we render placeholders instead of a misleading 100% /
@@ -319,6 +333,13 @@ function buildCommentBody(
       ? "direct download"
       : "Actions tab";
     markdown += `> 📥 **[Download treemap visualization](${downloadUrl})** - Click for ${linkText}\n\n`;
+  }
+
+  // Link to the check run so reviewers can jump to the inline coverage
+  // annotations when the Checks integration is enabled.
+  if (checkRunUrl) {
+    markdown += `### 🔍 Inline Coverage Annotations\n\n`;
+    markdown += `Line-level coverage annotations are available on the [Coverage Treemap Action check](${checkRunUrl}).\n\n`;
   }
 
   // Footer

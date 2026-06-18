@@ -1019,4 +1019,28 @@ describe("renderCoverageReport", () => {
     expect(result).toContain("### 📊 Coverage Treemap Visualization");
     expect(result).toContain("coverage-treemap-pr-123");
   });
+
+  test("includes the check annotations link when a check run URL is provided", () => {
+    const result = renderCoverageReport(
+      mockAnalysis,
+      mockLcovReport,
+      gatingResult,
+      { checkRunUrl: "https://github.com/owner/repo/runs/123" },
+    );
+
+    expect(result).toContain("### 🔍 Inline Coverage Annotations");
+    expect(result).toContain(
+      "[Coverage Treemap Action check](https://github.com/owner/repo/runs/123)",
+    );
+  });
+
+  test("omits the check annotations section when no check run URL is provided", () => {
+    const result = renderCoverageReport(
+      mockAnalysis,
+      mockLcovReport,
+      gatingResult,
+    );
+
+    expect(result).not.toContain("### 🔍 Inline Coverage Annotations");
+  });
 });

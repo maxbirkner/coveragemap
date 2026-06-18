@@ -898,12 +898,13 @@ describe("ChecksService", () => {
         data: { html_url: "https://github.com/owner/repo/runs/123" },
       });
 
-      await checksService.postAnnotations(
+      const checkRunUrl = await checksService.postAnnotations(
         analysis,
         createMockGatingResult(),
         annotations,
       );
 
+      expect(checkRunUrl).toBe("https://github.com/owner/repo/runs/123");
       expect(mockedCreateAppAuth).toHaveBeenCalledWith({
         appId: "123456",
         privateKey:

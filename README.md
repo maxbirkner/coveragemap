@@ -173,6 +173,8 @@ The coverage summary can be surfaced in two places, controlled independently:
 
 Both surfaces render identical markdown, so you can disable the PR comment and rely on the job summary alone, or enable both.
 
+When the [GitHub Checks API integration](#github-checks-api-integration) is enabled, both surfaces also link to the check run so reviewers can jump straight to the inline, line-level coverage annotations.
+
 ## Outputs
 
 | Name                | Type      | Description                                      |
