@@ -27,15 +27,19 @@ describe("ChangesetService", () => {
     jest.clearAllMocks();
     // Reset GitHub context mock
     (context as unknown as { payload: object }).payload = {};
+    // Default to a resolvable merge base so detectCodeChanges tests exercise
+    // the normal (non-shallow) path; detectChanges tests override as needed.
+    mockedGitUtils.getMergeBase.mockResolvedValue("base-sha");
   });
 
   describe("detectChanges", () => {
-    it("should detect changes using GitHub context SHAs", async () => {
+    it("should detect changes using the merge base of the PR base and head", async () => {
       const mockPrHeadSha = "pr-head-sha123";
       const mockPrBaseSha = "pr-base-sha456";
+      const mockMergeBaseSha = "merge-base-sha789";
       const mockChangedFiles = ["src/file1.ts", "src/file2.js"];
       const mockChangeset = {
-        baseCommit: mockPrBaseSha,
+        baseCommit: mockMergeBaseSha,
         headCommit: mockPrHeadSha,
         targetBranch: "main",
         files: [
@@ -47,6 +51,7 @@ describe("ChangesetService", () => {
 
       mockedGitUtils.getPullRequestHead.mockReturnValue(mockPrHeadSha);
       mockedGitUtils.getPullRequestBase.mockReturnValue(mockPrBaseSha);
+      mockedGitUtils.getMergeBase.mockResolvedValue(mockMergeBaseSha);
       mockedGitUtils.getChangedFiles.mockResolvedValue(mockChangedFiles);
       mockedChangesetUtils.createChangeset.mockReturnValue(mockChangeset);
       mockedChangesetUtils.getSummary.mockReturnValue(
@@ -58,13 +63,17 @@ describe("ChangesetService", () => {
       expect(result).toBe(mockChangeset);
       expect(mockedGitUtils.getPullRequestHead).toHaveBeenCalled();
       expect(mockedGitUtils.getPullRequestBase).toHaveBeenCalled();
-      expect(mockedGitUtils.getChangedFiles).toHaveBeenCalledWith(
+      expect(mockedGitUtils.getMergeBase).toHaveBeenCalledWith(
         mockPrBaseSha,
+        mockPrHeadSha,
+      );
+      expect(mockedGitUtils.getChangedFiles).toHaveBeenCalledWith(
+        mockMergeBaseSha,
         mockPrHeadSha,
       );
       expect(mockedChangesetUtils.createChangeset).toHaveBeenCalledWith(
         mockChangedFiles,
-        mockPrBaseSha,
+        mockMergeBaseSha,
         mockPrHeadSha,
         "main",
       );
@@ -85,10 +94,76 @@ describe("ChangesetService", () => {
       );
     });
 
+    it("should isolate PR changes when the target branch has diverged", async () => {
+      // The merge base lies behind the PR base tip because new commits landed
+      // on the target branch after the PR branched off. Diffing against the
+      // merge base must exclude those unrelated target-branch changes.
+      const mockPrHeadSha = "head";
+      const mockPrBaseSha = "diverged-base";
+      const mockMergeBaseSha = "fork-point";
+      const prOnlyFiles = ["src/feature.ts"];
+
+      mockedGitUtils.getPullRequestHead.mockReturnValue(mockPrHeadSha);
+      mockedGitUtils.getPullRequestBase.mockReturnValue(mockPrBaseSha);
+      mockedGitUtils.getMergeBase.mockResolvedValue(mockMergeBaseSha);
+      mockedGitUtils.getChangedFiles.mockResolvedValue(prOnlyFiles);
+      mockedChangesetUtils.createChangeset.mockReturnValue({
+        baseCommit: mockMergeBaseSha,
+        headCommit: mockPrHeadSha,
+        targetBranch: "main",
+        files: [{ path: "src/feature.ts", status: "modified" as const }],
+        totalFiles: 1,
+      });
+      mockedChangesetUtils.getSummary.mockReturnValue("summary");
+
+      await ChangesetService.detectChanges("main");
+
+      expect(mockedGitUtils.getChangedFiles).toHaveBeenCalledWith(
+        mockMergeBaseSha,
+        mockPrHeadSha,
+      );
+      expect(mockedCore.warning).not.toHaveBeenCalled();
+    });
+
+    it("should fall back to the PR base SHA and warn when the merge base is unavailable", async () => {
+      const mockPrHeadSha = "head";
+      const mockPrBaseSha = "base";
+
+      mockedGitUtils.getPullRequestHead.mockReturnValue(mockPrHeadSha);
+      mockedGitUtils.getPullRequestBase.mockReturnValue(mockPrBaseSha);
+      mockedGitUtils.getMergeBase.mockResolvedValue(null);
+      mockedGitUtils.getChangedFiles.mockResolvedValue(["src/file1.ts"]);
+      mockedChangesetUtils.createChangeset.mockReturnValue({
+        baseCommit: mockPrBaseSha,
+        headCommit: mockPrHeadSha,
+        targetBranch: "main",
+        files: [{ path: "src/file1.ts", status: "modified" as const }],
+        totalFiles: 1,
+      });
+      mockedChangesetUtils.getSummary.mockReturnValue("summary");
+
+      await ChangesetService.detectChanges("main");
+
+      expect(mockedGitUtils.getChangedFiles).toHaveBeenCalledWith(
+        mockPrBaseSha,
+        mockPrHeadSha,
+      );
+      expect(mockedChangesetUtils.createChangeset).toHaveBeenCalledWith(
+        ["src/file1.ts"],
+        mockPrBaseSha,
+        mockPrHeadSha,
+        "main",
+      );
+      expect(mockedCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Merge base unavailable"),
+      );
+    });
+
     it("should handle git command failures", async () => {
       const error = new Error("Git command failed");
       mockedGitUtils.getPullRequestHead.mockReturnValue("head-sha");
       mockedGitUtils.getPullRequestBase.mockReturnValue("base-sha");
+      mockedGitUtils.getMergeBase.mockResolvedValue("merge-base-sha");
       mockedGitUtils.getChangedFiles.mockRejectedValue(error);
 
       await expect(ChangesetService.detectChanges("main")).rejects.toThrow(

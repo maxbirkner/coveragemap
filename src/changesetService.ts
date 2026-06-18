@@ -21,11 +21,26 @@ export class ChangesetService {
       core.info(`📌 PR head: ${headRef}`);
       core.info(`🎯 PR base: ${baseRef}`);
 
-      const changedFiles = await GitUtils.getChangedFiles(baseRef, headRef);
+      // Compare against the merge base rather than the base branch tip so the
+      // changeset only contains the PR's own changes, even when the target
+      // branch has advanced since the branch point. When the merge base cannot
+      // be resolved (typically a shallow clone) fall back to the PR base SHA to
+      // preserve the previous behaviour rather than failing outright.
+      const mergeBase = await GitUtils.getMergeBase(baseRef, headRef);
+      const diffBase = mergeBase ?? baseRef;
+
+      if (!mergeBase) {
+        core.warning(
+          "⚠️ Merge base unavailable (likely a shallow clone); falling back to the PR base SHA. " +
+            "Increase fetch-depth so the merge base is fetched for accurate changeset detection.",
+        );
+      }
+
+      const changedFiles = await GitUtils.getChangedFiles(diffBase, headRef);
 
       const changeset = ChangesetUtils.createChangeset(
         changedFiles,
-        baseRef,
+        diffBase,
         headRef,
         targetBranch,
       );

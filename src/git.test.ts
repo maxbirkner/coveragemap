@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GitUtils } from "./git";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import * as core from "@actions/core";
 
 // Mock child_process, @actions/core, and @actions/github
@@ -12,20 +12,29 @@ jest.mock("@actions/github", () => ({
   },
 }));
 
-const mockedExec = exec as jest.MockedFunction<typeof exec>;
+const mockedExecFile = execFile as unknown as jest.MockedFunction<any>;
 const mockedCore = core as jest.Mocked<typeof core>;
 
 import { context } from "@actions/github";
 
-// Helper to mock exec with specific stdout/stderr
+// Helper to mock execFile with specific stdout/stderr. promisify(execFile)
+// invokes it as execFile(file, args, callback).
 const mockExecSuccess = (stdout: string, stderr = "") => {
-  mockedExec.mockImplementation(((_command: string, callback: any) => {
+  mockedExecFile.mockImplementation(((
+    _file: string,
+    _args: string[],
+    callback: any,
+  ) => {
     callback(null, { stdout, stderr });
   }) as any);
 };
 
 const mockExecError = (error: Error) => {
-  mockedExec.mockImplementation(((_command: string, callback: any) => {
+  mockedExecFile.mockImplementation(((
+    _file: string,
+    _args: string[],
+    callback: any,
+  ) => {
     callback(error, { stdout: "", stderr: "" });
   }) as any);
 };
@@ -119,6 +128,44 @@ describe("GitUtils", () => {
     });
   });
 
+  describe("getMergeBase", () => {
+    it("should return the merge base SHA when git resolves one", async () => {
+      mockExecSuccess("merge-base-sha789\n");
+
+      const result = await GitUtils.getMergeBase("base-sha", "head-sha");
+
+      expect(result).toBe("merge-base-sha789");
+      expect(mockedExecFile).toHaveBeenCalledWith(
+        "git",
+        ["merge-base", "--", "base-sha", "head-sha"],
+        expect.any(Function),
+      );
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "🌳 Merge base: merge-base-sha789",
+      );
+    });
+
+    it("should return null when git produces no output", async () => {
+      mockExecSuccess("\n");
+
+      const result = await GitUtils.getMergeBase("base-sha", "head-sha");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null and log debug when git fails (e.g. shallow clone)", async () => {
+      mockExecError(new Error("fatal: no merge base"));
+
+      const result = await GitUtils.getMergeBase("base-sha", "head-sha");
+
+      expect(result).toBeNull();
+      expect(mockedCore.debug).toHaveBeenCalledWith(
+        expect.stringContaining("Could not determine merge base"),
+      );
+      expect(mockedCore.warning).not.toHaveBeenCalled();
+    });
+  });
+
   describe("getChangedFiles", () => {
     it("should return list of changed files", async () => {
       mockExecSuccess("src/file1.ts\nsrc/file2.js\nREADME.md\n");
@@ -126,8 +173,9 @@ describe("GitUtils", () => {
       const result = await GitUtils.getChangedFiles("base-sha", "head-sha");
 
       expect(result).toEqual(["src/file1.ts", "src/file2.js", "README.md"]);
-      expect(mockedExec).toHaveBeenCalledWith(
-        "git diff --name-only --diff-filter=AM base-sha..head-sha",
+      expect(mockedExecFile).toHaveBeenCalledWith(
+        "git",
+        ["diff", "--name-only", "--diff-filter=AM", "base-sha..head-sha"],
         expect.any(Function),
       );
       expect(mockedCore.info).toHaveBeenCalledWith(
@@ -150,8 +198,9 @@ describe("GitUtils", () => {
       const result = await GitUtils.getChangedFiles("base-sha");
 
       expect(result).toEqual(["src/file1.ts"]);
-      expect(mockedExec).toHaveBeenCalledWith(
-        "git diff --name-only --diff-filter=AM base-sha..HEAD",
+      expect(mockedExecFile).toHaveBeenCalledWith(
+        "git",
+        ["diff", "--name-only", "--diff-filter=AM", "base-sha..HEAD"],
         expect.any(Function),
       );
     });
