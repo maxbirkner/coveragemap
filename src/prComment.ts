@@ -31,6 +31,7 @@ export interface CommentData {
     linesFound: number;
     percentage: number;
   }>;
+  hasFunctionData: boolean;
 }
 
 export class PrCommentService {
@@ -88,6 +89,7 @@ export class PrCommentService {
       changedFilesCoverage,
       coverageDifference,
       fileBreakdown,
+      hasFunctionData: lcovReport.summary.functionsFound > 0,
     };
   }
 
@@ -279,7 +281,9 @@ function buildCommentBody(
   // Add treemap visualization if available
   if (treemapArtifact) {
     markdown += `### 📊 Coverage Treemap Visualization\n\n`;
-    markdown += `A visual treemap has been generated showing coverage by function/method.\n\n`;
+    markdown += data.hasFunctionData
+      ? `A visual treemap has been generated showing file-level coverage, broken down by function where the report provides function data.\n\n`
+      : `A visual treemap has been generated showing file-level coverage.\n\n`;
     markdown += `📎 **Artifact**: \`${treemapArtifact.name}\` (${formatFileSize(
       treemapArtifact.size,
     )})\n\n`;
