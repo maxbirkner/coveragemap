@@ -1,10 +1,11 @@
 import { CoverageAnalysis } from "./coverageAnalyzer";
 import { LcovReport } from "./lcov";
+import { GateMode } from "./inputs";
 
 export interface GatingResult {
   meetsThreshold: boolean;
   threshold: number;
-  mode: "standard" | "baseline";
+  mode: "standard" | "baseline" | "disabled";
   prCoveragePercentage: number;
   overallProjectCoveragePercentage?: number;
   description: string;
@@ -15,6 +16,7 @@ export class CoverageGating {
   static evaluate(
     analysis: CoverageAnalysis,
     lcovReport: LcovReport,
+    gateMode: GateMode,
     threshold: number,
   ): GatingResult {
     const prCoveragePercentage =
@@ -27,9 +29,23 @@ export class CoverageGating {
           )
         : 100;
 
-    // When threshold is 0 we gate against the project's own coverage
-    // (baseline mode); otherwise against the explicit threshold.
-    const isBaseline = threshold === 0;
+    // When gating is disabled the PR always passes; we still surface the
+    // measured coverage so the comment and logs stay informative.
+    if (gateMode === "none") {
+      return {
+        meetsThreshold: true,
+        threshold,
+        mode: "disabled",
+        prCoveragePercentage,
+        overallProjectCoveragePercentage,
+        description: `ℹ️ Coverage gating disabled — PR coverage (${prCoveragePercentage}%) is not enforced`,
+        errorMessage: undefined,
+      };
+    }
+
+    // Baseline mode gates against the project's own coverage; threshold mode
+    // gates against the explicit threshold value.
+    const isBaseline = gateMode === "baseline";
     const requiredCoverage = isBaseline
       ? overallProjectCoveragePercentage
       : threshold;
@@ -58,23 +74,30 @@ export class CoverageGating {
   }
 
   static format(result: GatingResult): string {
+    const modeLabel =
+      result.mode === "standard"
+        ? "Standard Threshold"
+        : result.mode === "baseline"
+          ? "Project Baseline"
+          : "Disabled";
+
     const lines = [
       "🎯 Coverage Gating Results",
       "═══════════════════════════",
       "",
-      `📊 Mode: ${
-        result.mode === "standard" ? "Standard Threshold" : "Project Baseline"
-      }`,
+      `📊 Mode: ${modeLabel}`,
       `📈 PR Coverage: ${result.prCoveragePercentage}%`,
     ];
 
     if (result.mode === "standard") {
       lines.push(`🎯 Threshold: ${result.threshold}%`);
-    } else {
+    } else if (result.mode === "baseline") {
       lines.push(
         `📊 Project Coverage: ${result.overallProjectCoveragePercentage}%`,
       );
       lines.push(`🎯 Requirement: PR coverage ≥ Project coverage`);
+    } else {
+      lines.push(`🎯 Requirement: none (gating disabled)`);
     }
 
     lines.push("");

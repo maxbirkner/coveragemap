@@ -48,7 +48,12 @@ describe("CoverageGating", () => {
     describe("standard threshold mode", () => {
       it("should return success when PR coverage meets threshold", () => {
         const analysis = createMockAnalysis(85);
-        const result = CoverageGating.evaluate(analysis, mockLcovReport, 80);
+        const result = CoverageGating.evaluate(
+          analysis,
+          mockLcovReport,
+          "threshold",
+          80,
+        );
 
         expect(result).toEqual({
           meetsThreshold: true,
@@ -63,7 +68,12 @@ describe("CoverageGating", () => {
 
       it("should return failure when PR coverage is below threshold", () => {
         const analysis = createMockAnalysis(75);
-        const result = CoverageGating.evaluate(analysis, mockLcovReport, 80);
+        const result = CoverageGating.evaluate(
+          analysis,
+          mockLcovReport,
+          "threshold",
+          80,
+        );
 
         expect(result).toEqual({
           meetsThreshold: false,
@@ -79,7 +89,12 @@ describe("CoverageGating", () => {
 
       it("should return success when PR coverage exactly meets threshold", () => {
         const analysis = createMockAnalysis(80);
-        const result = CoverageGating.evaluate(analysis, mockLcovReport, 80);
+        const result = CoverageGating.evaluate(
+          analysis,
+          mockLcovReport,
+          "threshold",
+          80,
+        );
 
         expect(result.meetsThreshold).toBe(true);
         expect(result.prCoveragePercentage).toBe(80);
@@ -87,10 +102,15 @@ describe("CoverageGating", () => {
       });
     });
 
-    describe("baseline mode (threshold = 0)", () => {
+    describe("baseline mode", () => {
       it("should return success when PR coverage meets overall project coverage", () => {
         const analysis = createMockAnalysis(85);
-        const result = CoverageGating.evaluate(analysis, mockLcovReport, 0);
+        const result = CoverageGating.evaluate(
+          analysis,
+          mockLcovReport,
+          "baseline",
+          0,
+        );
 
         expect(result).toEqual({
           meetsThreshold: true,
@@ -106,7 +126,12 @@ describe("CoverageGating", () => {
 
       it("should return failure when PR coverage is below overall project coverage", () => {
         const analysis = createMockAnalysis(75);
-        const result = CoverageGating.evaluate(analysis, mockLcovReport, 0);
+        const result = CoverageGating.evaluate(
+          analysis,
+          mockLcovReport,
+          "baseline",
+          0,
+        );
 
         expect(result).toEqual({
           meetsThreshold: false,
@@ -123,11 +148,39 @@ describe("CoverageGating", () => {
 
       it("should return success when PR coverage exactly matches overall project coverage", () => {
         const analysis = createMockAnalysis(80);
-        const result = CoverageGating.evaluate(analysis, mockLcovReport, 0);
+        const result = CoverageGating.evaluate(
+          analysis,
+          mockLcovReport,
+          "baseline",
+          0,
+        );
 
         expect(result.meetsThreshold).toBe(true);
         expect(result.prCoveragePercentage).toBe(80);
         expect(result.overallProjectCoveragePercentage).toBe(80);
+      });
+    });
+
+    describe("none mode (gating disabled)", () => {
+      it("should always pass and report disabled mode even below threshold", () => {
+        const analysis = createMockAnalysis(10);
+        const result = CoverageGating.evaluate(
+          analysis,
+          mockLcovReport,
+          "none",
+          80,
+        );
+
+        expect(result).toEqual({
+          meetsThreshold: true,
+          threshold: 80,
+          mode: "disabled",
+          prCoveragePercentage: 10,
+          overallProjectCoveragePercentage: 80,
+          description:
+            "ℹ️ Coverage gating disabled — PR coverage (10%) is not enforced",
+          errorMessage: undefined,
+        });
       });
     });
 
@@ -147,7 +200,12 @@ describe("CoverageGating", () => {
         };
 
         const analysis = createMockAnalysis(50);
-        const result = CoverageGating.evaluate(analysis, emptyLcovReport, 0);
+        const result = CoverageGating.evaluate(
+          analysis,
+          emptyLcovReport,
+          "baseline",
+          0,
+        );
 
         expect(result.meetsThreshold).toBe(false);
         expect(result.overallProjectCoveragePercentage).toBe(100);
@@ -202,6 +260,27 @@ describe("CoverageGating", () => {
       );
       expect(formatted).toContain(
         "❌ PR coverage (75%) is below overall project coverage (80%)",
+      );
+    });
+
+    it("should format disabled mode result", () => {
+      const result: GatingResult = {
+        meetsThreshold: true,
+        threshold: 80,
+        mode: "disabled",
+        prCoveragePercentage: 42,
+        overallProjectCoveragePercentage: 80,
+        description:
+          "ℹ️ Coverage gating disabled — PR coverage (42%) is not enforced",
+      };
+
+      const formatted = CoverageGating.format(result);
+
+      expect(formatted).toContain("📊 Mode: Disabled");
+      expect(formatted).toContain("📈 PR Coverage: 42%");
+      expect(formatted).toContain("🎯 Requirement: none (gating disabled)");
+      expect(formatted).toContain(
+        "ℹ️ Coverage gating disabled — PR coverage (42%) is not enforced",
       );
     });
   });

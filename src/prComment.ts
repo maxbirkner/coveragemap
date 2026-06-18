@@ -207,9 +207,11 @@ function buildCommentBody(
   const hasChangedLines = data.changedFilesCoverage.linesFound > 0;
 
   const thresholdDisplay =
-    gatingResult.mode === "baseline"
-      ? `≥ Project Avg (${gatingResult.overallProjectCoveragePercentage}%)`
-      : `${gatingResult.threshold}%`;
+    gatingResult.mode === "disabled"
+      ? "Gating disabled"
+      : gatingResult.mode === "baseline"
+        ? `≥ Project Avg (${gatingResult.overallProjectCoveragePercentage}%)`
+        : `${gatingResult.threshold}%`;
 
   const changedFilesCell = hasChangedLines
     ? `${data.changedFilesCoverage.percentage}% | ${formatLines(
@@ -228,9 +230,12 @@ function buildCommentBody(
       } ${data.coverageDifference > 0 ? "+" : ""}${data.coverageDifference}%`
     : `–`;
 
-  const thresholdCell = hasChangedLines
-    ? `${gatingResult.meetsThreshold ? "✅" : "❌"} ${thresholdDisplay}`
-    : `➖ ${thresholdDisplay} (no changed lines)`;
+  const thresholdCell =
+    gatingResult.mode === "disabled"
+      ? `ℹ️ ${thresholdDisplay}`
+      : hasChangedLines
+        ? `${gatingResult.meetsThreshold ? "✅" : "❌"} ${thresholdDisplay}`
+        : `➖ ${thresholdDisplay} (no changed lines)`;
 
   let markdown = `## ${title}\n\n`;
 
@@ -254,11 +259,16 @@ function buildCommentBody(
     markdown += `|------|----------|-------|\n`;
 
     for (const file of data.fileBreakdown) {
-      const fileThresholdMet =
-        gatingResult.mode === "baseline"
-          ? file.percentage >= gatingResult.overallProjectCoveragePercentage!
-          : file.percentage >= gatingResult.threshold;
-      const fileEmoji = fileThresholdMet ? "✅" : "❌";
+      let fileEmoji: string;
+      if (gatingResult.mode === "disabled") {
+        fileEmoji = "ℹ️";
+      } else {
+        const fileThresholdMet =
+          gatingResult.mode === "baseline"
+            ? file.percentage >= gatingResult.overallProjectCoveragePercentage!
+            : file.percentage >= gatingResult.threshold;
+        fileEmoji = fileThresholdMet ? "✅" : "❌";
+      }
       markdown += `| ${fileEmoji} \`${file.filename}\` | ${
         file.percentage
       }% | ${formatLines(file.linesHit, file.linesFound)} |\n`;

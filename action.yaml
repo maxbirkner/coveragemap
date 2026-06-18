@@ -13,9 +13,17 @@ inputs:
   coverage-threshold:
     description: |
       The minimum acceptable coverage percentage for changed files.
-      Set to 0 to compare PR coverage against overall project coverage instead.
+      Only used when gate-mode is "threshold".
     required: true
     default: "80"
+  gate-mode:
+    description: |
+      How to gate the workflow on coverage. One of:
+      - "threshold": fail when changed-files coverage is below coverage-threshold (default).
+      - "baseline": fail when changed-files coverage is below the overall project coverage.
+      - "none": never fail the workflow; report coverage without gating.
+    required: false
+    default: threshold
   target-branch:
     description: The target branch to compare changes against
     required: false
