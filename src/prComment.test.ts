@@ -534,11 +534,7 @@ describe("PrCommentService", () => {
             treemapArtifact?: typeof artifactInfo,
           ) => string;
         }
-      ).generateCommentBody.bind(service)(
-        commentData,
-        gatingResult,
-        artifactInfo,
-      );
+      ).generateCommentBody(commentData, gatingResult, artifactInfo);
     };
 
     test("mentions function breakdown when the report carries function data", () => {
