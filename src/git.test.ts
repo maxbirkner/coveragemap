@@ -119,6 +119,42 @@ describe("GitUtils", () => {
     });
   });
 
+  describe("getMergeBase", () => {
+    it("should return the merge base SHA when git resolves one", async () => {
+      mockExecSuccess("merge-base-sha789\n");
+
+      const result = await GitUtils.getMergeBase("base-sha", "head-sha");
+
+      expect(result).toBe("merge-base-sha789");
+      expect(mockedExec).toHaveBeenCalledWith(
+        "git merge-base base-sha head-sha",
+        expect.any(Function),
+      );
+      expect(mockedCore.info).toHaveBeenCalledWith(
+        "🌳 Merge base: merge-base-sha789",
+      );
+    });
+
+    it("should return null when git produces no output", async () => {
+      mockExecSuccess("\n");
+
+      const result = await GitUtils.getMergeBase("base-sha", "head-sha");
+
+      expect(result).toBeNull();
+    });
+
+    it("should return null and warn when git fails (e.g. shallow clone)", async () => {
+      mockExecError(new Error("fatal: no merge base"));
+
+      const result = await GitUtils.getMergeBase("base-sha", "head-sha");
+
+      expect(result).toBeNull();
+      expect(mockedCore.warning).toHaveBeenCalledWith(
+        expect.stringContaining("Could not determine merge base"),
+      );
+    });
+  });
+
   describe("getChangedFiles", () => {
     it("should return list of changed files", async () => {
       mockExecSuccess("src/file1.ts\nsrc/file2.js\nREADME.md\n");

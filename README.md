@@ -127,6 +127,7 @@ Multiple patterns can be specified by separating them with commas. Each file is 
 | `coverage-threshold`   | `string` | `false`  | `'80'`                 | Min coverage % for changed files. Only used when `gate-mode` is `threshold`.                                       |
 | `gate-mode`            | `string` | `false`  | `'threshold'`          | How to gate the workflow: `threshold` (fail below `coverage-threshold`), `baseline` (fail below overall project coverage), or `none` (never fail; report only). |
 | `github-token`         | `string` | `true`   | -                      | GitHub token to post PR comments                                                                                     |
+| `target-branch`        | `string` | `false`  | `'main'`               | Branch the PR targets. Used only for labelling/reporting; the diff base is derived from the PR event (see [Changeset Detection](#changeset-detection)). |
 | `label`                | `string` | `false`  | -                      | Optional label for comment identification                                                                             |
 | `source-code-pattern`  | `string` | `false`  | -                      | Optional glob pattern(s) for source code files to include in coverage analysis. Multiple patterns separated by commas. |
 | `test-code-pattern`    | `string` | `false`  | -                      | Optional glob pattern(s) for test files to exclude from coverage analysis. Multiple patterns separated by commas.   |
@@ -214,10 +215,42 @@ flowchart TD
   H -- No --> J
 ```
 
+## Changeset Detection
+
+The action analyses only the files your pull request actually changed. To do
+this reliably it determines the **merge base** — the most recent common
+ancestor — between the PR head and the PR base, then diffs from there:
+
+```text
+git merge-base <pr-base-sha> <pr-head-sha>   # the branch point
+git diff --name-only --diff-filter=AM <merge-base>..<pr-head-sha>
+```
+
+This is equivalent to git's three-dot `base...head` notation and matters when
+the target branch has **diverged** since the PR branched off. A plain two-dot
+`base..head` diff would incorrectly attribute commits that landed on the target
+branch (after the branch point) to your PR, inflating the changeset with files
+you never touched. Comparing against the merge base isolates the PR's own
+changes regardless of how far the target branch has advanced.
+
+The base and head SHAs come from the `pull_request` event payload
+(`pull_request.base.sha` / `pull_request.head.sha`), which is the most reliable
+source during a `pull_request` workflow. The `target-branch` input does **not**
+influence this calculation — on a `pull_request` event `pull_request.base.sha`
+already points at the target branch tip. `target-branch` is used purely for
+labelling and reporting (e.g. the changeset summary and the `target-branch`
+output).
+
+Only added (`A`) and modified (`M`) files are considered; deletions are
+excluded since there is nothing to measure coverage for.
+
 ## Checkout Behavior
 
-This action needs to calculate the changeset for the PR and therefore won't work with shallow clones. Set `fetch-depth: 0` or use the following snippet
-to calculate the minimal fetch depth required:
+Because the action computes a merge base, the local clone must contain enough
+history to reach the branch point. A default shallow checkout (`fetch-depth: 1`)
+usually does **not**. Set `fetch-depth: 0` for a full clone, or use the snippet
+below to fetch just enough history — the PR's own commits plus the one parent
+that is the branch point:
 
 ```yaml
     - name: Determine fetch depth
@@ -229,6 +262,12 @@ to calculate the minimal fetch depth required:
       with:
         fetch-depth: ${{ steps.base-depth.outputs.base-depth }}
 ```
+
+If the merge base cannot be resolved (for example the clone is still too
+shallow), the action logs a warning and falls back to diffing against the PR
+base SHA directly. This preserves a result rather than failing, but the
+changeset may include unrelated target-branch changes when the branch has
+diverged — increase `fetch-depth` to restore accurate detection.
 
 ## Example Usage
 

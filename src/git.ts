@@ -2,6 +2,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import * as core from "@actions/core";
 import { context } from "@actions/github";
+import { toErrorMessage } from "./errors";
 
 const execAsync = promisify(exec);
 
@@ -27,6 +28,39 @@ export class GitUtils {
 
   static getPullRequestBase(): string {
     return GitUtils.getPullRequestSha("base", "🎯");
+  }
+
+  // Resolves the merge base (the most recent common ancestor) between the PR
+  // base and head. Diffing against the merge base — equivalent to git's
+  // three-dot `base...head` — isolates the changes the PR actually introduced,
+  // even when the target branch has advanced since the branch point. A plain
+  // two-dot `base..head` diff would otherwise attribute unrelated target-branch
+  // commits to the PR. Returns `null` when no common ancestor can be found,
+  // which typically means the clone is too shallow to contain it.
+  static async getMergeBase(
+    base: string,
+    head: string,
+  ): Promise<string | null> {
+    try {
+      core.info(`🔱 Resolving merge base between ${base} and ${head}`);
+
+      const { stdout } = await execAsync(`git merge-base ${base} ${head}`);
+      const mergeBase = stdout.trim();
+
+      if (!mergeBase) {
+        return null;
+      }
+
+      core.info(`🌳 Merge base: ${mergeBase}`);
+      return mergeBase;
+    } catch (error) {
+      core.warning(
+        `Could not determine merge base between ${base} and ${head}: ${toErrorMessage(
+          error,
+        )}`,
+      );
+      return null;
+    }
   }
 
   static async getChangedFiles(
