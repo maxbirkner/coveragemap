@@ -317,6 +317,49 @@ describe("PrCommentService", () => {
       expect(result).toContain("| **Difference** | 📉 -20% | - |");
     });
 
+    test("should render an informational note when gating is disabled", () => {
+      const service = new PrCommentService({
+        githubToken: "test-token",
+      });
+
+      const commentData: CommentData = {
+        totalCoverage: { linesHit: 800, linesFound: 1000, percentage: 80 },
+        changedFilesCoverage: { linesHit: 10, linesFound: 50, percentage: 20 },
+        coverageDifference: -60,
+        fileBreakdown: [
+          {
+            filename: "src/example.ts",
+            linesHit: 10,
+            linesFound: 50,
+            percentage: 20,
+          },
+        ],
+      };
+
+      const gatingResult: GatingResult = {
+        meetsThreshold: true,
+        threshold: 80,
+        mode: "disabled",
+        prCoveragePercentage: 20,
+        overallProjectCoveragePercentage: 80,
+        description:
+          "ℹ️ Coverage gating disabled — PR coverage (20%) is not enforced",
+      };
+
+      const generateCommentBody = (
+        service as unknown as {
+          generateCommentBody: (
+            data: CommentData,
+            gatingResult: GatingResult,
+          ) => string;
+        }
+      ).generateCommentBody.bind(service);
+      const result = generateCommentBody(commentData, gatingResult);
+
+      expect(result).toContain("| **Threshold** | ℹ️ Gating disabled | - |");
+      expect(result).toContain("ℹ️ `src/example.ts` | 20% | 10/50");
+    });
+
     test("should handle threshold = 0 (compare against project average)", () => {
       const service = new PrCommentService({
         githubToken: "test-token",

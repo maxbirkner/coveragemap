@@ -26,6 +26,7 @@ export async function run(): Promise<void> {
     const { analysis, gatingResult } = await analyzeCoverageAndGating(
       changeset,
       lcovReport,
+      inputs.gateMode,
       threshold,
     );
 

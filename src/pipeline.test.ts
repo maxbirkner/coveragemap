@@ -262,6 +262,7 @@ describe("analyzeCoverageAndGating", () => {
     const result = await analyzeCoverageAndGating(
       mockChangeset,
       mockLcovReport,
+      "threshold",
       80,
     );
 
@@ -276,6 +277,7 @@ describe("analyzeCoverageAndGating", () => {
     expect(mockedCoverageGating.evaluate).toHaveBeenCalledWith(
       mockAnalysis,
       mockLcovReport,
+      "threshold",
       80,
     );
     expect(mockedCore.info).toHaveBeenCalledWith("Gating formatted");

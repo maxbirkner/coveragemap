@@ -9,8 +9,8 @@ import { CoverageGating, GatingResult } from "./coverageGating";
 import { TreemapGenerator } from "./treemap/treemapGenerator";
 import { ArtifactService, ArtifactInfo } from "./artifactService";
 import { ChecksService } from "./checksService";
+import { GateMode } from "./inputs";
 import { toErrorMessage } from "./errors";
-
 const TREEMAP_OUTPUT_PATH = "./coverage-treemap.png";
 const ARTIFACT_RETENTION_DAYS = 30;
 
@@ -67,6 +67,7 @@ export async function parseLcovReport(lcovFile: string): Promise<LcovReport> {
 export async function analyzeCoverageAndGating(
   changeset: Changeset,
   lcovReport: LcovReport,
+  gateMode: GateMode,
   threshold: number,
 ): Promise<{ analysis: CoverageAnalysis; gatingResult: GatingResult }> {
   return withGroup("🔍 Analyzing coverage for changed files", async () => {
@@ -77,6 +78,7 @@ export async function analyzeCoverageAndGating(
     const gatingResult = CoverageGating.evaluate(
       analysis,
       lcovReport,
+      gateMode,
       threshold,
     );
 
