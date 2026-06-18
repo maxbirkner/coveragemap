@@ -488,6 +488,9 @@ describe("PrCommentService", () => {
       expect(result).toContain(
         "A visual treemap has been generated showing coverage by function/method",
       );
+      expect(result).not.toContain("**Green**: Fully covered functions");
+      expect(result).not.toContain("**Orange**: Partially covered functions");
+      expect(result).not.toContain("**Red**: Uncovered functions");
       expect(result).toContain("direct download");
       expect(result).toContain("📥 **[Download treemap visualization]");
     });

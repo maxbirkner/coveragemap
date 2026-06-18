@@ -279,10 +279,7 @@ function buildCommentBody(
   // Add treemap visualization if available
   if (treemapArtifact) {
     markdown += `### 📊 Coverage Treemap Visualization\n\n`;
-    markdown += `A visual treemap has been generated showing coverage by function/method:\n`;
-    markdown += `- 🟢 **Green**: Fully covered functions\n`;
-    markdown += `- 🟠 **Orange**: Partially covered functions\n`;
-    markdown += `- 🔴 **Red**: Uncovered functions\n\n`;
+    markdown += `A visual treemap has been generated showing coverage by function/method.\n\n`;
     markdown += `📎 **Artifact**: \`${treemapArtifact.name}\` (${formatFileSize(
       treemapArtifact.size,
     )})\n\n`;
