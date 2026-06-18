@@ -44,9 +44,7 @@ export class PrCommentService {
   }
 
   private getCommentTitle(): string {
-    return this.label
-      ? `Coveragemap Action: ${this.label}`
-      : "Coveragemap Action";
+    return buildReportTitle(this.label);
   }
 
   static createCommentData(
@@ -97,12 +95,14 @@ export class PrCommentService {
     data: CommentData,
     gatingResult: GatingResult,
     treemapArtifact?: ArtifactInfo,
+    checkRunUrl?: string,
   ): string {
     return buildCommentBody(
       this.getCommentTitle(),
       data,
       gatingResult,
       treemapArtifact,
+      checkRunUrl,
     );
   }
 
@@ -135,6 +135,7 @@ export class PrCommentService {
     lcovReport: LcovReport,
     gatingResult: GatingResult,
     treemapArtifact?: ArtifactInfo,
+    checkRunUrl?: string,
   ): Promise<string | null> {
     const { context } = github;
 
@@ -143,7 +144,12 @@ export class PrCommentService {
     }
 
     const data = PrCommentService.createCommentData(analysis, lcovReport);
-    const body = this.generateCommentBody(data, gatingResult, treemapArtifact);
+    const body = this.generateCommentBody(
+      data,
+      gatingResult,
+      treemapArtifact,
+      checkRunUrl,
+    );
 
     try {
       const existingCommentId = await this.findExistingComment();
@@ -193,6 +199,39 @@ export class PrCommentService {
 const PR_COMMENT_TITLE = "Coveragemap Action";
 
 /**
+ * Build the report title, optionally suffixed with a label so multiple action
+ * instances render distinct headings. Shared by the PR comment and the job
+ * summary so both stay in sync.
+ */
+export function buildReportTitle(label?: string): string {
+  return label ? `${PR_COMMENT_TITLE}: ${label}` : PR_COMMENT_TITLE;
+}
+
+/**
+ * Render the full coverage report markdown from analysis data. Reused by the
+ * PR comment and the GitHub job summary so both surfaces share one renderer.
+ */
+export function renderCoverageReport(
+  analysis: CoverageAnalysis,
+  lcovReport: LcovReport,
+  gatingResult: GatingResult,
+  options?: {
+    label?: string;
+    treemapArtifact?: ArtifactInfo;
+    checkRunUrl?: string;
+  },
+): string {
+  const data = PrCommentService.createCommentData(analysis, lcovReport);
+  return buildCommentBody(
+    buildReportTitle(options?.label),
+    data,
+    gatingResult,
+    options?.treemapArtifact,
+    options?.checkRunUrl,
+  );
+}
+
+/**
  * Build the markdown body for a coverage PR comment. Pure function shared by
  * the PrCommentService instance method and the standalone test helper so the
  * exact rendering lives in a single place.
@@ -202,6 +241,7 @@ function buildCommentBody(
   data: CommentData,
   gatingResult: GatingResult,
   treemapArtifact?: ArtifactInfo,
+  checkRunUrl?: string,
 ): string {
   // When the PR touches no lines that carry coverage data there is nothing
   // to compare, so we render placeholders instead of a misleading 100% /
@@ -293,6 +333,13 @@ function buildCommentBody(
       ? "direct download"
       : "Actions tab";
     markdown += `> 📥 **[Download treemap visualization](${downloadUrl})** - Click for ${linkText}\n\n`;
+  }
+
+  // Link to the check run so reviewers can jump to the inline coverage
+  // annotations when the Checks integration is enabled.
+  if (checkRunUrl) {
+    markdown += `### 🔍 Inline Coverage Annotations\n\n`;
+    markdown += `Line-level coverage annotations are available on the [Coverage Treemap Action check](${checkRunUrl}).\n\n`;
   }
 
   // Footer

@@ -31,6 +31,19 @@ inputs:
   github-token:
     description: GitHub token to post PR comments
     required: true
+  pr-comment:
+    description: |
+      Whether to post (and update) a coverage summary comment on the pull request.
+      Set to "false" to suppress the PR comment and avoid cluttering the PR.
+    required: false
+    default: "true"
+  job-summary:
+    description: |
+      Whether to write the coverage summary to the GitHub Actions job summary.
+      Enabled with "true" to surface coverage on the workflow run page without
+      posting a PR comment.
+    required: false
+    default: "false"
   label:
     description: |
       Optional label for identification (enables multiple instances).

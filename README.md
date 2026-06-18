@@ -127,6 +127,8 @@ Multiple patterns can be specified by separating them with commas. Each file is 
 | `coverage-threshold`   | `string` | `false`  | `'80'`                 | Min coverage % for changed files. Only used when `gate-mode` is `threshold`.                                       |
 | `gate-mode`            | `string` | `false`  | `'threshold'`          | How to gate the workflow: `threshold` (fail below `coverage-threshold`), `baseline` (fail below overall project coverage), or `none` (never fail; report only). |
 | `github-token`         | `string` | `true`   | -                      | GitHub token to post PR comments                                                                                     |
+| `pr-comment`           | `string` | `false`  | `'true'`               | Whether to post and update the coverage summary comment on the PR. Set to `'false'` to avoid PR clutter.            |
+| `job-summary`          | `string` | `false`  | `'false'`              | Whether to write the coverage summary to the [GitHub Actions job summary](https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary). |
 | `target-branch`        | `string` | `false`  | `'main'`               | Branch the PR targets. Used only for labelling/reporting; the diff base is derived from the PR event (see [Changeset Detection](#changeset-detection)). |
 | `label`                | `string` | `false`  | -                      | Optional label for comment identification                                                                             |
 | `source-code-pattern`  | `string` | `false`  | -                      | Optional glob pattern(s) for source code files to include in coverage analysis. Multiple patterns separated by commas. |
@@ -161,6 +163,17 @@ This mode ensures new code doesn't lower the overall quality bar while allowing 
 The action measures and reports coverage but never fails the workflow. Use this to surface the treemap and PR comment without enforcing a gate, instead of having the caller workflow flag the step to ignore failures.
 
   - ℹ️ **Always passes**: `meets-threshold` is reported as `true` and the PR comment shows a "Gating disabled" note.
+
+## Report Surfaces
+
+The coverage summary can be surfaced in two places, controlled independently:
+
+  - **PR comment** (`pr-comment`, default `true`): posts a single comment on the pull request and updates it on subsequent runs. Set `pr-comment: 'false'` to suppress it and keep the PR free of clutter.
+  - **Job summary** (`job-summary`, default `false`): writes the same report to the workflow run's [job summary](https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary) page. Set `job-summary: 'true'` to enable it.
+
+Both surfaces render identical markdown, so you can disable the PR comment and rely on the job summary alone, or enable both.
+
+When the [GitHub Checks API integration](#github-checks-api-integration) is enabled, both surfaces also link to the check run so reviewers can jump straight to the inline, line-level coverage annotations.
 
 ## Outputs
 

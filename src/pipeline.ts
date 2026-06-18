@@ -4,7 +4,7 @@ import { ChangesetService } from "./changesetService";
 import { LcovParser, LcovReport } from "./lcov";
 import { CoverageAnalyzer, CoverageAnalysis } from "./coverageAnalyzer";
 import { Changeset } from "./changeset";
-import { PrCommentService } from "./prComment";
+import { PrCommentService, renderCoverageReport } from "./prComment";
 import { CoverageGating, GatingResult } from "./coverageGating";
 import { TreemapGenerator } from "./treemap/treemapGenerator";
 import { ArtifactService, ArtifactInfo } from "./artifactService";
@@ -160,6 +160,7 @@ export async function postPrComment(
   githubToken: string,
   label?: string,
   treemapArtifact?: ArtifactInfo,
+  checkRunUrl?: string,
 ): Promise<string | null> {
   return withGroup("💬 Posting PR comment", async () => {
     try {
@@ -173,6 +174,7 @@ export async function postPrComment(
         lcovReport,
         gatingResult,
         treemapArtifact,
+        checkRunUrl,
       );
 
       core.info("✅ PR comment posted successfully");
@@ -190,6 +192,31 @@ export async function postPrComment(
   });
 }
 
+export async function writeJobSummary(
+  analysis: CoverageAnalysis,
+  lcovReport: LcovReport,
+  gatingResult: GatingResult,
+  label?: string,
+  treemapArtifact?: ArtifactInfo,
+  checkRunUrl?: string,
+): Promise<void> {
+  return withGroup("📝 Writing job summary", async () => {
+    try {
+      const body = renderCoverageReport(analysis, lcovReport, gatingResult, {
+        label,
+        treemapArtifact,
+        checkRunUrl,
+      });
+
+      await core.summary.addRaw(body).addEOL().write();
+
+      core.info("✅ Job summary written successfully");
+    } catch (error) {
+      core.warning(`Failed to write job summary: ${toErrorMessage(error)}`);
+    }
+  });
+}
+
 export async function postCheckAnnotations(
   analysis: CoverageAnalysis,
   gatingResult: GatingResult,
@@ -199,12 +226,12 @@ export async function postCheckAnnotations(
   githubAppPrivateKey?: string,
   prCommentUrl?: string,
   label?: string,
-): Promise<void> {
+): Promise<string | null> {
   if (!ChecksService.isEnabled(githubAppId, githubAppPrivateKey)) {
     core.info(
       "⏭️ Skipping check annotations - GitHub App credentials not provided",
     );
-    return;
+    return null;
   }
 
   return withGroup("📝 Posting check annotations", async () => {
@@ -221,7 +248,7 @@ export async function postCheckAnnotations(
 
       if (annotations.length === 0) {
         core.info("ℹ️ No annotations to post - all files have good coverage");
-        return;
+        return null;
       }
 
       const annotationsPath =
@@ -235,7 +262,7 @@ export async function postCheckAnnotations(
         ARTIFACT_RETENTION_DAYS,
       );
 
-      await checksService.postAnnotations(
+      const checkRunUrl = await checksService.postAnnotations(
         analysis,
         gatingResult,
         annotations,
@@ -247,6 +274,8 @@ export async function postCheckAnnotations(
       core.info(
         `✅ Posted ${annotations.length} check annotations successfully`,
       );
+
+      return checkRunUrl;
     } catch (error) {
       core.warning(
         `Failed to post check annotations: ${toErrorMessage(error)}`,
@@ -254,6 +283,7 @@ export async function postCheckAnnotations(
       core.info(
         "🔍 This might be because the action lacks permissions for the Checks API or GitHub App is not properly configured",
       );
+      return null;
     }
   });
 }

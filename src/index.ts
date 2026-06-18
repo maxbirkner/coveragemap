@@ -6,6 +6,7 @@ import {
   analyzeCoverageAndGating,
   generateAndUploadTreemap,
   postPrComment,
+  writeJobSummary,
   postCheckAnnotations,
 } from "./pipeline";
 import { toErrorMessage } from "./errors";
@@ -35,25 +36,39 @@ export async function run(): Promise<void> {
       inputs.treemapTitle,
     );
 
-    const prCommentUrl = await postPrComment(
-      analysis,
-      lcovReport,
-      gatingResult,
-      inputs.githubToken,
-      inputs.label,
-      treemapArtifact || undefined,
-    );
-
-    await postCheckAnnotations(
+    const checkRunUrl = await postCheckAnnotations(
       analysis,
       gatingResult,
       inputs.githubToken,
       threshold,
       inputs.githubAppId,
       inputs.githubAppPrivateKey,
-      prCommentUrl || undefined,
+      undefined,
       inputs.label,
     );
+
+    if (inputs.prComment) {
+      await postPrComment(
+        analysis,
+        lcovReport,
+        gatingResult,
+        inputs.githubToken,
+        inputs.label,
+        treemapArtifact || undefined,
+        checkRunUrl || undefined,
+      );
+    }
+
+    if (inputs.jobSummary) {
+      await writeJobSummary(
+        analysis,
+        lcovReport,
+        gatingResult,
+        inputs.label,
+        treemapArtifact || undefined,
+        checkRunUrl || undefined,
+      );
+    }
 
     if (!gatingResult.meetsThreshold) {
       core.setFailed(

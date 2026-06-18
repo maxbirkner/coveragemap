@@ -9,6 +9,8 @@ export interface ActionInputs {
   gateMode: GateMode;
   targetBranch: string;
   githubToken: string;
+  prComment: boolean;
+  jobSummary: boolean;
   label?: string;
   sourceCodePattern?: string;
   testCodePattern?: string;
@@ -19,6 +21,28 @@ export interface ActionInputs {
 
 function optionalInput(name: string): string | undefined {
   return core.getInput(name) || undefined;
+}
+
+const TRUE_VALUES = ["true", "True", "TRUE"];
+const FALSE_VALUES = ["false", "False", "FALSE"];
+
+// Mirrors @actions/core.getBooleanInput's YAML 1.2 "Core Schema" handling but
+// falls back to a default when the input is absent so callers can omit it.
+function parseBooleanInput(name: string, defaultValue: boolean): boolean {
+  const raw = core.getInput(name);
+  if (raw === "") {
+    return defaultValue;
+  }
+  if (TRUE_VALUES.includes(raw)) {
+    return true;
+  }
+  if (FALSE_VALUES.includes(raw)) {
+    return false;
+  }
+  throw new TypeError(
+    `Input does not meet YAML 1.2 "Core Schema" specification: ${name}\n` +
+      "Support boolean input list: `true | True | TRUE | false | False | FALSE`",
+  );
 }
 
 function parseGateMode(): GateMode {
@@ -37,6 +61,8 @@ export function getInputs(): ActionInputs {
   const gateMode = parseGateMode();
   const targetBranch = core.getInput("target-branch") || "main";
   const githubToken = core.getInput("github-token", { required: true });
+  const prComment = parseBooleanInput("pr-comment", true);
+  const jobSummary = parseBooleanInput("job-summary", false);
   const label = optionalInput("label");
   const sourceCodePattern = optionalInput("source-code-pattern");
   const testCodePattern = optionalInput("test-code-pattern");
@@ -50,6 +76,8 @@ export function getInputs(): ActionInputs {
     gateMode,
     targetBranch,
     githubToken,
+    prComment,
+    jobSummary,
     label,
     sourceCodePattern,
     testCodePattern,
@@ -67,6 +95,8 @@ export function printInputs(inputs: ActionInputs): void {
   core.info(
     `🔑 GitHub token: ${inputs.githubToken ? "[PROVIDED]" : "[MISSING]"}`,
   );
+  core.info(`💬 PR comment: ${inputs.prComment ? "enabled" : "disabled"}`);
+  core.info(`📝 Job summary: ${inputs.jobSummary ? "enabled" : "disabled"}`);
   if (inputs.label) {
     core.info(`🏷️ Label: ${inputs.label}`);
   }

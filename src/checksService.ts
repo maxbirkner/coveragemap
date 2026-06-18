@@ -207,12 +207,12 @@ export class ChecksService {
     gatingResult: GatingResult,
     annotations: CheckAnnotation[],
     _prCommentUrl?: string,
-  ): Promise<void> {
+  ): Promise<string | null> {
     if (!github.context.payload.pull_request) {
       core.warning(
         "Not running in a pull request context, skipping check annotations",
       );
-      return;
+      return null;
     }
 
     try {
@@ -272,6 +272,8 @@ export class ChecksService {
 
       core.info(`✅ Posted ${annotations.length} annotations to GitHub Checks`);
       core.info(`🔗 Check run: ${createCheckResponse.data.html_url}`);
+
+      return createCheckResponse.data.html_url;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

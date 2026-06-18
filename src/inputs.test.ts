@@ -30,6 +30,8 @@ describe("getInputs", () => {
       gateMode: "threshold",
       targetBranch: "baz",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: "test-label",
       sourceCodePattern: "src/**/*.ts",
       testCodePattern: "**/*.test.ts",
@@ -59,6 +61,8 @@ describe("getInputs", () => {
       gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: undefined,
       sourceCodePattern: undefined,
       testCodePattern: undefined,
@@ -83,6 +87,8 @@ describe("getInputs", () => {
       gateMode: "threshold",
       targetBranch: "develop",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: undefined,
       sourceCodePattern: undefined,
       testCodePattern: undefined,
@@ -107,6 +113,8 @@ describe("getInputs", () => {
       gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: undefined,
       sourceCodePattern: undefined,
       testCodePattern: undefined,
@@ -131,6 +139,8 @@ describe("getInputs", () => {
       gateMode: "threshold",
       targetBranch: "develop",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: undefined,
       sourceCodePattern: undefined,
       testCodePattern: undefined,
@@ -153,6 +163,8 @@ describe("getInputs", () => {
       gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: undefined,
       sourceCodePattern: "src/**/*.ts,lib/**/*.js",
       testCodePattern: "**/*.test.*,**/*.spec.*",
@@ -175,6 +187,8 @@ describe("getInputs", () => {
       gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: undefined,
       sourceCodePattern: "app/**/*.py",
       testCodePattern: undefined,
@@ -199,6 +213,44 @@ describe("getInputs", () => {
     });
 
     expect(getInputs().gateMode).toBe("none");
+  });
+
+  it("should default pr-comment on and job-summary off", () => {
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      return "";
+    });
+
+    const result = getInputs();
+
+    expect(result.prComment).toBe(true);
+    expect(result.jobSummary).toBe(false);
+  });
+
+  it("should disable the pr-comment and enable the job-summary", () => {
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      if (name === "pr-comment") return "false";
+      if (name === "job-summary") return "true";
+      return "";
+    });
+
+    const result = getInputs();
+
+    expect(result.prComment).toBe(false);
+    expect(result.jobSummary).toBe(true);
+  });
+
+  it("should throw on a non-boolean pr-comment", () => {
+    mockedCore.getInput.mockImplementation((name: string) => {
+      if (name === "github-token") return "test-token";
+      if (name === "pr-comment") return "maybe";
+      return "";
+    });
+
+    expect(() => getInputs()).toThrow(
+      /Input does not meet YAML 1.2 "Core Schema" specification: pr-comment/,
+    );
   });
 
   it("should throw on an invalid gate-mode", () => {
@@ -226,6 +278,8 @@ describe("printInputs", () => {
       gateMode: "threshold" as const,
       targetBranch: "main",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
       label: "coverage",
       sourceCodePattern: "src/**/*.ts",
       testCodePattern: "**/*.test.ts",
@@ -240,6 +294,8 @@ describe("printInputs", () => {
     expect(mockedCore.info).toHaveBeenCalledWith("🚦 Gate mode: threshold");
     expect(mockedCore.info).toHaveBeenCalledWith("🌿 Target branch: main");
     expect(mockedCore.info).toHaveBeenCalledWith("🔑 GitHub token: [PROVIDED]");
+    expect(mockedCore.info).toHaveBeenCalledWith("💬 PR comment: enabled");
+    expect(mockedCore.info).toHaveBeenCalledWith("📝 Job summary: disabled");
     expect(mockedCore.info).toHaveBeenCalledWith("🏷️ Label: coverage");
     expect(mockedCore.info).toHaveBeenCalledWith(
       "📂 Source code pattern: src/**/*.ts",
@@ -256,6 +312,8 @@ describe("printInputs", () => {
       gateMode: "threshold" as const,
       targetBranch: "main",
       githubToken: "test-token",
+      prComment: true,
+      jobSummary: false,
     };
 
     printInputs(inputs);
@@ -284,6 +342,8 @@ describe("printInputs", () => {
       gateMode: "threshold" as const,
       targetBranch: "main",
       githubToken: "",
+      prComment: true,
+      jobSummary: false,
     };
 
     printInputs(inputs);
