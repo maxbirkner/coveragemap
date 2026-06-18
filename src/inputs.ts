@@ -22,7 +22,7 @@ function optionalInput(name: string): string | undefined {
 }
 
 function parseGateMode(): GateMode {
-  const raw = (core.getInput("gate-mode") || "baseline").trim().toLowerCase();
+  const raw = (core.getInput("gate-mode") || "threshold").trim().toLowerCase();
   if (!GATE_MODES.includes(raw as GateMode)) {
     throw new Error(
       `Invalid gate-mode "${raw}". Expected one of: ${GATE_MODES.join(", ")}.`,

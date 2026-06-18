@@ -125,7 +125,7 @@ Multiple patterns can be specified by separating them with commas. Each file is 
 | :--------------------- | :------- | :------- | :--------------------- | :-------------------------------------------------------------------------------------------------------------------- |
 | `lcov-file`            | `string` | `true`   | `'coverage/lcov.info'` | Path to the lcov.info report                                                                                         |
 | `coverage-threshold`   | `string` | `false`  | `'80'`                 | Min coverage % for changed files. Only used when `gate-mode` is `threshold`.                                       |
-| `gate-mode`            | `string` | `false`  | `'baseline'`           | How to gate the workflow: `threshold` (fail below `coverage-threshold`), `baseline` (fail below overall project coverage), or `none` (never fail; report only). |
+| `gate-mode`            | `string` | `false`  | `'threshold'`          | How to gate the workflow: `threshold` (fail below `coverage-threshold`), `baseline` (fail below overall project coverage), or `none` (never fail; report only). |
 | `github-token`         | `string` | `true`   | -                      | GitHub token to post PR comments                                                                                     |
 | `label`                | `string` | `false`  | -                      | Optional label for comment identification                                                                             |
 | `source-code-pattern`  | `string` | `false`  | -                      | Optional glob pattern(s) for source code files to include in coverage analysis. Multiple patterns separated by commas. |
@@ -137,7 +137,7 @@ Multiple patterns can be specified by separating them with commas. Each file is 
 
 The action includes sophisticated threshold gating to enforce coverage standards. The gating behavior is selected with the `gate-mode` input.
 
-### Standard Threshold Mode (`gate-mode: threshold`)
+### Standard Threshold Mode (`gate-mode: threshold`, default)
 
 The action enforces that the coverage percentage of changed files meets `coverage-threshold`:
 
@@ -146,7 +146,7 @@ The action enforces that the coverage percentage of changed files meets `coverag
 
 Example: With `coverage-threshold: 80`, the action passes only if changed files have ≥80% coverage.
 
-### Project Baseline Mode (`gate-mode: baseline`, default)
+### Project Baseline Mode (`gate-mode: baseline`)
 
 The action compares PR coverage against the overall project coverage:
 

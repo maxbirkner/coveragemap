@@ -27,7 +27,7 @@ describe("getInputs", () => {
     expect(result).toEqual({
       lcovFile: "./foo/bar.info",
       coverageThreshold: "85",
-      gateMode: "baseline",
+      gateMode: "threshold",
       targetBranch: "baz",
       githubToken: "test-token",
       label: "test-label",
@@ -56,7 +56,7 @@ describe("getInputs", () => {
     expect(result).toEqual({
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "80",
-      gateMode: "baseline",
+      gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
       label: undefined,
@@ -80,7 +80,7 @@ describe("getInputs", () => {
     expect(result).toEqual({
       lcovFile: "./test/lcov.info",
       coverageThreshold: "80",
-      gateMode: "baseline",
+      gateMode: "threshold",
       targetBranch: "develop",
       githubToken: "test-token",
       label: undefined,
@@ -104,7 +104,7 @@ describe("getInputs", () => {
     expect(result).toEqual({
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "80",
-      gateMode: "baseline",
+      gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
       label: undefined,
@@ -128,7 +128,7 @@ describe("getInputs", () => {
     expect(result).toEqual({
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "90",
-      gateMode: "baseline",
+      gateMode: "threshold",
       targetBranch: "develop",
       githubToken: "test-token",
       label: undefined,
@@ -150,7 +150,7 @@ describe("getInputs", () => {
     expect(result).toEqual({
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "80",
-      gateMode: "baseline",
+      gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
       label: undefined,
@@ -172,7 +172,7 @@ describe("getInputs", () => {
     expect(result).toEqual({
       lcovFile: "coverage/lcov.info",
       coverageThreshold: "80",
-      gateMode: "baseline",
+      gateMode: "threshold",
       targetBranch: "main",
       githubToken: "test-token",
       label: undefined,
@@ -184,11 +184,11 @@ describe("getInputs", () => {
   it("should parse an explicit gate-mode", () => {
     mockedCore.getInput.mockImplementation((name: string) => {
       if (name === "github-token") return "test-token";
-      if (name === "gate-mode") return "threshold";
+      if (name === "gate-mode") return "baseline";
       return "";
     });
 
-    expect(getInputs().gateMode).toBe("threshold");
+    expect(getInputs().gateMode).toBe("baseline");
   });
 
   it("should normalize gate-mode casing and surrounding whitespace", () => {
