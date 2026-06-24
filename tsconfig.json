@@ -36,6 +36,7 @@
     "node_modules",
     "**/*.test.ts",
     "**/*.spec.ts",
+    "src/test_data",
     "tests"
   ],
   "include": [

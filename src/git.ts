@@ -33,13 +33,9 @@ export class GitUtils {
     return GitUtils.getPullRequestSha("base", "🎯");
   }
 
-  // Resolves the merge base (the most recent common ancestor) between the PR
-  // base and head. Diffing against the merge base — equivalent to git's
-  // three-dot `base...head` — isolates the changes the PR actually introduced,
-  // even when the target branch has advanced since the branch point. A plain
-  // two-dot `base..head` diff would otherwise attribute unrelated target-branch
-  // commits to the PR. Returns `null` when no common ancestor can be found,
-  // which typically means the clone is too shallow to contain it.
+  // Diffing against the merge base (three-dot `base...head`) isolates the PR's
+  // own changes even when the target branch advanced since the branch point.
+  // Returns null when no common ancestor is found, usually a too-shallow clone.
   static async getMergeBase(
     base: string,
     head: string,
@@ -105,15 +101,9 @@ export class GitUtils {
     }
   }
 
-  // Maps each added/modified file to the set of line numbers the PR introduced
-  // on the head side. Coverage annotations should only flag uncovered code the
-  // changeset actually touched, so we need line-level granularity rather than
-  // the whole-file list `getChangedFiles` provides. We diff with
-  // `--unified=0` so each hunk header reflects only the changed lines (no
-  // surrounding context), making the new-side ranges exact. The `-c` overrides
-  // force the canonical `a/` and `b/` path prefixes regardless of the user's
-  // `diff.noprefix` / `diff.mnemonicPrefix` git config, so prefix stripping is
-  // deterministic.
+  // `--unified=0` keeps each hunk header to exactly the changed lines (no
+  // context), and the `-c` overrides force canonical `a/`/`b/` prefixes
+  // regardless of the user's git config so prefix stripping is deterministic.
   static async getChangedLinesByFile(
     base: string,
     head: string = "HEAD",
@@ -140,12 +130,8 @@ export class GitUtils {
     }
   }
 
-  // Parses unified diff output (produced with `--unified=0`) into a map of file
-  // path -> changed line numbers on the new side. A file header is the `+++ b/`
-  // half of a `--- a/` / `+++ b/` pair; pairing with the preceding `--- ` line
-  // avoids mistaking an added content line that merely starts with `+++ ` for a
-  // header. Each `@@ ... +start,count @@` hunk contributes the new-side range
-  // `start..start+count-1`, which lists exactly the added/modified lines.
+  // Pairing `+++ ` with the preceding `--- ` line avoids mistaking an added
+  // content line that merely starts with `+++ ` for a file header.
   private static parseChangedLines(diff: string): Map<string, number[]> {
     const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
     const changedLines = new Map<string, number[]>();
@@ -158,7 +144,6 @@ export class GitUtils {
 
       if (line.startsWith("+++ ") && precedingLine.startsWith("--- ")) {
         const target = line.slice(4).trim();
-        // `/dev/null` marks a deletion target and has no head-side lines.
         currentFile =
           target === "/dev/null" ? undefined : target.replace(/^b\//, "");
         continue;
@@ -170,8 +155,7 @@ export class GitUtils {
       if (!match) continue;
 
       const start = Number(match[1]);
-      // An omitted count defaults to 1; a count of 0 marks a pure deletion that
-      // adds no head-side lines, so there is nothing to annotate.
+      // Omitted count means 1; count 0 is a pure deletion with nothing to flag.
       const count = match[2] === undefined ? 1 : Number(match[2]);
       if (count === 0) continue;
 

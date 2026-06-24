@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GitUtils } from "./git";
 import { execFile } from "child_process";
+import { readFileSync } from "fs";
+import { join } from "path";
 import * as core from "@actions/core";
+
+const loadDiff = (name: string): string =>
+  readFileSync(join(__dirname, "test_data", `${name}.diff`), "utf8");
 
 // Mock child_process, @actions/core, and @actions/github
 jest.mock("child_process");
@@ -249,21 +254,7 @@ describe("GitUtils", () => {
 
   describe("getChangedLinesByFile", () => {
     it("should map files to the new-side lines their hunks added", async () => {
-      const diff = [
-        "diff --git a/src/file1.ts b/src/file1.ts",
-        "index 1111111..2222222 100644",
-        "--- a/src/file1.ts",
-        "+++ b/src/file1.ts",
-        "@@ -10,0 +11,3 @@",
-        "+const a = 1;",
-        "+const b = 2;",
-        "+const c = 3;",
-        "@@ -20,1 +24,1 @@",
-        "-old();",
-        "+new();",
-        "",
-      ].join("\n");
-      mockExecSuccess(diff);
+      mockExecSuccess(loadDiff("diff-multi-hunk"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -285,15 +276,7 @@ describe("GitUtils", () => {
     });
 
     it("should default an omitted hunk count to a single line", async () => {
-      const diff = [
-        "--- a/src/file2.ts",
-        "+++ b/src/file2.ts",
-        "@@ -5 +5 @@",
-        "-old();",
-        "+new();",
-        "",
-      ].join("\n");
-      mockExecSuccess(diff);
+      mockExecSuccess(loadDiff("diff-omitted-count"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -301,15 +284,7 @@ describe("GitUtils", () => {
     });
 
     it("should ignore pure deletions that add no new lines", async () => {
-      const diff = [
-        "--- a/src/file3.ts",
-        "+++ b/src/file3.ts",
-        "@@ -7,2 +6,0 @@",
-        "-removed();",
-        "-removed();",
-        "",
-      ].join("\n");
-      mockExecSuccess(diff);
+      mockExecSuccess(loadDiff("diff-pure-deletion"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -317,19 +292,7 @@ describe("GitUtils", () => {
     });
 
     it("should track multiple files independently", async () => {
-      const diff = [
-        "--- a/src/a.ts",
-        "+++ b/src/a.ts",
-        "@@ -0,0 +1,2 @@",
-        "+a();",
-        "+a();",
-        "--- a/src/b.ts",
-        "+++ b/src/b.ts",
-        "@@ -0,0 +1 @@",
-        "+b();",
-        "",
-      ].join("\n");
-      mockExecSuccess(diff);
+      mockExecSuccess(loadDiff("diff-multiple-files"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -338,16 +301,7 @@ describe("GitUtils", () => {
     });
 
     it("should track added files whose header pairs with /dev/null", async () => {
-      const diff = [
-        "--- /dev/null",
-        "+++ b/src/new.ts",
-        "@@ -0,0 +1,3 @@",
-        "+a();",
-        "+b();",
-        "+c();",
-        "",
-      ].join("\n");
-      mockExecSuccess(diff);
+      mockExecSuccess(loadDiff("diff-added-file-dev-null"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -355,18 +309,9 @@ describe("GitUtils", () => {
     });
 
     it("should not treat an added content line starting with +++ as a header", async () => {
-      // Under --unified=0 an added source line whose content begins with "++ "
-      // serialises to a line starting with "+++ "; it must not be mistaken for a
-      // file header because it is not preceded by a "--- " line.
-      const diff = [
-        "--- a/src/real.ts",
-        "+++ b/src/real.ts",
-        "@@ -0,0 +1,2 @@",
-        "+++ not-a-header",
-        "+normal();",
-        "",
-      ].join("\n");
-      mockExecSuccess(diff);
+      // An added source line beginning "+++ " must not be read as a file header
+      // because it is not preceded by a "--- " line.
+      mockExecSuccess(loadDiff("diff-plus-content-not-header"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -376,8 +321,7 @@ describe("GitUtils", () => {
     });
 
     it("should ignore hunks that appear before any file header", async () => {
-      const diff = ["@@ -1,1 +1,1 @@", "+orphan();", ""].join("\n");
-      mockExecSuccess(diff);
+      mockExecSuccess(loadDiff("diff-orphan-hunk"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 

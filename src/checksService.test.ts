@@ -387,8 +387,7 @@ describe("ChecksService", () => {
     });
 
     it("should emit no uncovered annotations when the changeset added no lines", () => {
-      // changedLines: [] models a pure-deletion change — the file changed but
-      // introduced no head-side lines, so no uncovered code is attributed to it.
+      // changedLines: [] models a pure deletion — no head-side lines added.
       const fileWithCoverage: FileChangeWithCoverage = {
         path: "src/test.ts",
         status: "modified",
@@ -457,9 +456,8 @@ describe("ChecksService", () => {
     });
 
     it("should annotate every uncovered line when no line data was collected", () => {
-      // changedLines absent (undefined) models the degraded path where
-      // line-level diff data is unavailable; behaviour falls back to flagging
-      // all uncovered code rather than dropping every annotation.
+      // changedLines absent (undefined) is the degraded path: flag all
+      // uncovered code rather than dropping every annotation.
       const fileWithCoverage: FileChangeWithCoverage = {
         path: "src/test.ts",
         status: "modified",

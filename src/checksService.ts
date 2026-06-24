@@ -76,9 +76,8 @@ export class ChecksService {
         this.generateUncoveredFunctionAnnotations(file);
       annotations.push(...uncoveredFunctionAnnotations);
 
-      // The low-coverage notice only complements changeset-touched uncovered
-      // code: skip it when the changeset introduced no uncovered lines or
-      // functions, even if the file's overall coverage is below the threshold.
+      // Only complement changeset-touched uncovered code: skip the notice when
+      // no uncovered lines or functions were introduced.
       const touchedUncoveredCode =
         uncoveredLineAnnotations.length > 0 ||
         uncoveredFunctionAnnotations.length > 0;
@@ -163,11 +162,9 @@ export class ChecksService {
     return annotations;
   }
 
-  // Builds a predicate that restricts uncovered-code annotations to lines the
-  // changeset actually touched. When line-level diff data is unavailable
-  // (changedLines undefined) every line qualifies, so behaviour degrades
-  // gracefully rather than silently dropping all annotations. The changed lines
-  // are hoisted into a Set so each lookup is O(1).
+  // Restricts uncovered-code annotations to changeset-touched lines. When
+  // line-level diff data is unavailable (changedLines undefined) every line
+  // qualifies, degrading gracefully instead of dropping all annotations.
   private changedLinePredicate(
     file: FileChangeWithCoverage,
   ): (line: number) => boolean {
