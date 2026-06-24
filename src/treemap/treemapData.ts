@@ -1,6 +1,6 @@
 import * as path from "path";
 import { CoverageAnalysis, FileChangeWithCoverage } from "../coverageAnalyzer";
-import { FunctionCoverage, FileCoverage } from "../lcov";
+import { FunctionCoverage, FileCoverage, LineCoverage } from "../lcov";
 import {
   CoverageState,
   TreemapData,
@@ -13,11 +13,6 @@ import {
  * the renderer consumes. Each changed file becomes a group of function tiles,
  * or a single file-level tile when no per-function data exists.
  */
-
-// Fallback line count when a function's span cannot be derived from the report.
-const DEFAULT_FUNCTION_LINE_COUNT = 10;
-// Minimum span assumed for the last function in a file, past its start line.
-const MIN_FUNCTION_SIZE_ESTIMATE = 10;
 
 export function generateTreemapData(analysis: CoverageAnalysis): TreemapData {
   return {
@@ -112,44 +107,64 @@ function classifyCoverage(covered: number, total: number): CoverageState {
 }
 
 /**
- * Estimate the number of lines a function spans. The range runs from the
- * function's declaration to the next function's declaration; the last function
- * in a file is estimated from the highest recorded line number.
+ * Resolve the half-open line span `[start, end)` attributed to a function: from
+ * its declaration line up to (but excluding) the next function's declaration.
+ * The last function in a file has no upper bound.
  */
-function getFunctionLineCount(
+function getFunctionLineRange(
   func: FunctionCoverage,
   fileCoverage: FileCoverage,
-): number {
+): { startLine: number; endLine: number } {
   const functions = [...fileCoverage.functions].sort((a, b) => a.line - b.line);
   const funcIndex = functions.findIndex(
     (f) => f.name === func.name && f.line === func.line,
   );
 
-  const currentFunc = funcIndex === -1 ? undefined : functions[funcIndex];
-  if (!currentFunc) return DEFAULT_FUNCTION_LINE_COUNT;
-
-  const nextFunc = functions[funcIndex + 1];
-  if (nextFunc) {
-    return Math.max(nextFunc.line - currentFunc.line, 1);
+  if (funcIndex === -1) {
+    return { startLine: func.line, endLine: func.line + 1 };
   }
 
-  // Last function - estimate based on file lines.
-  const maxLine = Math.max(
-    ...fileCoverage.lines.map((l) => l.line),
-    currentFunc.line + MIN_FUNCTION_SIZE_ESTIMATE,
-  );
-  return Math.max(maxLine - currentFunc.line, 1);
+  const nextFunc = functions[funcIndex + 1];
+  return {
+    startLine: func.line,
+    endLine: nextFunc ? nextFunc.line : Number.POSITIVE_INFINITY,
+  };
 }
 
-/** Count hit lines that fall within a function's estimated span. */
+/**
+ * Collect the coverable (instrumented) lines that fall within a function's
+ * span. Only lines the report actually tracks are coverable: non-executable
+ * lines such as type definitions, interface members, comments and braces never
+ * appear in the LCOV `DA` records, so they are excluded. This keeps a
+ * function's denominator equal to the lines that can genuinely be covered.
+ */
+function getFunctionCoverableLines(
+  func: FunctionCoverage,
+  fileCoverage: FileCoverage,
+): LineCoverage[] {
+  const { startLine, endLine } = getFunctionLineRange(func, fileCoverage);
+  return fileCoverage.lines.filter(
+    (line) => line.line >= startLine && line.line < endLine,
+  );
+}
+
+/**
+ * Count the coverable lines attributed to a function. This is the denominator
+ * for the tile's coverage ratio and drives its relative size.
+ */
+function getFunctionLineCount(
+  func: FunctionCoverage,
+  fileCoverage: FileCoverage,
+): number {
+  return getFunctionCoverableLines(func, fileCoverage).length;
+}
+
+/** Count the covered (hit) lines among a function's coverable lines. */
 function getFunctionCoveredLines(
   func: FunctionCoverage,
   fileCoverage: FileCoverage,
 ): number {
-  const startLine = func.line;
-  const endLine = startLine + getFunctionLineCount(func, fileCoverage);
-
-  return fileCoverage.lines.filter(
-    (line) => line.line >= startLine && line.line < endLine && line.hit > 0,
+  return getFunctionCoverableLines(func, fileCoverage).filter(
+    (line) => line.hit > 0,
   ).length;
 }
