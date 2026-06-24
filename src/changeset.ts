@@ -4,6 +4,11 @@ import { CODE_LANGUAGE_EXTENSIONS } from "./codeExtensions";
 export interface FileChange {
   path: string;
   status: "added" | "modified" | "deleted";
+  // Head-side line numbers the changeset added or modified. Empty means the
+  // file changed but added no head-side lines (e.g. a pure deletion); absent
+  // means line-level diff data was unavailable and consumers fall back to
+  // whole-file behaviour.
+  changedLines?: number[];
 }
 
 export interface Changeset {
@@ -52,11 +57,20 @@ export class ChangesetUtils {
     baseCommit: string,
     headCommit: string = "HEAD",
     targetBranch: string = "main",
+    changedLinesByFile?: Map<string, number[]>,
   ): Changeset {
-    const fileChanges: FileChange[] = files.map((file) => ({
-      path: file,
-      status: "modified" as const, // For now, treat all as modified
-    }));
+    const fileChanges: FileChange[] = files.map((file) => {
+      // Without a line map we leave changedLines absent (the degraded path);
+      // with one, every file gets a defined value so absence stays unambiguous.
+      if (!changedLinesByFile) {
+        return { path: file, status: "modified" as const };
+      }
+      return {
+        path: file,
+        status: "modified" as const,
+        changedLines: changedLinesByFile.get(file) ?? [],
+      };
+    });
 
     return {
       baseCommit,

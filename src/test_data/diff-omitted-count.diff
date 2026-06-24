@@ -1,0 +1,5 @@
+--- a/src/file2.ts
++++ b/src/file2.ts
+@@ -5 +5 @@
+-old();
++new();

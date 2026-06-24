@@ -1,0 +1,5 @@
+--- a/src/real.ts
++++ b/src/real.ts
+@@ -0,0 +1,2 @@
++++ not-a-header
++normal();

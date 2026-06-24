@@ -36,13 +36,19 @@ export class ChangesetService {
         );
       }
 
-      const changedFiles = await GitUtils.getChangedFiles(diffBase, headRef);
+      // The file list and the line-level diff are independent reads of the
+      // same revision range, so fetch them concurrently.
+      const [changedFiles, changedLinesByFile] = await Promise.all([
+        GitUtils.getChangedFiles(diffBase, headRef),
+        GitUtils.getChangedLinesByFile(diffBase, headRef),
+      ]);
 
       const changeset = ChangesetUtils.createChangeset(
         changedFiles,
         diffBase,
         headRef,
         targetBranch,
+        changedLinesByFile,
       );
 
       core.info("✅ Changeset detection completed");

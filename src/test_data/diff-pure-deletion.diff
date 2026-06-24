@@ -1,0 +1,5 @@
+--- a/src/file3.ts
++++ b/src/file3.ts
+@@ -7,2 +6,0 @@
+-removed();
+-removed();

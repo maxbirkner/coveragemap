@@ -33,13 +33,9 @@ export class GitUtils {
     return GitUtils.getPullRequestSha("base", "🎯");
   }
 
-  // Resolves the merge base (the most recent common ancestor) between the PR
-  // base and head. Diffing against the merge base — equivalent to git's
-  // three-dot `base...head` — isolates the changes the PR actually introduced,
-  // even when the target branch has advanced since the branch point. A plain
-  // two-dot `base..head` diff would otherwise attribute unrelated target-branch
-  // commits to the PR. Returns `null` when no common ancestor can be found,
-  // which typically means the clone is too shallow to contain it.
+  // Diffing against the merge base (three-dot `base...head`) isolates the PR's
+  // own changes even when the target branch advanced since the branch point.
+  // Returns null when no common ancestor is found, usually a too-shallow clone.
   static async getMergeBase(
     base: string,
     head: string,
@@ -103,5 +99,80 @@ export class GitUtils {
       core.error(`${errorMessage}: ${error}`);
       throw new Error(errorMessage, { cause: error });
     }
+  }
+
+  // `--unified=0` keeps each hunk header to exactly the changed lines (no
+  // context), and the `-c` overrides force canonical `a/`/`b/` prefixes
+  // regardless of the user's git config so prefix stripping is deterministic.
+  static async getChangedLinesByFile(
+    base: string,
+    head: string = "HEAD",
+  ): Promise<Map<string, number[]>> {
+    try {
+      core.info(`🔎 Getting changed lines between ${base} and ${head}`);
+
+      const { stdout } = await execFileAsync("git", [
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
+        "diff",
+        "--unified=0",
+        "--diff-filter=AM",
+        `${base}..${head}`,
+      ]);
+
+      return GitUtils.parseChangedLines(stdout);
+    } catch (error) {
+      const errorMessage = `Failed to get changed lines between ${base} and ${head}`;
+      core.error(`${errorMessage}: ${error}`);
+      throw new Error(errorMessage, { cause: error });
+    }
+  }
+
+  // Pairing `+++ ` with the preceding `--- ` line avoids mistaking an added
+  // content line that merely starts with `+++ ` for a file header.
+  private static parseChangedLines(diff: string): Map<string, number[]> {
+    const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
+    const changedLines = new Map<string, number[]>();
+    let currentFile: string | undefined;
+    let previousLine = "";
+
+    for (const line of diff.split("\n")) {
+      const precedingLine = previousLine;
+      previousLine = line;
+
+      if (line.startsWith("+++ ") && precedingLine.startsWith("--- ")) {
+        const target = line.slice(4).trim();
+        currentFile =
+          target === "/dev/null" ? undefined : target.replace(/^b\//, "");
+        continue;
+      }
+
+      if (!currentFile) continue;
+
+      const match = HUNK_HEADER.exec(line);
+      if (!match) continue;
+
+      const start = Number(match[1]);
+      // Omitted count means 1; count 0 is a pure deletion with nothing to flag.
+      const count = match[2] === undefined ? 1 : Number(match[2]);
+      if (count === 0) continue;
+
+      // Hunk start lines are 1-based; a value below 1 would mean malformed diff
+      // output, so skip it rather than emit a bogus line number.
+      if (start < 1) {
+        core.debug(`Skipping hunk with invalid start line ${start}`);
+        continue;
+      }
+
+      const lines = changedLines.get(currentFile) ?? [];
+      for (let offset = 0; offset < count; offset++) {
+        lines.push(start + offset);
+      }
+      changedLines.set(currentFile, lines);
+    }
+
+    return changedLines;
   }
 }
