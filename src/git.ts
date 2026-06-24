@@ -159,6 +159,13 @@ export class GitUtils {
       const count = match[2] === undefined ? 1 : Number(match[2]);
       if (count === 0) continue;
 
+      // Hunk start lines are 1-based; a value below 1 would mean malformed diff
+      // output, so skip it rather than emit a bogus line number.
+      if (start < 1) {
+        core.debug(`Skipping hunk with invalid start line ${start}`);
+        continue;
+      }
+
       const lines = changedLines.get(currentFile) ?? [];
       for (let offset = 0; offset < count; offset++) {
         lines.push(start + offset);
