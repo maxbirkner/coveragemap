@@ -526,4 +526,97 @@ describe("generateTreemapData", () => {
       expect(result.children[0].children[0].coverage).toBe(expected);
     },
   );
+
+  it("counts only coverable lines, ignoring interleaved type definitions", () => {
+    // Mirrors a TypeScript module whose functions are separated by type
+    // definitions, interface members and JSDoc comments (lines 1-18 and 21-23
+    // below). Those lines never appear as LCOV `DA` records, so they must not
+    // inflate a function's denominator. Both functions are fully covered and
+    // should render as such even though they are far apart in the source.
+    const mockAnalysis: CoverageAnalysis = {
+      changeset: {
+        baseCommit: "abc123",
+        headCommit: "def456",
+        targetBranch: "main",
+        files: [],
+        totalFiles: 1,
+      },
+      changedFiles: [
+        {
+          path: "src/recorder.models.ts",
+          status: "modified",
+          coverage: {
+            path: "src/recorder.models.ts",
+            functions: [
+              { name: "normalizeState", line: 19, hit: 12 },
+              { name: "hasRecorderError", line: 24, hit: 3 },
+            ],
+            // Only executable lines are tracked. Line 4 is a module-level
+            // const; lines 20 and 25 are the two function bodies. The interface
+            // and type alias on lines 1-18 produce no DA records at all.
+            lines: [
+              { line: 4, hit: 3 },
+              { line: 20, hit: 12 },
+              { line: 25, hit: 3 },
+            ],
+            branches: [],
+            summary: {
+              functionsFound: 2,
+              functionsHit: 2,
+              linesFound: 3,
+              linesHit: 3,
+              branchesFound: 0,
+              branchesHit: 0,
+            },
+          },
+          analysis: {
+            totalLines: 3,
+            coveredLines: 3,
+            totalFunctions: 2,
+            coveredFunctions: 2,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 100,
+            functionsCoveragePercentage: 100,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 100,
+          },
+        },
+      ],
+      summary: {
+        totalChangedFiles: 1,
+        filesWithCoverage: 1,
+        filesWithoutCoverage: 0,
+        overallCoverage: {
+          totalLines: 3,
+          coveredLines: 3,
+          totalFunctions: 2,
+          coveredFunctions: 2,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 100,
+          functionsCoveragePercentage: 100,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 100,
+        },
+      },
+    };
+
+    const result = generateTreemapData(mockAnalysis);
+
+    const tiles = result.children[0].children;
+    const normalizeState = tiles.find((c) => c.name === "normalizeState");
+    const hasRecorderError = tiles.find((c) => c.name === "hasRecorderError");
+
+    // Each function owns exactly one coverable line, both of which are hit.
+    // Without the fix, normalizeState would span 5 lines (19->24) and the
+    // trailing hasRecorderError would span the 10-line fallback estimate.
+    expect(normalizeState?.lineCount).toBe(1);
+    expect(normalizeState?.coveredLines).toBe(1);
+    expect(normalizeState?.coverage).toBe("full");
+
+    expect(hasRecorderError?.lineCount).toBe(1);
+    expect(hasRecorderError?.coveredLines).toBe(1);
+    expect(hasRecorderError?.coverage).toBe("full");
+  });
 });
