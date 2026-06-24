@@ -107,8 +107,9 @@ export class ChecksService {
   ): CheckAnnotation[] {
     if (!file.coverage) return [];
 
+    const isInChangeset = this.changedLinePredicate(file);
     const uncoveredLines = file.coverage.lines.filter(
-      (line) => line.hit === 0 && this.isLineInChangeset(file, line.line),
+      (line) => line.hit === 0 && isInChangeset(line.line),
     );
     const annotations: CheckAnnotation[] = [];
 
@@ -142,8 +143,9 @@ export class ChecksService {
   ): CheckAnnotation[] {
     if (!file.coverage) return [];
 
+    const isInChangeset = this.changedLinePredicate(file);
     const uncoveredFunctions = file.coverage.functions.filter(
-      (fn) => fn.hit === 0 && this.isLineInChangeset(file, fn.line),
+      (fn) => fn.hit === 0 && isInChangeset(fn.line),
     );
     const annotations: CheckAnnotation[] = [];
 
@@ -161,16 +163,17 @@ export class ChecksService {
     return annotations;
   }
 
-  // Restricts uncovered-code annotations to lines the changeset actually
-  // touched. When line-level diff data is unavailable (changedLines undefined)
-  // we fall back to annotating every uncovered line so behaviour degrades
-  // gracefully rather than silently dropping all annotations.
-  private isLineInChangeset(
+  // Builds a predicate that restricts uncovered-code annotations to lines the
+  // changeset actually touched. When line-level diff data is unavailable
+  // (changedLines undefined) every line qualifies, so behaviour degrades
+  // gracefully rather than silently dropping all annotations. The changed lines
+  // are hoisted into a Set so each lookup is O(1).
+  private changedLinePredicate(
     file: FileChangeWithCoverage,
-    line: number,
-  ): boolean {
-    if (!file.changedLines) return true;
-    return file.changedLines.includes(line);
+  ): (line: number) => boolean {
+    if (!file.changedLines) return () => true;
+    const changed = new Set(file.changedLines);
+    return (line) => changed.has(line);
   }
 
   private groupConsecutiveLines(lines: number[]): number[][] {

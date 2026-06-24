@@ -110,7 +110,10 @@ export class GitUtils {
   // changeset actually touched, so we need line-level granularity rather than
   // the whole-file list `getChangedFiles` provides. We diff with
   // `--unified=0` so each hunk header reflects only the changed lines (no
-  // surrounding context), making the new-side ranges exact.
+  // surrounding context), making the new-side ranges exact. The `-c` overrides
+  // force the canonical `a/` and `b/` path prefixes regardless of the user's
+  // `diff.noprefix` / `diff.mnemonicPrefix` git config, so prefix stripping is
+  // deterministic.
   static async getChangedLinesByFile(
     base: string,
     head: string = "HEAD",
@@ -119,6 +122,10 @@ export class GitUtils {
       core.info(`🔎 Getting changed lines between ${base} and ${head}`);
 
       const { stdout } = await execFileAsync("git", [
+        "-c",
+        "diff.noprefix=false",
+        "-c",
+        "diff.mnemonicPrefix=false",
         "diff",
         "--unified=0",
         "--diff-filter=AM",
@@ -134,16 +141,22 @@ export class GitUtils {
   }
 
   // Parses unified diff output (produced with `--unified=0`) into a map of file
-  // path -> changed line numbers on the new side. Only the `+++ b/<path>` file
-  // header and `@@ ... +start,count @@` hunk headers are needed: the new-side
-  // range `start..start+count-1` lists exactly the added/modified lines.
+  // path -> changed line numbers on the new side. A file header is the `+++ b/`
+  // half of a `--- a/` / `+++ b/` pair; pairing with the preceding `--- ` line
+  // avoids mistaking an added content line that merely starts with `+++ ` for a
+  // header. Each `@@ ... +start,count @@` hunk contributes the new-side range
+  // `start..start+count-1`, which lists exactly the added/modified lines.
   private static parseChangedLines(diff: string): Map<string, number[]> {
     const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
     const changedLines = new Map<string, number[]>();
     let currentFile: string | undefined;
+    let previousLine = "";
 
     for (const line of diff.split("\n")) {
-      if (line.startsWith("+++ ")) {
+      const precedingLine = previousLine;
+      previousLine = line;
+
+      if (line.startsWith("+++ ") && precedingLine.startsWith("--- ")) {
         const target = line.slice(4).trim();
         // `/dev/null` marks a deletion target and has no head-side lines.
         currentFile =
@@ -151,7 +164,9 @@ export class GitUtils {
         continue;
       }
 
-      const match = currentFile ? HUNK_HEADER.exec(line) : null;
+      if (!currentFile) continue;
+
+      const match = HUNK_HEADER.exec(line);
       if (!match) continue;
 
       const start = Number(match[1]);
@@ -160,11 +175,11 @@ export class GitUtils {
       const count = match[2] === undefined ? 1 : Number(match[2]);
       if (count === 0) continue;
 
-      const lines = changedLines.get(currentFile!) ?? [];
+      const lines = changedLines.get(currentFile) ?? [];
       for (let offset = 0; offset < count; offset++) {
         lines.push(start + offset);
       }
-      changedLines.set(currentFile!, lines);
+      changedLines.set(currentFile, lines);
     }
 
     return changedLines;

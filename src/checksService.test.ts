@@ -386,6 +386,159 @@ describe("ChecksService", () => {
       expect(annotations).toEqual([]);
     });
 
+    it("should emit no uncovered annotations when the changeset added no lines", () => {
+      // changedLines: [] models a pure-deletion change — the file changed but
+      // introduced no head-side lines, so no uncovered code is attributed to it.
+      const fileWithCoverage: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        changedLines: [],
+        coverage: {
+          path: "src/test.ts",
+          functions: [{ name: "uncoveredFn", hit: 0, line: 5 }],
+          branches: [],
+          lines: [
+            { line: 3, hit: 0 },
+            { line: 7, hit: 0 },
+          ],
+          summary: {
+            functionsFound: 1,
+            functionsHit: 0,
+            linesFound: 20,
+            linesHit: 10,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 20,
+          coveredLines: 10,
+          totalFunctions: 1,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 50,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 50,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithCoverage],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 20,
+            coveredLines: 10,
+            totalFunctions: 1,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 50,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 50,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+
+      expect(annotations).toEqual([]);
+    });
+
+    it("should annotate every uncovered line when no line data was collected", () => {
+      // changedLines absent (undefined) models the degraded path where
+      // line-level diff data is unavailable; behaviour falls back to flagging
+      // all uncovered code rather than dropping every annotation.
+      const fileWithCoverage: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        coverage: {
+          path: "src/test.ts",
+          functions: [{ name: "uncoveredFn", hit: 0, line: 5 }],
+          branches: [],
+          lines: [
+            { line: 3, hit: 0 },
+            { line: 7, hit: 0 },
+          ],
+          summary: {
+            functionsFound: 1,
+            functionsHit: 0,
+            linesFound: 20,
+            linesHit: 10,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 20,
+          coveredLines: 10,
+          totalFunctions: 1,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 50,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 50,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithCoverage],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 20,
+            coveredLines: 10,
+            totalFunctions: 1,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 50,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 50,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+
+      const lineMessages = annotations
+        .filter((a) => a.title === "Uncovered Lines")
+        .map((a) => a.message);
+      const functionMessages = annotations
+        .filter((a) => a.title === "Uncovered Function")
+        .map((a) => a.message);
+
+      expect(lineMessages).toEqual([
+        "Line 3 is not covered by tests",
+        "Line 7 is not covered by tests",
+      ]);
+      expect(functionMessages).toEqual([
+        "Function 'uncoveredFn' is not covered by tests",
+      ]);
+    });
+
     it("should generate annotation for file without coverage", () => {
       const fileWithoutCoverage: FileChangeWithCoverage = {
         path: "src/test.ts",

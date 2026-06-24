@@ -270,7 +270,16 @@ describe("GitUtils", () => {
       expect(result.get("src/file1.ts")).toEqual([11, 12, 13, 24]);
       expect(mockedExecFile).toHaveBeenCalledWith(
         "git",
-        ["diff", "--unified=0", "--diff-filter=AM", "base..head"],
+        [
+          "-c",
+          "diff.noprefix=false",
+          "-c",
+          "diff.mnemonicPrefix=false",
+          "diff",
+          "--unified=0",
+          "--diff-filter=AM",
+          "base..head",
+        ],
         expect.any(Function),
       );
     });
@@ -326,6 +335,53 @@ describe("GitUtils", () => {
 
       expect(result.get("src/a.ts")).toEqual([1, 2]);
       expect(result.get("src/b.ts")).toEqual([1]);
+    });
+
+    it("should track added files whose header pairs with /dev/null", async () => {
+      const diff = [
+        "--- /dev/null",
+        "+++ b/src/new.ts",
+        "@@ -0,0 +1,3 @@",
+        "+a();",
+        "+b();",
+        "+c();",
+        "",
+      ].join("\n");
+      mockExecSuccess(diff);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.get("src/new.ts")).toEqual([1, 2, 3]);
+    });
+
+    it("should not treat an added content line starting with +++ as a header", async () => {
+      // Under --unified=0 an added source line whose content begins with "++ "
+      // serialises to a line starting with "+++ "; it must not be mistaken for a
+      // file header because it is not preceded by a "--- " line.
+      const diff = [
+        "--- a/src/real.ts",
+        "+++ b/src/real.ts",
+        "@@ -0,0 +1,2 @@",
+        "+++ not-a-header",
+        "+normal();",
+        "",
+      ].join("\n");
+      mockExecSuccess(diff);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.get("src/real.ts")).toEqual([1, 2]);
+      expect(result.has("not-a-header")).toBe(false);
+      expect(result.size).toBe(1);
+    });
+
+    it("should ignore hunks that appear before any file header", async () => {
+      const diff = ["@@ -1,1 +1,1 @@", "+orphan();", ""].join("\n");
+      mockExecSuccess(diff);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.size).toBe(0);
     });
 
     it("should return an empty map for empty diff output", async () => {

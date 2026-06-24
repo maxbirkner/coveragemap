@@ -71,10 +71,27 @@ describe("ChangesetUtils", () => {
         changedLinesByFile,
       );
 
+      // Files present in the map carry their changed lines; files absent from
+      // the map are changed-but-added-no-lines, so they get an empty array
+      // rather than an absent field.
       expect(changeset.files).toEqual([
         { path: "src/file1.ts", status: "modified", changedLines: [3, 4, 5] },
-        { path: "src/file2.ts", status: "modified" },
+        { path: "src/file2.ts", status: "modified", changedLines: [] },
       ]);
+    });
+
+    it("should omit changedLines entirely when no line map is provided", () => {
+      const changeset = ChangesetUtils.createChangeset(
+        ["src/file1.ts"],
+        "abc123",
+        "def456",
+        "main",
+      );
+
+      expect(changeset.files).toEqual([
+        { path: "src/file1.ts", status: "modified" },
+      ]);
+      expect(changeset.files[0]).not.toHaveProperty("changedLines");
     });
   });
 

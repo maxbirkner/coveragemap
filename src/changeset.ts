@@ -4,9 +4,11 @@ import { CODE_LANGUAGE_EXTENSIONS } from "./codeExtensions";
 export interface FileChange {
   path: string;
   status: "added" | "modified" | "deleted";
-  // Line numbers on the head side that the changeset added or modified. Used to
-  // restrict coverage annotations to code the PR actually touched. Absent when
-  // line-level diff data was not collected.
+  // Line numbers on the head side that the changeset added or modified. An
+  // empty array means the file changed but added no head-side lines (e.g. a
+  // pure deletion), so no uncovered code should be attributed to it. The field
+  // is absent only when line-level diff data was not collected at all, in which
+  // case consumers fall back to whole-file behaviour.
   changedLines?: number[];
 }
 
@@ -59,11 +61,16 @@ export class ChangesetUtils {
     changedLinesByFile?: Map<string, number[]>,
   ): Changeset {
     const fileChanges: FileChange[] = files.map((file) => {
-      const changedLines = changedLinesByFile?.get(file);
+      // When a line map is supplied, every file gets a defined `changedLines`
+      // (empty for files that changed without adding head-side lines) so a
+      // missing value unambiguously signals the degraded, no-diff-data path.
+      if (!changedLinesByFile) {
+        return { path: file, status: "modified" as const };
+      }
       return {
         path: file,
         status: "modified" as const, // For now, treat all as modified
-        ...(changedLines ? { changedLines } : {}),
+        changedLines: changedLinesByFile.get(file) ?? [],
       };
     });
 
