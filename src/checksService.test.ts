@@ -902,6 +902,191 @@ describe("ChecksService", () => {
         ),
       ).toBe(true);
     });
+
+    // Templated C++ emits one function (and line) record per instantiation,
+    // all sharing a source line. The following cases pin down the behaviour
+    // for that shape: covering any instantiation counts as covered, and the
+    // resulting message stays short instead of dumping every signature.
+    const templatedAnalysis: FileChangeWithCoverage["analysis"] = {
+      totalLines: 10,
+      coveredLines: 8,
+      totalFunctions: 4,
+      coveredFunctions: 3,
+      totalBranches: 0,
+      coveredBranches: 0,
+      linesCoveragePercentage: 80,
+      functionsCoveragePercentage: 75,
+      branchesCoveragePercentage: 0,
+      overallCoveragePercentage: 80,
+    };
+
+    const wrapAnalysis = (file: FileChangeWithCoverage): CoverageAnalysis => ({
+      changeset: ChangesetUtils.createChangeset(
+        [file.path],
+        "base-sha",
+        "head-sha",
+        "main",
+      ),
+      changedFiles: [file],
+      summary: {
+        totalChangedFiles: 1,
+        filesWithCoverage: 1,
+        filesWithoutCoverage: 0,
+        overallCoverage: {
+          totalLines: 10,
+          coveredLines: 8,
+          totalFunctions: 4,
+          coveredFunctions: 3,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 80,
+          functionsCoveragePercentage: 75,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 80,
+        },
+      },
+    });
+
+    it("treats a templated function as covered when any instantiation is hit", () => {
+      const file: FileChangeWithCoverage = {
+        path: "src/templated.cpp",
+        status: "modified",
+        coverage: {
+          path: "src/templated.cpp",
+          functions: [
+            { name: "void process<int>(int)", hit: 0, line: 5 },
+            { name: "void process<double>(double)", hit: 3, line: 5 },
+          ],
+          branches: [],
+          lines: [],
+          summary: {
+            functionsFound: 2,
+            functionsHit: 1,
+            linesFound: 0,
+            linesHit: 0,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: templatedAnalysis,
+      };
+
+      const annotations = checksService
+        .generateAnnotations(wrapAnalysis(file))
+        .filter((a) => a.title === "Uncovered Function");
+
+      expect(annotations).toEqual([]);
+    });
+
+    it("emits one concise annotation for many uncovered template instantiations", () => {
+      const file: FileChangeWithCoverage = {
+        path: "src/templated.cpp",
+        status: "modified",
+        coverage: {
+          path: "src/templated.cpp",
+          functions: [
+            { name: "void process<int>(int)", hit: 0, line: 5 },
+            { name: "void process<double>(double)", hit: 0, line: 5 },
+            { name: "void process<char>(char)", hit: 0, line: 5 },
+          ],
+          branches: [],
+          lines: [],
+          summary: {
+            functionsFound: 3,
+            functionsHit: 0,
+            linesFound: 0,
+            linesHit: 0,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: templatedAnalysis,
+      };
+
+      const annotations = checksService
+        .generateAnnotations(wrapAnalysis(file))
+        .filter((a) => a.title === "Uncovered Function");
+
+      expect(annotations).toHaveLength(1);
+      expect(annotations[0]).toMatchObject({
+        path: "src/templated.cpp",
+        start_line: 5,
+        end_line: 5,
+        annotation_level: "warning",
+        message:
+          "Function 'void process<int>(int)' (+2 template instantiations) is not covered by tests",
+      });
+    });
+
+    it("truncates an extremely long templated function name", () => {
+      const longName =
+        "void apply<std::vector<std::pair<std::basic_string<char>, " +
+        "std::map<int, std::vector<double>>>>>(SomeVeryLongParameterTypeName " +
+        "const&, AnotherVeryLongParameterType&&)";
+      const file: FileChangeWithCoverage = {
+        path: "src/templated.cpp",
+        status: "modified",
+        coverage: {
+          path: "src/templated.cpp",
+          functions: [{ name: longName, hit: 0, line: 9 }],
+          branches: [],
+          lines: [],
+          summary: {
+            functionsFound: 1,
+            functionsHit: 0,
+            linesFound: 0,
+            linesHit: 0,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: templatedAnalysis,
+      };
+
+      const annotations = checksService
+        .generateAnnotations(wrapAnalysis(file))
+        .filter((a) => a.title === "Uncovered Function");
+
+      expect(annotations).toHaveLength(1);
+      const message = annotations[0]!.message;
+      expect(message.length).toBeLessThanOrEqual(120);
+      expect(message).toContain("…");
+      expect(message).toContain("void apply<");
+      expect(message).toContain("is not covered by tests");
+    });
+
+    it("treats a line as covered when any duplicate line record is hit", () => {
+      const file: FileChangeWithCoverage = {
+        path: "src/templated.cpp",
+        status: "modified",
+        coverage: {
+          path: "src/templated.cpp",
+          functions: [],
+          branches: [],
+          // One source line instrumented once per instantiation: one miss and
+          // one hit. The line is covered overall.
+          lines: [
+            { line: 12, hit: 0 },
+            { line: 12, hit: 4 },
+          ],
+          summary: {
+            functionsFound: 0,
+            functionsHit: 0,
+            linesFound: 2,
+            linesHit: 1,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: templatedAnalysis,
+      };
+
+      const annotations = checksService
+        .generateAnnotations(wrapAnalysis(file))
+        .filter((a) => a.title === "Uncovered Lines");
+
+      expect(annotations).toEqual([]);
+    });
   });
 
   describe("generateCheckTitle", () => {

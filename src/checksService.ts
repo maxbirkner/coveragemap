@@ -3,6 +3,7 @@ import * as github from "@actions/github";
 import { createAppAuth } from "@octokit/auth-app";
 import { CoverageAnalysis, FileChangeWithCoverage } from "./coverageAnalyzer";
 import { GatingResult } from "./coverageGating";
+import { FunctionCoverage } from "./lcov";
 
 export interface CheckAnnotation {
   path: string;
@@ -25,6 +26,11 @@ export interface ChecksServiceConfig {
 export class ChecksService {
   private config: ChecksServiceConfig;
   private maxAnnotations = 50;
+
+  // Demangled C++ template signatures can run to hundreds of characters, which
+  // renders check annotations unreadable. Truncate names past this length so a
+  // single annotation never spans multiple screens.
+  private static readonly maxFunctionNameLength = 80;
 
   constructor(config: ChecksServiceConfig) {
     this.config = config;
@@ -107,14 +113,23 @@ export class ChecksService {
     if (!file.coverage) return [];
 
     const isInChangeset = this.changedLinePredicate(file);
-    const uncoveredLines = file.coverage.lines.filter(
-      (line) => line.hit === 0 && isInChangeset(line.line),
-    );
+
+    // Templated code is instrumented once per instantiation, so a source line
+    // can appear in several DA records with differing hit counts. Collapse them
+    // to the highest hit count: the line is covered if any instantiation hit
+    // it, avoiding spurious "uncovered" annotations on covered template code.
+    const maxHitByLine = new Map<number, number>();
+    for (const line of file.coverage.lines) {
+      const previous = maxHitByLine.get(line.line) ?? 0;
+      maxHitByLine.set(line.line, Math.max(previous, line.hit));
+    }
+
+    const uncoveredLineNumbers = [...maxHitByLine.entries()]
+      .filter(([lineNumber, hit]) => hit === 0 && isInChangeset(lineNumber))
+      .map(([lineNumber]) => lineNumber);
     const annotations: CheckAnnotation[] = [];
 
-    const lineGroups = this.groupConsecutiveLines(
-      uncoveredLines.map((l) => l.line),
-    );
+    const lineGroups = this.groupConsecutiveLines(uncoveredLineNumbers);
 
     for (const group of lineGroups) {
       const startLine = group[0];
@@ -143,23 +158,65 @@ export class ChecksService {
     if (!file.coverage) return [];
 
     const isInChangeset = this.changedLinePredicate(file);
-    const uncoveredFunctions = file.coverage.functions.filter(
-      (fn) => fn.hit === 0 && isInChangeset(fn.line),
-    );
-    const annotations: CheckAnnotation[] = [];
 
-    for (const func of uncoveredFunctions) {
+    // A templated function is emitted once per instantiation, each a distinct
+    // (very long) name sharing one line. Group by line so covering a single
+    // instantiation counts as covered and every uncovered line yields at most
+    // one annotation instead of one per instantiation.
+    const functionsByLine = new Map<number, FunctionCoverage[]>();
+    for (const func of file.coverage.functions) {
+      const group = functionsByLine.get(func.line);
+      if (group) {
+        group.push(func);
+      } else {
+        functionsByLine.set(func.line, [func]);
+      }
+    }
+
+    const annotations: CheckAnnotation[] = [];
+    for (const [line, instantiations] of functionsByLine) {
+      if (!isInChangeset(line)) continue;
+      if (instantiations.some((func) => func.hit > 0)) continue;
+
       annotations.push({
         path: file.path,
-        start_line: func.line,
-        end_line: func.line,
+        start_line: line,
+        end_line: line,
         annotation_level: "warning",
         title: "Uncovered Function",
-        message: `Function '${func.name}' is not covered by tests`,
+        message: this.formatUncoveredFunctionMessage(instantiations),
       });
     }
 
     return annotations;
+  }
+
+  // Builds a concise message for an uncovered function line. Templated code
+  // maps to several instantiations sharing the line; we surface one readable
+  // (truncated) name plus a count of the remaining instantiations rather than
+  // listing every multi-hundred-character signature.
+  private formatUncoveredFunctionMessage(
+    instantiations: FunctionCoverage[],
+  ): string {
+    const uniqueNames = [...new Set(instantiations.map((func) => func.name))];
+    const shortestName = uniqueNames.reduce((shortest, name) =>
+      name.length < shortest.length ? name : shortest,
+    );
+    const displayName = this.truncateFunctionName(shortestName);
+    const otherCount = uniqueNames.length - 1;
+
+    if (otherCount > 0) {
+      const suffix = otherCount === 1 ? "instantiation" : "instantiations";
+      return `Function '${displayName}' (+${otherCount} template ${suffix}) is not covered by tests`;
+    }
+
+    return `Function '${displayName}' is not covered by tests`;
+  }
+
+  private truncateFunctionName(name: string): string {
+    const maxLength = ChecksService.maxFunctionNameLength;
+    if (name.length <= maxLength) return name;
+    return `${name.slice(0, maxLength - 1)}\u2026`;
   }
 
   // Restricts uncovered-code annotations to changeset-touched lines. When
