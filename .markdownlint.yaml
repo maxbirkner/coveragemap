@@ -10,6 +10,8 @@ no-emphasis-as-heading: false
 code-block-style: false
 no-alt-text: false
 no-inline-html: false
+# Tables in this repo don't align pipes with the header row.
+table-column-style: false
 ul-indent:
   start_indent: 2
   start_indented: true
