@@ -741,6 +741,86 @@ describe("ChecksService", () => {
       expect(annotations).toHaveLength(0);
     });
 
+    it("should keep inline annotations when tiny coverage rounds to 0%", () => {
+      // overallCoveragePercentage is rounded to 2 decimals, so a file with
+      // e.g. 0.004% coverage reports 0. Covered counts distinguish it from
+      // truly uncovered files.
+      const fileWithTinyCoverage: FileChangeWithCoverage = {
+        path: "src/test.ts",
+        status: "modified",
+        coverage: {
+          path: "src/test.ts",
+          functions: [],
+          branches: [],
+          lines: [
+            { line: 1, hit: 1 },
+            { line: 3, hit: 0 },
+          ],
+          summary: {
+            functionsFound: 0,
+            functionsHit: 0,
+            linesFound: 25000,
+            linesHit: 1,
+            branchesFound: 0,
+            branchesHit: 0,
+          },
+        },
+        analysis: {
+          totalLines: 25000,
+          coveredLines: 1,
+          totalFunctions: 0,
+          coveredFunctions: 0,
+          totalBranches: 0,
+          coveredBranches: 0,
+          linesCoveragePercentage: 0,
+          functionsCoveragePercentage: 0,
+          branchesCoveragePercentage: 0,
+          overallCoveragePercentage: 0,
+        },
+      };
+
+      const analysis: CoverageAnalysis = {
+        changeset: ChangesetUtils.createChangeset(
+          ["src/test.ts"],
+          "base-sha",
+          "head-sha",
+          "main",
+        ),
+        changedFiles: [fileWithTinyCoverage],
+        summary: {
+          totalChangedFiles: 1,
+          filesWithCoverage: 1,
+          filesWithoutCoverage: 0,
+          overallCoverage: {
+            totalLines: 25000,
+            coveredLines: 1,
+            totalFunctions: 0,
+            coveredFunctions: 0,
+            totalBranches: 0,
+            coveredBranches: 0,
+            linesCoveragePercentage: 0,
+            functionsCoveragePercentage: 0,
+            branchesCoveragePercentage: 0,
+            overallCoveragePercentage: 0,
+          },
+        },
+      };
+
+      const annotations = checksService.generateAnnotations(analysis);
+
+      expect(
+        annotations.find((a) => a.title === "No Coverage"),
+      ).toBeUndefined();
+      expect(annotations.find((a) => a.title === "Uncovered Lines")).toEqual({
+        path: "src/test.ts",
+        start_line: 3,
+        end_line: 3,
+        annotation_level: "warning",
+        title: "Uncovered Lines",
+        message: "Line 3 is not covered by tests",
+      });
+    });
+
     it("should return empty array when no coverage issues", () => {
       const fileWithFullCoverage: FileChangeWithCoverage = {
         path: "src/test.ts",

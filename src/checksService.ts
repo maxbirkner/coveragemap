@@ -87,11 +87,10 @@ export class ChecksService {
 
       // At 0% file coverage every line is uncovered, so per-line and
       // per-function annotations add no information. A single file-level
-      // warning says it all.
-      if (
-        touchedUncoveredCode &&
-        file.analysis.overallCoveragePercentage === 0
-      ) {
+      // warning says it all. Check covered counts rather than the rounded
+      // percentage so files with tiny non-zero coverage keep their inline
+      // annotations.
+      if (touchedUncoveredCode && this.hasNoCoveredCode(file)) {
         annotations.push({
           path: file.path,
           start_line: 1,
@@ -124,6 +123,13 @@ export class ChecksService {
     }
 
     return this.prioritizeAndLimitAnnotations(annotations);
+  }
+
+  private hasNoCoveredCode(file: FileChangeWithCoverage): boolean {
+    const { coveredLines, coveredFunctions, coveredBranches } = file.analysis;
+    return (
+      coveredLines === 0 && coveredFunctions === 0 && coveredBranches === 0
+    );
   }
 
   private generateUncoveredLineAnnotations(

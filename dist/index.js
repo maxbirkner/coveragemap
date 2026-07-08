@@ -118138,7 +118138,7 @@ var ChecksService = class _ChecksService {
       const uncoveredLineAnnotations = this.generateUncoveredLineAnnotations(file);
       const uncoveredFunctionAnnotations = this.generateUncoveredFunctionAnnotations(file);
       const touchedUncoveredCode = uncoveredLineAnnotations.length > 0 || uncoveredFunctionAnnotations.length > 0;
-      if (touchedUncoveredCode && file.analysis.overallCoveragePercentage === 0) {
+      if (touchedUncoveredCode && this.hasNoCoveredCode(file)) {
         annotations.push({
           path: file.path,
           start_line: 1,
@@ -118164,6 +118164,10 @@ var ChecksService = class _ChecksService {
       }
     }
     return this.prioritizeAndLimitAnnotations(annotations);
+  }
+  hasNoCoveredCode(file) {
+    const { coveredLines, coveredFunctions, coveredBranches } = file.analysis;
+    return coveredLines === 0 && coveredFunctions === 0 && coveredBranches === 0;
   }
   generateUncoveredLineAnnotations(file) {
     if (!file.coverage) return [];
