@@ -118136,10 +118136,21 @@ var ChecksService = class _ChecksService {
         continue;
       }
       const uncoveredLineAnnotations = this.generateUncoveredLineAnnotations(file);
-      annotations.push(...uncoveredLineAnnotations);
       const uncoveredFunctionAnnotations = this.generateUncoveredFunctionAnnotations(file);
-      annotations.push(...uncoveredFunctionAnnotations);
       const touchedUncoveredCode = uncoveredLineAnnotations.length > 0 || uncoveredFunctionAnnotations.length > 0;
+      if (touchedUncoveredCode && file.analysis.overallCoveragePercentage === 0) {
+        annotations.push({
+          path: file.path,
+          start_line: 1,
+          end_line: 1,
+          annotation_level: "warning",
+          title: "No Coverage",
+          message: "File coverage is 0%. Nothing in this file is covered by tests."
+        });
+        continue;
+      }
+      annotations.push(...uncoveredLineAnnotations);
+      annotations.push(...uncoveredFunctionAnnotations);
       if (touchedUncoveredCode && file.analysis.overallCoveragePercentage < 80) {
         annotations.push({
           path: file.path,

@@ -76,17 +76,36 @@ export class ChecksService {
 
       const uncoveredLineAnnotations =
         this.generateUncoveredLineAnnotations(file);
-      annotations.push(...uncoveredLineAnnotations);
-
       const uncoveredFunctionAnnotations =
         this.generateUncoveredFunctionAnnotations(file);
-      annotations.push(...uncoveredFunctionAnnotations);
 
       // Only complement changeset-touched uncovered code: skip the notice when
       // no uncovered lines or functions were introduced.
       const touchedUncoveredCode =
         uncoveredLineAnnotations.length > 0 ||
         uncoveredFunctionAnnotations.length > 0;
+
+      // At 0% file coverage every line is uncovered, so per-line and
+      // per-function annotations add no information. A single file-level
+      // warning says it all.
+      if (
+        touchedUncoveredCode &&
+        file.analysis.overallCoveragePercentage === 0
+      ) {
+        annotations.push({
+          path: file.path,
+          start_line: 1,
+          end_line: 1,
+          annotation_level: "warning",
+          title: "No Coverage",
+          message:
+            "File coverage is 0%. Nothing in this file is covered by tests.",
+        });
+        continue;
+      }
+
+      annotations.push(...uncoveredLineAnnotations);
+      annotations.push(...uncoveredFunctionAnnotations);
 
       if (
         touchedUncoveredCode &&
