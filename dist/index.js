@@ -63380,14 +63380,16 @@ var ChangesetUtils = class _ChangesetUtils {
     };
   }
   static filterByPatterns(changeset, sourceCodePattern = _ChangesetUtils.DEFAULT_SOURCE_PATTERNS, testCodePattern = _ChangesetUtils.DEFAULT_TEST_PATTERNS) {
+    const sourcePatterns = sourceCodePattern.length > 0 ? sourceCodePattern : _ChangesetUtils.DEFAULT_SOURCE_PATTERNS;
+    const testPatterns = testCodePattern.length > 0 ? testCodePattern : _ChangesetUtils.DEFAULT_TEST_PATTERNS;
     const filteredFiles = changeset.files.filter((file) => {
       const matchesSource = _ChangesetUtils.matchesAnyPattern(
         file.path,
-        sourceCodePattern
+        sourcePatterns
       );
       const matchesTest = _ChangesetUtils.matchesAnyPattern(
         file.path,
-        testCodePattern
+        testPatterns
       );
       return matchesSource && !matchesTest;
     });
