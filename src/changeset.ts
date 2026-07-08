@@ -86,14 +86,26 @@ export class ChangesetUtils {
     sourceCodePattern: string[] = ChangesetUtils.DEFAULT_SOURCE_PATTERNS,
     testCodePattern: string[] = ChangesetUtils.DEFAULT_TEST_PATTERNS,
   ): Changeset {
+    // An unset input parses to an empty list; fall back to the defaults so
+    // providing only one of the two patterns keeps the other's documented
+    // default behaviour (e.g. test-code-pattern alone must not drop all files).
+    const sourcePatterns =
+      sourceCodePattern.length > 0
+        ? sourceCodePattern
+        : ChangesetUtils.DEFAULT_SOURCE_PATTERNS;
+    const testPatterns =
+      testCodePattern.length > 0
+        ? testCodePattern
+        : ChangesetUtils.DEFAULT_TEST_PATTERNS;
+
     const filteredFiles = changeset.files.filter((file) => {
       const matchesSource = ChangesetUtils.matchesAnyPattern(
         file.path,
-        sourceCodePattern,
+        sourcePatterns,
       );
       const matchesTest = ChangesetUtils.matchesAnyPattern(
         file.path,
-        testCodePattern,
+        testPatterns,
       );
 
       return matchesSource && !matchesTest;

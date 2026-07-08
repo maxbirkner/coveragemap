@@ -118,16 +118,44 @@ describe("ChangesetUtils - Pattern Filtering", () => {
       expect(result.targetBranch).toBe("main");
     });
 
-    it("should handle empty patterns gracefully", () => {
-      // Test with empty arrays - this should match no files since an empty array means "match nothing"
+    it("should fall back to defaults when empty pattern lists are provided", () => {
+      // Unset inputs parse to empty arrays; both fall back to the defaults.
+      const result = ChangesetUtils.filterByPatterns(sampleChangeset, [], []);
+
+      expect(result.files.map((f) => f.path)).toEqual([
+        "src/main.ts",
+        "src/utils.js",
+        "src/components/Button.tsx",
+        "lib/helper.py",
+      ]);
+    });
+
+    it("should keep default source patterns when only test patterns are provided", () => {
+      // Regression test for #60: test-code-pattern alone must not drop all files.
       const result = ChangesetUtils.filterByPatterns(
         sampleChangeset,
-        [], // Empty source patterns = match nothing
-        [], // Empty test patterns = exclude nothing
+        ChangesetUtils.parsePatterns(undefined),
+        ChangesetUtils.parsePatterns("**/*.test.*"),
       );
 
-      // Empty source patterns should result in no matches
-      expect(result.files).toHaveLength(0);
+      expect(result.files.map((f) => f.path)).toEqual([
+        "src/main.ts",
+        "src/utils.js",
+        "src/components/Button.tsx",
+        "lib/helper.py",
+        "src/utils.spec.js", // custom test pattern replaces the defaults
+        "src/components/Button.mock.ts",
+      ]);
+    });
+
+    it("should keep default test patterns when only source patterns are provided", () => {
+      const result = ChangesetUtils.filterByPatterns(
+        sampleChangeset,
+        ChangesetUtils.parsePatterns("**/*.ts"),
+        ChangesetUtils.parsePatterns(undefined),
+      );
+
+      expect(result.files.map((f) => f.path)).toEqual(["src/main.ts"]);
     });
 
     it("should use default patterns when no arguments provided", () => {
