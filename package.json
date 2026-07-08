@@ -9,25 +9,25 @@
     "d3": "^7.9.0",
     "d3-hierarchy": "^3.1.2",
     "dejavu-fonts-ttf": "2.37.3",
-    "linkedom": "0.18.12",
-    "picomatch": "^4.0.4"
+    "linkedom": "0.18.13",
+    "picomatch": "^4.0.5"
   },
   "description": "GitHub Action that analyzes code coverage for files changed in a pull request and generates a visual treemap",
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/d3": "^7.4.3",
     "@types/jest": "^30.0.0",
-    "@types/node": "25.9.3",
+    "@types/node": "26.1.1",
     "@types/picomatch": "^4.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.61.1",
-    "@typescript-eslint/parser": "^8.61.1",
+    "@typescript-eslint/eslint-plugin": "^8.63.0",
+    "@typescript-eslint/parser": "^8.63.0",
     "esbuild": "0.28.1",
-    "eslint": "10.5.0",
+    "eslint": "10.6.0",
     "jest": "^30.0.0",
-    "prettier": "^3.3.3",
+    "prettier": "^3.9.4",
     "ts-jest": "^29.2.5",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.61.1"
+    "typescript-eslint": "8.63.0"
   },
   "keywords": [
     "github-action",
