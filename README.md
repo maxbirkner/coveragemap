@@ -55,9 +55,6 @@ The action supports file filtering using glob patterns to control which files ar
   - Use `source-code-pattern` to specify which files to **include in coverage** analysis.
   - Use `test-code-pattern` to specify which files to **exclude from coverage** analysis.
 
-The two inputs are independent: when only one of them is set, the built-in default patterns remain in effect for the other.
-For example, setting only `test-code-pattern` still analyzes all files matching the default source patterns (common code file extensions) minus your custom test patterns.
-
 #### Pattern Examples
 
 **Include only TypeScript files in src/ directory:**
