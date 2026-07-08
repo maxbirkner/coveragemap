@@ -74,6 +74,27 @@ export class ChecksService {
         continue;
       }
 
+      // At 0% file coverage every line is uncovered, so per-line and
+      // per-function annotations add no information. Short-circuit before
+      // building them: a single file-level warning says it all, gated on the
+      // changeset actually touching the file's uncovered code. Covered counts
+      // are compared instead of the rounded percentage so files with tiny
+      // non-zero coverage keep their inline annotations.
+      if (this.hasNoCoveredCode(file)) {
+        if (this.changesetTouchesCoverableCode(file)) {
+          annotations.push({
+            path: file.path,
+            start_line: 1,
+            end_line: 1,
+            annotation_level: "warning",
+            title: "No Coverage",
+            message:
+              "File coverage is 0%. Nothing in this file is covered by tests.",
+          });
+        }
+        continue;
+      }
+
       const uncoveredLineAnnotations =
         this.generateUncoveredLineAnnotations(file);
       annotations.push(...uncoveredLineAnnotations);
@@ -105,6 +126,26 @@ export class ChecksService {
     }
 
     return this.prioritizeAndLimitAnnotations(annotations);
+  }
+
+  private hasNoCoveredCode(file: FileChangeWithCoverage): boolean {
+    const { coveredLines, coveredFunctions, coveredBranches } = file.analysis;
+    return (
+      coveredLines === 0 && coveredFunctions === 0 && coveredBranches === 0
+    );
+  }
+
+  // Cheap equivalent of "would any uncovered annotation be generated" for
+  // files without covered code: everything is uncovered there, so it suffices
+  // to check whether the changeset touched any coverable line at all.
+  private changesetTouchesCoverableCode(file: FileChangeWithCoverage): boolean {
+    if (!file.coverage) return false;
+
+    const isInChangeset = this.changedLinePredicate(file);
+    return (
+      file.coverage.lines.some((line) => isInChangeset(line.line)) ||
+      file.coverage.functions.some((func) => isInChangeset(func.line))
+    );
   }
 
   private generateUncoveredLineAnnotations(

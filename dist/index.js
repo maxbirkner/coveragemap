@@ -118137,6 +118137,19 @@ var ChecksService = class _ChecksService {
         });
         continue;
       }
+      if (this.hasNoCoveredCode(file)) {
+        if (this.changesetTouchesCoverableCode(file)) {
+          annotations.push({
+            path: file.path,
+            start_line: 1,
+            end_line: 1,
+            annotation_level: "warning",
+            title: "No Coverage",
+            message: "File coverage is 0%. Nothing in this file is covered by tests."
+          });
+        }
+        continue;
+      }
       const uncoveredLineAnnotations = this.generateUncoveredLineAnnotations(file);
       annotations.push(...uncoveredLineAnnotations);
       const uncoveredFunctionAnnotations = this.generateUncoveredFunctionAnnotations(file);
@@ -118155,6 +118168,18 @@ var ChecksService = class _ChecksService {
       }
     }
     return this.prioritizeAndLimitAnnotations(annotations);
+  }
+  hasNoCoveredCode(file) {
+    const { coveredLines, coveredFunctions, coveredBranches } = file.analysis;
+    return coveredLines === 0 && coveredFunctions === 0 && coveredBranches === 0;
+  }
+  // Cheap equivalent of "would any uncovered annotation be generated" for
+  // files without covered code: everything is uncovered there, so it suffices
+  // to check whether the changeset touched any coverable line at all.
+  changesetTouchesCoverableCode(file) {
+    if (!file.coverage) return false;
+    const isInChangeset = this.changedLinePredicate(file);
+    return file.coverage.lines.some((line) => isInChangeset(line.line)) || file.coverage.functions.some((func) => isInChangeset(func.line));
   }
   generateUncoveredLineAnnotations(file) {
     if (!file.coverage) return [];
