@@ -10,6 +10,7 @@ import { toErrorMessage } from "./errors";
 // a ref ever contained shell metacharacters.
 const execFileAsync = promisify(execFile);
 const MAX_STDERR_LENGTH = 64 * 1024;
+const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
 
 interface DiffParserState {
   readonly changedLines: Map<string, number[]>;
@@ -142,14 +143,15 @@ export class GitUtils {
 
       const completion = new Promise<void>((resolve, reject) => {
         child.once("error", reject);
-        child.once("close", (code) => {
+        child.once("close", (code, signal) => {
           if (code === 0) {
             resolve();
             return;
           }
-          reject(
-            new Error(stderr.trim() || `git diff exited with code ${code}`),
-          );
+          const exitReason = signal
+            ? `git diff terminated by signal ${signal}`
+            : `git diff exited with code ${code}`;
+          reject(new Error(stderr.trim() || exitReason));
         });
       });
 
@@ -191,7 +193,7 @@ export class GitUtils {
 
     if (!state.currentFile) return;
 
-    const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    const match = HUNK_HEADER.exec(line);
     if (!match) return;
 
     const start = Number(match[1]);

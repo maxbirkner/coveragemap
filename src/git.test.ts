@@ -53,8 +53,9 @@ const mockExecError = (error: Error) => {
 
 const mockDiffProcess = (
   stdout: string,
-  exitCode = 0,
+  exitCode: number | null = 0,
   chunkSize = stdout.length || 1,
+  signal: NodeJS.Signals | null = null,
 ) => {
   mockedSpawn.mockImplementation(() => {
     const child = new EventEmitter() as any;
@@ -67,7 +68,7 @@ const mockDiffProcess = (
       }
       child.stdout.end();
       child.stderr.end();
-      child.emit("close", exitCode);
+      child.emit("close", exitCode, signal);
     });
 
     return child;
@@ -390,6 +391,18 @@ describe("GitUtils", () => {
 
       expect(mockedCore.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to get changed lines"),
+      );
+    });
+
+    it("should report when git is terminated by a signal", async () => {
+      mockDiffProcess("", null, 1, "SIGTERM");
+
+      await expect(
+        GitUtils.getChangedLinesByFile("base", "head"),
+      ).rejects.toThrow("Failed to get changed lines between base and head");
+
+      expect(mockedCore.error).toHaveBeenCalledWith(
+        expect.stringContaining("git diff terminated by signal SIGTERM"),
       );
     });
   });

@@ -62648,6 +62648,7 @@ function toErrorMessage2(error2) {
 // src/git.ts
 var execFileAsync = promisify(execFile);
 var MAX_STDERR_LENGTH = 64 * 1024;
+var HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
 var GitUtils = class _GitUtils {
   // The GitHub context is populated from the event payload, which is the most
   // reliable source of PR SHAs during pull_request events.
@@ -62738,14 +62739,13 @@ var GitUtils = class _GitUtils {
       });
       const completion = new Promise((resolve3, reject) => {
         child.once("error", reject);
-        child.once("close", (code) => {
+        child.once("close", (code, signal) => {
           if (code === 0) {
             resolve3();
             return;
           }
-          reject(
-            new Error(stderr.trim() || `git diff exited with code ${code}`)
-          );
+          const exitReason = signal ? `git diff terminated by signal ${signal}` : `git diff exited with code ${code}`;
+          reject(new Error(stderr.trim() || exitReason));
         });
       });
       const state3 = {
@@ -62780,7 +62780,7 @@ var GitUtils = class _GitUtils {
       return;
     }
     if (!state3.currentFile) return;
-    const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    const match = HUNK_HEADER.exec(line);
     if (!match) return;
     const start2 = Number(match[1]);
     const count2 = match[2] === void 0 ? 1 : Number(match[2]);
