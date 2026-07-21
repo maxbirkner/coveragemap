@@ -1,4 +1,5 @@
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
+import { createInterface } from "readline";
 import { promisify } from "util";
 import * as core from "@actions/core";
 import { context } from "@actions/github";
@@ -8,6 +9,13 @@ import { toErrorMessage } from "./errors";
 // array and never interpreted by a shell. This avoids command injection even if
 // a ref ever contained shell metacharacters.
 const execFileAsync = promisify(execFile);
+const MAX_STDERR_LENGTH = 64 * 1024;
+
+interface DiffParserState {
+  readonly changedLines: Map<string, number[]>;
+  currentFile?: string;
+  previousLine: string;
+}
 
 export class GitUtils {
   // The GitHub context is populated from the event payload, which is the most
@@ -111,18 +119,56 @@ export class GitUtils {
     try {
       core.info(`🔎 Getting changed lines between ${base} and ${head}`);
 
-      const { stdout } = await execFileAsync("git", [
-        "-c",
-        "diff.noprefix=false",
-        "-c",
-        "diff.mnemonicPrefix=false",
-        "diff",
-        "--unified=0",
-        "--diff-filter=AM",
-        `${base}..${head}`,
-      ]);
+      const child = spawn(
+        "git",
+        [
+          "-c",
+          "diff.noprefix=false",
+          "-c",
+          "diff.mnemonicPrefix=false",
+          "diff",
+          "--unified=0",
+          "--diff-filter=AM",
+          `${base}..${head}`,
+        ],
+        { stdio: ["ignore", "pipe", "pipe"] },
+      );
 
-      return GitUtils.parseChangedLines(stdout);
+      let stderr = "";
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (chunk: string) => {
+        stderr = `${stderr}${chunk}`.slice(-MAX_STDERR_LENGTH);
+      });
+
+      const completion = new Promise<void>((resolve, reject) => {
+        child.once("error", reject);
+        child.once("close", (code) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(
+            new Error(stderr.trim() || `git diff exited with code ${code}`),
+          );
+        });
+      });
+
+      const state: DiffParserState = {
+        changedLines: new Map(),
+        previousLine: "",
+      };
+      const lines = createInterface({
+        input: child.stdout,
+        crlfDelay: Infinity,
+      });
+      const parseOutput = async (): Promise<void> => {
+        for await (const line of lines) {
+          GitUtils.parseChangedLine(line, state);
+        }
+      };
+
+      await Promise.all([completion, parseOutput()]);
+      return state.changedLines;
     } catch (error) {
       const errorMessage = `Failed to get changed lines between ${base} and ${head}`;
       core.error(`${errorMessage}: ${error}`);
@@ -132,47 +178,38 @@ export class GitUtils {
 
   // Pairing `+++ ` with the preceding `--- ` line avoids mistaking an added
   // content line that merely starts with `+++ ` for a file header.
-  private static parseChangedLines(diff: string): Map<string, number[]> {
-    const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
-    const changedLines = new Map<string, number[]>();
-    let currentFile: string | undefined;
-    let previousLine = "";
+  private static parseChangedLine(line: string, state: DiffParserState): void {
+    const precedingLine = state.previousLine;
+    state.previousLine = line;
 
-    for (const line of diff.split("\n")) {
-      const precedingLine = previousLine;
-      previousLine = line;
-
-      if (line.startsWith("+++ ") && precedingLine.startsWith("--- ")) {
-        const target = line.slice(4).trim();
-        currentFile =
-          target === "/dev/null" ? undefined : target.replace(/^b\//, "");
-        continue;
-      }
-
-      if (!currentFile) continue;
-
-      const match = HUNK_HEADER.exec(line);
-      if (!match) continue;
-
-      const start = Number(match[1]);
-      // Omitted count means 1; count 0 is a pure deletion with nothing to flag.
-      const count = match[2] === undefined ? 1 : Number(match[2]);
-      if (count === 0) continue;
-
-      // Hunk start lines are 1-based; a value below 1 would mean malformed diff
-      // output, so skip it rather than emit a bogus line number.
-      if (start < 1) {
-        core.debug(`Skipping hunk with invalid start line ${start}`);
-        continue;
-      }
-
-      const lines = changedLines.get(currentFile) ?? [];
-      for (let offset = 0; offset < count; offset++) {
-        lines.push(start + offset);
-      }
-      changedLines.set(currentFile, lines);
+    if (line.startsWith("+++ ") && precedingLine.startsWith("--- ")) {
+      const target = line.slice(4).trim();
+      state.currentFile =
+        target === "/dev/null" ? undefined : target.replace(/^b\//, "");
+      return;
     }
 
-    return changedLines;
+    if (!state.currentFile) return;
+
+    const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    if (!match) return;
+
+    const start = Number(match[1]);
+    // Omitted count means 1; count 0 is a pure deletion with nothing to flag.
+    const count = match[2] === undefined ? 1 : Number(match[2]);
+    if (count === 0) return;
+
+    // Hunk start lines are 1-based; a value below 1 would mean malformed diff
+    // output, so skip it rather than emit a bogus line number.
+    if (start < 1) {
+      core.debug(`Skipping hunk with invalid start line ${start}`);
+      return;
+    }
+
+    const lines = state.changedLines.get(state.currentFile) ?? [];
+    for (let offset = 0; offset < count; offset++) {
+      lines.push(start + offset);
+    }
+    state.changedLines.set(state.currentFile, lines);
   }
 }

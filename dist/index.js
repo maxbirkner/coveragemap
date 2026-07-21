@@ -5437,7 +5437,7 @@ var require_body = __commonJS({
         const boundary = `----formdata-undici-0${`${random(1e11)}`.padStart(11, "0")}`;
         const prefix2 = `--${boundary}\r
 Content-Disposition: form-data`;
-        const escape5 = (str) => str.replace(/\n/g, "%0A").replace(/\r/g, "%0D").replace(/"/g, "%22");
+        const escape4 = (str) => str.replace(/\n/g, "%0A").replace(/\r/g, "%0D").replace(/"/g, "%22");
         const normalizeLinefeeds = (value) => value.replace(/\r?\n|\r/g, "\r\n");
         const blobParts = [];
         const rn = new Uint8Array([13, 10]);
@@ -5445,14 +5445,14 @@ Content-Disposition: form-data`;
         let hasUnknownSizeValue = false;
         for (const [name, value] of object) {
           if (typeof value === "string") {
-            const chunk2 = textEncoder.encode(prefix2 + `; name="${escape5(normalizeLinefeeds(name))}"\r
+            const chunk2 = textEncoder.encode(prefix2 + `; name="${escape4(normalizeLinefeeds(name))}"\r
 \r
 ${normalizeLinefeeds(value)}\r
 `);
             blobParts.push(chunk2);
             length += chunk2.byteLength;
           } else {
-            const chunk2 = textEncoder.encode(`${prefix2}; name="${escape5(normalizeLinefeeds(name))}"` + (value.name ? `; filename="${escape5(value.name)}"` : "") + `\r
+            const chunk2 = textEncoder.encode(`${prefix2}; name="${escape4(normalizeLinefeeds(name))}"` + (value.name ? `; filename="${escape4(value.name)}"` : "") + `\r
 Content-Type: ${value.type || "application/octet-stream"}\r
 \r
 `);
@@ -13442,7 +13442,7 @@ var require_fetch = __commonJS({
     function handleFetchDone(response) {
       finalizeAndReportTiming(response, "fetch");
     }
-    function fetch5(input, init2 = void 0) {
+    function fetch4(input, init2 = void 0) {
       webidl.argumentLengthCheck(arguments, 1, "globalThis.fetch");
       let p = createDeferredPromise();
       let requestObject;
@@ -14399,7 +14399,7 @@ var require_fetch = __commonJS({
       }
     }
     module.exports = {
-      fetch: fetch5,
+      fetch: fetch4,
       Fetch,
       fetching,
       finalizeAndReportTiming
@@ -16256,17 +16256,17 @@ var require_cookies = __commonJS({
       }
       return out;
     }
-    function deleteCookie(headers, name, attributes) {
+    function deleteCookie(headers, name, attributes2) {
       webidl.brandCheck(headers, Headers2, { strict: false });
       const prefix2 = "deleteCookie";
       webidl.argumentLengthCheck(arguments, 2, prefix2);
       name = webidl.converters.DOMString(name, prefix2, "name");
-      attributes = webidl.converters.DeleteCookieAttributes(attributes);
+      attributes2 = webidl.converters.DeleteCookieAttributes(attributes2);
       setCookie(headers, {
         name,
         value: "",
         expires: /* @__PURE__ */ new Date(0),
-        ...attributes
+        ...attributes2
       });
     }
     function getSetCookies(headers) {
@@ -18710,7 +18710,7 @@ var require_undici = __commonJS({
     module.exports.setGlobalDispatcher = setGlobalDispatcher;
     module.exports.getGlobalDispatcher = getGlobalDispatcher;
     var fetchImpl = require_fetch().fetch;
-    module.exports.fetch = async function fetch5(init2, options = void 0) {
+    module.exports.fetch = async function fetch4(init2, options = void 0) {
       try {
         return await fetchImpl(init2, options);
       } catch (err) {
@@ -19537,7 +19537,7 @@ var require_dist = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.format = format;
-    exports2.parse = parse8;
+    exports2.parse = parse9;
     var TEXT_REGEXP = /^[\u0009\u0020-\u007e\u0080-\u00ff]*$/;
     var TOKEN_REGEXP = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
     var QUOTE_REGEXP = /[\\"]/g;
@@ -19564,7 +19564,7 @@ var require_dist = __commonJS({
       }
       return result;
     }
-    function parse8(header, options) {
+    function parse9(header, options) {
       const len = header.length;
       let index = skipOWS(header, 0, len);
       const valueStart = index;
@@ -19909,9 +19909,9 @@ var require_utils2 = __commonJS({
       return output;
     };
     exports2.wrapOutput = (input, state3 = {}, options = {}) => {
-      const prepend3 = options.contains ? "" : "^";
-      const append4 = options.contains ? "" : "$";
-      let output = `${prepend3}(?:${input})${append4}`;
+      const prepend2 = options.contains ? "" : "^";
+      const append3 = options.contains ? "" : "$";
+      let output = `${prepend2}(?:${input})${append3}`;
       if (state3.negated === true) {
         output = `(?:^(?!${output}).*$)`;
       }
@@ -20436,11 +20436,7 @@ var require_parse2 = __commonJS({
         }
       }
     };
-    var buildCharClassStar = (chars) => {
-      const source = chars.length === 1 ? utils.escapeRegex(chars[0]) : `[${chars.map((ch) => utils.escapeRegex(ch)).join("")}]`;
-      return `${source}*`;
-    };
-    var getStarExtglobSequenceChars = (pattern) => {
+    var getStarExtglobSequenceOutput = (pattern) => {
       let index = 0;
       const chars = [];
       while (index < pattern.length) {
@@ -20462,7 +20458,8 @@ var require_parse2 = __commonJS({
       if (chars.length < 1) {
         return;
       }
-      return chars;
+      const source = chars.length === 1 ? utils.escapeRegex(chars[0]) : `[${chars.map((ch) => utils.escapeRegex(ch)).join("")}]`;
+      return `${source}*`;
     };
     var repeatedExtglobRecursion = (pattern) => {
       let depth = 0;
@@ -20486,32 +20483,18 @@ var require_parse2 = __commonJS({
           return { risky: true };
         }
       }
-      const safeChars = [];
-      let sawStarSequence = false;
-      let combinable = true;
       for (const branch of branches) {
-        const chars = getStarExtglobSequenceChars(branch);
-        if (chars) {
-          sawStarSequence = true;
-          safeChars.push(...chars);
-          continue;
+        const safeOutput = getStarExtglobSequenceOutput(branch);
+        if (safeOutput) {
+          return { risky: true, safeOutput };
         }
-        const literal = normalizeSimpleBranch(branch);
-        if (literal && literal.length === 1) {
-          safeChars.push(literal);
-          continue;
-        }
-        combinable = false;
         if (repeatedExtglobRecursion(branch) > max2) {
           return { risky: true };
         }
       }
-      if (sawStarSequence) {
-        return combinable ? { risky: true, safeOutput: buildCharClassStar([...new Set(safeChars)]) } : { risky: true };
-      }
       return { risky: false };
     };
-    var parse8 = (input, options) => {
+    var parse9 = (input, options) => {
       if (typeof input !== "string") {
         throw new TypeError("Expected a string");
       }
@@ -20585,7 +20568,7 @@ var require_parse2 = __commonJS({
         state3.consumed += value2;
         state3.index += num;
       };
-      const append4 = (token) => {
+      const append3 = (token) => {
         state3.output += token.output != null ? token.output : token.value;
         consume(token.value);
       };
@@ -20626,7 +20609,7 @@ var require_parse2 = __commonJS({
         if (extglobs.length && tok.type !== "paren") {
           extglobs[extglobs.length - 1].inner += tok.value;
         }
-        if (tok.value || tok.output) append4(tok);
+        if (tok.value || tok.output) append3(tok);
         if (prev && prev.type === "text" && tok.type === "text") {
           prev.output = (prev.output || prev.value) + tok.value;
           prev.value += tok.value;
@@ -20681,7 +20664,7 @@ var require_parse2 = __commonJS({
             output = token.close = `)$))${extglobStar}`;
           }
           if (token.inner.includes("*") && (rest = remaining()) && /^\.[^\\/.]+$/.test(rest)) {
-            const expression = parse8(rest, { ...options, fastpaths: false }).output;
+            const expression = parse9(rest, { ...options, fastpaths: false }).output;
             output = token.close = `)${expression})${extglobStar})`;
           }
           if (token.prev.type === "bos") {
@@ -20803,13 +20786,13 @@ var require_parse2 = __commonJS({
             value = "^";
           }
           prev.value += value;
-          append4({ value });
+          append3({ value });
           continue;
         }
         if (state3.quotes === 1 && value !== '"') {
           value = utils.escapeRegex(value);
           prev.value += value;
-          append4({ value });
+          append3({ value });
           continue;
         }
         if (value === '"') {
@@ -20867,7 +20850,7 @@ var require_parse2 = __commonJS({
             value = `/${value}`;
           }
           prev.value += value;
-          append4({ value });
+          append3({ value });
           if (opts.literalBrackets === false || utils.hasRegexChars(prevValue)) {
             continue;
           }
@@ -21203,7 +21186,7 @@ var require_parse2 = __commonJS({
       }
       return state3;
     };
-    parse8.fastpaths = (input, options) => {
+    parse9.fastpaths = (input, options) => {
       const opts = { ...options };
       const max2 = typeof opts.maxLength === "number" ? Math.min(MAX_LENGTH, opts.maxLength) : MAX_LENGTH;
       const len = input.length;
@@ -21268,7 +21251,7 @@ var require_parse2 = __commonJS({
       }
       return source;
     };
-    module.exports = parse8;
+    module.exports = parse9;
   }
 });
 
@@ -21277,7 +21260,7 @@ var require_picomatch = __commonJS({
   "node_modules/picomatch/lib/picomatch.js"(exports2, module) {
     "use strict";
     var scan = require_scan();
-    var parse8 = require_parse2();
+    var parse9 = require_parse2();
     var utils = require_utils2();
     var constants3 = require_constants6();
     var isObject2 = (val) => val && typeof val === "object" && !Array.isArray(val);
@@ -21358,14 +21341,14 @@ var require_picomatch = __commonJS({
       }
       return { isMatch: Boolean(match), match, output };
     };
-    picomatch2.matchBase = (input, glob, options, posix = options && options.windows) => {
+    picomatch2.matchBase = (input, glob, options) => {
       const regex = glob instanceof RegExp ? glob : picomatch2.makeRe(glob, options);
-      return regex.test(utils.basename(input, { windows: posix }));
+      return regex.test(utils.basename(input));
     };
     picomatch2.isMatch = (str, patterns, options) => picomatch2(patterns, options)(str);
     picomatch2.parse = (pattern, options) => {
       if (Array.isArray(pattern)) return pattern.map((p) => picomatch2.parse(p, options));
-      return parse8(pattern, { ...options, fastpaths: false });
+      return parse9(pattern, { ...options, fastpaths: false });
     };
     picomatch2.scan = (input, options) => scan(input, options);
     picomatch2.compileRe = (state3, options, returnOutput = false, returnState = false) => {
@@ -21373,9 +21356,9 @@ var require_picomatch = __commonJS({
         return state3.output;
       }
       const opts = options || {};
-      const prepend3 = opts.contains ? "" : "^";
-      const append4 = opts.contains ? "" : "$";
-      let source = `${prepend3}(?:${state3.output})${append4}`;
+      const prepend2 = opts.contains ? "" : "^";
+      const append3 = opts.contains ? "" : "$";
+      let source = `${prepend2}(?:${state3.output})${append3}`;
       if (state3 && state3.negated === true) {
         source = `^(?!${source}).*$`;
       }
@@ -21391,10 +21374,10 @@ var require_picomatch = __commonJS({
       }
       let parsed = { negated: false, fastpaths: true };
       if (options.fastpaths !== false && (input[0] === "." || input[0] === "*")) {
-        parsed.output = parse8.fastpaths(input, options);
+        parsed.output = parse9.fastpaths(input, options);
       }
       if (!parsed.output) {
-        parsed = parse8(input, options);
+        parsed = parse9(input, options);
       }
       return picomatch2.compileRe(parsed, options, returnOutput, returnState);
     };
@@ -21426,6 +21409,576 @@ var require_picomatch2 = __commonJS({
     }
     Object.assign(picomatch2, pico);
     module.exports = picomatch2;
+  }
+});
+
+// node_modules/boolbase/index.js
+var require_boolbase = __commonJS({
+  "node_modules/boolbase/index.js"(exports2, module) {
+    module.exports = {
+      trueFunc: function trueFunc() {
+        return true;
+      },
+      falseFunc: function falseFunc() {
+        return false;
+      }
+    };
+  }
+});
+
+// node_modules/css-what/lib/commonjs/types.js
+var require_types = __commonJS({
+  "node_modules/css-what/lib/commonjs/types.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.AttributeAction = exports2.IgnoreCaseMode = exports2.SelectorType = void 0;
+    var SelectorType4;
+    (function(SelectorType5) {
+      SelectorType5["Attribute"] = "attribute";
+      SelectorType5["Pseudo"] = "pseudo";
+      SelectorType5["PseudoElement"] = "pseudo-element";
+      SelectorType5["Tag"] = "tag";
+      SelectorType5["Universal"] = "universal";
+      SelectorType5["Adjacent"] = "adjacent";
+      SelectorType5["Child"] = "child";
+      SelectorType5["Descendant"] = "descendant";
+      SelectorType5["Parent"] = "parent";
+      SelectorType5["Sibling"] = "sibling";
+      SelectorType5["ColumnCombinator"] = "column-combinator";
+    })(SelectorType4 = exports2.SelectorType || (exports2.SelectorType = {}));
+    exports2.IgnoreCaseMode = {
+      Unknown: null,
+      QuirksMode: "quirks",
+      IgnoreCase: true,
+      CaseSensitive: false
+    };
+    var AttributeAction2;
+    (function(AttributeAction3) {
+      AttributeAction3["Any"] = "any";
+      AttributeAction3["Element"] = "element";
+      AttributeAction3["End"] = "end";
+      AttributeAction3["Equals"] = "equals";
+      AttributeAction3["Exists"] = "exists";
+      AttributeAction3["Hyphen"] = "hyphen";
+      AttributeAction3["Not"] = "not";
+      AttributeAction3["Start"] = "start";
+    })(AttributeAction2 = exports2.AttributeAction || (exports2.AttributeAction = {}));
+  }
+});
+
+// node_modules/css-what/lib/commonjs/parse.js
+var require_parse3 = __commonJS({
+  "node_modules/css-what/lib/commonjs/parse.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.parse = exports2.isTraversal = void 0;
+    var types_1 = require_types();
+    var reName = /^[^\\#]?(?:\\(?:[\da-f]{1,6}\s?|.)|[\w\-\u00b0-\uFFFF])+/;
+    var reEscape = /\\([\da-f]{1,6}\s?|(\s)|.)/gi;
+    var actionTypes = /* @__PURE__ */ new Map([
+      [126, types_1.AttributeAction.Element],
+      [94, types_1.AttributeAction.Start],
+      [36, types_1.AttributeAction.End],
+      [42, types_1.AttributeAction.Any],
+      [33, types_1.AttributeAction.Not],
+      [124, types_1.AttributeAction.Hyphen]
+    ]);
+    var unpackPseudos = /* @__PURE__ */ new Set([
+      "has",
+      "not",
+      "matches",
+      "is",
+      "where",
+      "host",
+      "host-context"
+    ]);
+    function isTraversal2(selector) {
+      switch (selector.type) {
+        case types_1.SelectorType.Adjacent:
+        case types_1.SelectorType.Child:
+        case types_1.SelectorType.Descendant:
+        case types_1.SelectorType.Parent:
+        case types_1.SelectorType.Sibling:
+        case types_1.SelectorType.ColumnCombinator:
+          return true;
+        default:
+          return false;
+      }
+    }
+    exports2.isTraversal = isTraversal2;
+    var stripQuotesFromPseudos = /* @__PURE__ */ new Set(["contains", "icontains"]);
+    function funescape(_2, escaped, escapedWhitespace) {
+      var high = parseInt(escaped, 16) - 65536;
+      return high !== high || escapedWhitespace ? escaped : high < 0 ? (
+        // BMP codepoint
+        String.fromCharCode(high + 65536)
+      ) : (
+        // Supplemental Plane codepoint (surrogate pair)
+        String.fromCharCode(high >> 10 | 55296, high & 1023 | 56320)
+      );
+    }
+    function unescapeCSS(str) {
+      return str.replace(reEscape, funescape);
+    }
+    function isQuote(c) {
+      return c === 39 || c === 34;
+    }
+    function isWhitespace2(c) {
+      return c === 32 || c === 9 || c === 10 || c === 12 || c === 13;
+    }
+    function parse9(selector) {
+      var subselects2 = [];
+      var endIndex = parseSelector(subselects2, "".concat(selector), 0);
+      if (endIndex < selector.length) {
+        throw new Error("Unmatched selector: ".concat(selector.slice(endIndex)));
+      }
+      return subselects2;
+    }
+    exports2.parse = parse9;
+    function parseSelector(subselects2, selector, selectorIndex) {
+      var tokens = [];
+      function getName3(offset) {
+        var match = selector.slice(selectorIndex + offset).match(reName);
+        if (!match) {
+          throw new Error("Expected name, found ".concat(selector.slice(selectorIndex)));
+        }
+        var name = match[0];
+        selectorIndex += offset + name.length;
+        return unescapeCSS(name);
+      }
+      function stripWhitespace(offset) {
+        selectorIndex += offset;
+        while (selectorIndex < selector.length && isWhitespace2(selector.charCodeAt(selectorIndex))) {
+          selectorIndex++;
+        }
+      }
+      function readValueWithParenthesis() {
+        selectorIndex += 1;
+        var start2 = selectorIndex;
+        var counter = 1;
+        for (; counter > 0 && selectorIndex < selector.length; selectorIndex++) {
+          if (selector.charCodeAt(selectorIndex) === 40 && !isEscaped(selectorIndex)) {
+            counter++;
+          } else if (selector.charCodeAt(selectorIndex) === 41 && !isEscaped(selectorIndex)) {
+            counter--;
+          }
+        }
+        if (counter) {
+          throw new Error("Parenthesis not matched");
+        }
+        return unescapeCSS(selector.slice(start2, selectorIndex - 1));
+      }
+      function isEscaped(pos) {
+        var slashCount = 0;
+        while (selector.charCodeAt(--pos) === 92)
+          slashCount++;
+        return (slashCount & 1) === 1;
+      }
+      function ensureNotTraversal() {
+        if (tokens.length > 0 && isTraversal2(tokens[tokens.length - 1])) {
+          throw new Error("Did not expect successive traversals.");
+        }
+      }
+      function addTraversal(type2) {
+        if (tokens.length > 0 && tokens[tokens.length - 1].type === types_1.SelectorType.Descendant) {
+          tokens[tokens.length - 1].type = type2;
+          return;
+        }
+        ensureNotTraversal();
+        tokens.push({ type: type2 });
+      }
+      function addSpecialAttribute(name, action6) {
+        tokens.push({
+          type: types_1.SelectorType.Attribute,
+          name,
+          action: action6,
+          value: getName3(1),
+          namespace: null,
+          ignoreCase: "quirks"
+        });
+      }
+      function finalizeSubselector() {
+        if (tokens.length && tokens[tokens.length - 1].type === types_1.SelectorType.Descendant) {
+          tokens.pop();
+        }
+        if (tokens.length === 0) {
+          throw new Error("Empty sub-selector");
+        }
+        subselects2.push(tokens);
+      }
+      stripWhitespace(0);
+      if (selector.length === selectorIndex) {
+        return selectorIndex;
+      }
+      loop: while (selectorIndex < selector.length) {
+        var firstChar = selector.charCodeAt(selectorIndex);
+        switch (firstChar) {
+          // Whitespace
+          case 32:
+          case 9:
+          case 10:
+          case 12:
+          case 13: {
+            if (tokens.length === 0 || tokens[0].type !== types_1.SelectorType.Descendant) {
+              ensureNotTraversal();
+              tokens.push({ type: types_1.SelectorType.Descendant });
+            }
+            stripWhitespace(1);
+            break;
+          }
+          // Traversals
+          case 62: {
+            addTraversal(types_1.SelectorType.Child);
+            stripWhitespace(1);
+            break;
+          }
+          case 60: {
+            addTraversal(types_1.SelectorType.Parent);
+            stripWhitespace(1);
+            break;
+          }
+          case 126: {
+            addTraversal(types_1.SelectorType.Sibling);
+            stripWhitespace(1);
+            break;
+          }
+          case 43: {
+            addTraversal(types_1.SelectorType.Adjacent);
+            stripWhitespace(1);
+            break;
+          }
+          // Special attribute selectors: .class, #id
+          case 46: {
+            addSpecialAttribute("class", types_1.AttributeAction.Element);
+            break;
+          }
+          case 35: {
+            addSpecialAttribute("id", types_1.AttributeAction.Equals);
+            break;
+          }
+          case 91: {
+            stripWhitespace(1);
+            var name_1 = void 0;
+            var namespace = null;
+            if (selector.charCodeAt(selectorIndex) === 124) {
+              name_1 = getName3(1);
+            } else if (selector.startsWith("*|", selectorIndex)) {
+              namespace = "*";
+              name_1 = getName3(2);
+            } else {
+              name_1 = getName3(0);
+              if (selector.charCodeAt(selectorIndex) === 124 && selector.charCodeAt(selectorIndex + 1) !== 61) {
+                namespace = name_1;
+                name_1 = getName3(1);
+              }
+            }
+            stripWhitespace(0);
+            var action5 = types_1.AttributeAction.Exists;
+            var possibleAction = actionTypes.get(selector.charCodeAt(selectorIndex));
+            if (possibleAction) {
+              action5 = possibleAction;
+              if (selector.charCodeAt(selectorIndex + 1) !== 61) {
+                throw new Error("Expected `=`");
+              }
+              stripWhitespace(2);
+            } else if (selector.charCodeAt(selectorIndex) === 61) {
+              action5 = types_1.AttributeAction.Equals;
+              stripWhitespace(1);
+            }
+            var value = "";
+            var ignoreCase2 = null;
+            if (action5 !== "exists") {
+              if (isQuote(selector.charCodeAt(selectorIndex))) {
+                var quote = selector.charCodeAt(selectorIndex);
+                var sectionEnd = selectorIndex + 1;
+                while (sectionEnd < selector.length && (selector.charCodeAt(sectionEnd) !== quote || isEscaped(sectionEnd))) {
+                  sectionEnd += 1;
+                }
+                if (selector.charCodeAt(sectionEnd) !== quote) {
+                  throw new Error("Attribute value didn't end");
+                }
+                value = unescapeCSS(selector.slice(selectorIndex + 1, sectionEnd));
+                selectorIndex = sectionEnd + 1;
+              } else {
+                var valueStart = selectorIndex;
+                while (selectorIndex < selector.length && (!isWhitespace2(selector.charCodeAt(selectorIndex)) && selector.charCodeAt(selectorIndex) !== 93 || isEscaped(selectorIndex))) {
+                  selectorIndex += 1;
+                }
+                value = unescapeCSS(selector.slice(valueStart, selectorIndex));
+              }
+              stripWhitespace(0);
+              var forceIgnore = selector.charCodeAt(selectorIndex) | 32;
+              if (forceIgnore === 115) {
+                ignoreCase2 = false;
+                stripWhitespace(1);
+              } else if (forceIgnore === 105) {
+                ignoreCase2 = true;
+                stripWhitespace(1);
+              }
+            }
+            if (selector.charCodeAt(selectorIndex) !== 93) {
+              throw new Error("Attribute selector didn't terminate");
+            }
+            selectorIndex += 1;
+            var attributeSelector = {
+              type: types_1.SelectorType.Attribute,
+              name: name_1,
+              action: action5,
+              value,
+              namespace,
+              ignoreCase: ignoreCase2
+            };
+            tokens.push(attributeSelector);
+            break;
+          }
+          case 58: {
+            if (selector.charCodeAt(selectorIndex + 1) === 58) {
+              tokens.push({
+                type: types_1.SelectorType.PseudoElement,
+                name: getName3(2).toLowerCase(),
+                data: selector.charCodeAt(selectorIndex) === 40 ? readValueWithParenthesis() : null
+              });
+              continue;
+            }
+            var name_2 = getName3(1).toLowerCase();
+            var data = null;
+            if (selector.charCodeAt(selectorIndex) === 40) {
+              if (unpackPseudos.has(name_2)) {
+                if (isQuote(selector.charCodeAt(selectorIndex + 1))) {
+                  throw new Error("Pseudo-selector ".concat(name_2, " cannot be quoted"));
+                }
+                data = [];
+                selectorIndex = parseSelector(data, selector, selectorIndex + 1);
+                if (selector.charCodeAt(selectorIndex) !== 41) {
+                  throw new Error("Missing closing parenthesis in :".concat(name_2, " (").concat(selector, ")"));
+                }
+                selectorIndex += 1;
+              } else {
+                data = readValueWithParenthesis();
+                if (stripQuotesFromPseudos.has(name_2)) {
+                  var quot = data.charCodeAt(0);
+                  if (quot === data.charCodeAt(data.length - 1) && isQuote(quot)) {
+                    data = data.slice(1, -1);
+                  }
+                }
+                data = unescapeCSS(data);
+              }
+            }
+            tokens.push({ type: types_1.SelectorType.Pseudo, name: name_2, data });
+            break;
+          }
+          case 44: {
+            finalizeSubselector();
+            tokens = [];
+            stripWhitespace(1);
+            break;
+          }
+          default: {
+            if (selector.startsWith("/*", selectorIndex)) {
+              var endIndex = selector.indexOf("*/", selectorIndex + 2);
+              if (endIndex < 0) {
+                throw new Error("Comment was not terminated");
+              }
+              selectorIndex = endIndex + 2;
+              if (tokens.length === 0) {
+                stripWhitespace(0);
+              }
+              break;
+            }
+            var namespace = null;
+            var name_3 = void 0;
+            if (firstChar === 42) {
+              selectorIndex += 1;
+              name_3 = "*";
+            } else if (firstChar === 124) {
+              name_3 = "";
+              if (selector.charCodeAt(selectorIndex + 1) === 124) {
+                addTraversal(types_1.SelectorType.ColumnCombinator);
+                stripWhitespace(2);
+                break;
+              }
+            } else if (reName.test(selector.slice(selectorIndex))) {
+              name_3 = getName3(0);
+            } else {
+              break loop;
+            }
+            if (selector.charCodeAt(selectorIndex) === 124 && selector.charCodeAt(selectorIndex + 1) !== 124) {
+              namespace = name_3;
+              if (selector.charCodeAt(selectorIndex + 1) === 42) {
+                name_3 = "*";
+                selectorIndex += 2;
+              } else {
+                name_3 = getName3(1);
+              }
+            }
+            tokens.push(name_3 === "*" ? { type: types_1.SelectorType.Universal, namespace } : { type: types_1.SelectorType.Tag, name: name_3, namespace });
+          }
+        }
+      }
+      finalizeSubselector();
+      return selectorIndex;
+    }
+  }
+});
+
+// node_modules/css-what/lib/commonjs/stringify.js
+var require_stringify = __commonJS({
+  "node_modules/css-what/lib/commonjs/stringify.js"(exports2) {
+    "use strict";
+    var __spreadArray = exports2 && exports2.__spreadArray || function(to, from, pack) {
+      if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+          if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+          ar[i] = from[i];
+        }
+      }
+      return to.concat(ar || Array.prototype.slice.call(from));
+    };
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.stringify = void 0;
+    var types_1 = require_types();
+    var attribValChars = ["\\", '"'];
+    var pseudoValChars = __spreadArray(__spreadArray([], attribValChars, true), ["(", ")"], false);
+    var charsToEscapeInAttributeValue = new Set(attribValChars.map(function(c) {
+      return c.charCodeAt(0);
+    }));
+    var charsToEscapeInPseudoValue = new Set(pseudoValChars.map(function(c) {
+      return c.charCodeAt(0);
+    }));
+    var charsToEscapeInName = new Set(__spreadArray(__spreadArray([], pseudoValChars, true), [
+      "~",
+      "^",
+      "$",
+      "*",
+      "+",
+      "!",
+      "|",
+      ":",
+      "[",
+      "]",
+      " ",
+      "."
+    ], false).map(function(c) {
+      return c.charCodeAt(0);
+    }));
+    function stringify(selector) {
+      return selector.map(function(token) {
+        return token.map(stringifyToken).join("");
+      }).join(", ");
+    }
+    exports2.stringify = stringify;
+    function stringifyToken(token, index, arr) {
+      switch (token.type) {
+        // Simple types
+        case types_1.SelectorType.Child:
+          return index === 0 ? "> " : " > ";
+        case types_1.SelectorType.Parent:
+          return index === 0 ? "< " : " < ";
+        case types_1.SelectorType.Sibling:
+          return index === 0 ? "~ " : " ~ ";
+        case types_1.SelectorType.Adjacent:
+          return index === 0 ? "+ " : " + ";
+        case types_1.SelectorType.Descendant:
+          return " ";
+        case types_1.SelectorType.ColumnCombinator:
+          return index === 0 ? "|| " : " || ";
+        case types_1.SelectorType.Universal:
+          return token.namespace === "*" && index + 1 < arr.length && "name" in arr[index + 1] ? "" : "".concat(getNamespace(token.namespace), "*");
+        case types_1.SelectorType.Tag:
+          return getNamespacedName(token);
+        case types_1.SelectorType.PseudoElement:
+          return "::".concat(escapeName(token.name, charsToEscapeInName)).concat(token.data === null ? "" : "(".concat(escapeName(token.data, charsToEscapeInPseudoValue), ")"));
+        case types_1.SelectorType.Pseudo:
+          return ":".concat(escapeName(token.name, charsToEscapeInName)).concat(token.data === null ? "" : "(".concat(typeof token.data === "string" ? escapeName(token.data, charsToEscapeInPseudoValue) : stringify(token.data), ")"));
+        case types_1.SelectorType.Attribute: {
+          if (token.name === "id" && token.action === types_1.AttributeAction.Equals && token.ignoreCase === "quirks" && !token.namespace) {
+            return "#".concat(escapeName(token.value, charsToEscapeInName));
+          }
+          if (token.name === "class" && token.action === types_1.AttributeAction.Element && token.ignoreCase === "quirks" && !token.namespace) {
+            return ".".concat(escapeName(token.value, charsToEscapeInName));
+          }
+          var name_1 = getNamespacedName(token);
+          if (token.action === types_1.AttributeAction.Exists) {
+            return "[".concat(name_1, "]");
+          }
+          return "[".concat(name_1).concat(getActionValue(token.action), '="').concat(escapeName(token.value, charsToEscapeInAttributeValue), '"').concat(token.ignoreCase === null ? "" : token.ignoreCase ? " i" : " s", "]");
+        }
+      }
+    }
+    function getActionValue(action5) {
+      switch (action5) {
+        case types_1.AttributeAction.Equals:
+          return "";
+        case types_1.AttributeAction.Element:
+          return "~";
+        case types_1.AttributeAction.Start:
+          return "^";
+        case types_1.AttributeAction.End:
+          return "$";
+        case types_1.AttributeAction.Any:
+          return "*";
+        case types_1.AttributeAction.Not:
+          return "!";
+        case types_1.AttributeAction.Hyphen:
+          return "|";
+        case types_1.AttributeAction.Exists:
+          throw new Error("Shouldn't be here");
+      }
+    }
+    function getNamespacedName(token) {
+      return "".concat(getNamespace(token.namespace)).concat(escapeName(token.name, charsToEscapeInName));
+    }
+    function getNamespace(namespace) {
+      return namespace !== null ? "".concat(namespace === "*" ? "*" : escapeName(namespace, charsToEscapeInName), "|") : "";
+    }
+    function escapeName(str, charsToEscape) {
+      var lastIdx = 0;
+      var ret = "";
+      for (var i = 0; i < str.length; i++) {
+        if (charsToEscape.has(str.charCodeAt(i))) {
+          ret += "".concat(str.slice(lastIdx, i), "\\").concat(str.charAt(i));
+          lastIdx = i + 1;
+        }
+      }
+      return ret.length > 0 ? ret + str.slice(lastIdx) : str;
+    }
+  }
+});
+
+// node_modules/css-what/lib/commonjs/index.js
+var require_commonjs = __commonJS({
+  "node_modules/css-what/lib/commonjs/index.js"(exports2) {
+    "use strict";
+    var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      var desc = Object.getOwnPropertyDescriptor(m, k);
+      if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+        desc = { enumerable: true, get: function() {
+          return m[k];
+        } };
+      }
+      Object.defineProperty(o, k2, desc);
+    }) : (function(o, m, k, k2) {
+      if (k2 === void 0) k2 = k;
+      o[k2] = m[k];
+    }));
+    var __exportStar = exports2 && exports2.__exportStar || function(m, exports3) {
+      for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports3, p)) __createBinding(exports3, m, p);
+    };
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.stringify = exports2.parse = exports2.isTraversal = void 0;
+    __exportStar(require_types(), exports2);
+    var parse_1 = require_parse3();
+    Object.defineProperty(exports2, "isTraversal", { enumerable: true, get: function() {
+      return parse_1.isTraversal;
+    } });
+    Object.defineProperty(exports2, "parse", { enumerable: true, get: function() {
+      return parse_1.parse;
+    } });
+    var stringify_1 = require_stringify();
+    Object.defineProperty(exports2, "stringify", { enumerable: true, get: function() {
+      return stringify_1.stringify;
+    } });
   }
 });
 
@@ -21665,7 +22218,7 @@ var require_CSSStyleSheet = __commonJS({
       return result;
     };
     exports2.CSSStyleSheet = CSSOM.CSSStyleSheet;
-    CSSOM.parse = require_parse3().parse;
+    CSSOM.parse = require_parse4().parse;
   }
 });
 
@@ -22330,10 +22883,10 @@ var require_CSSDocumentRule = __commonJS({
 });
 
 // node_modules/cssom/lib/parse.js
-var require_parse3 = __commonJS({
+var require_parse4 = __commonJS({
   "node_modules/cssom/lib/parse.js"(exports2) {
     var CSSOM = {};
-    CSSOM.parse = function parse8(token) {
+    CSSOM.parse = function parse9(token) {
       var i = 0;
       var state3 = "before-selector";
       var index;
@@ -22837,7 +23390,7 @@ var require_CSSStyleDeclaration = __commonJS({
       }
     };
     exports2.CSSStyleDeclaration = CSSOM.CSSStyleDeclaration;
-    CSSOM.parse = require_parse3().parse;
+    CSSOM.parse = require_parse4().parse;
   }
 });
 
@@ -22920,7 +23473,7 @@ var require_lib2 = __commonJS({
     exports2.CSSDocumentRule = require_CSSDocumentRule().CSSDocumentRule;
     exports2.CSSValue = require_CSSValue().CSSValue;
     exports2.CSSValueExpression = require_CSSValueExpression().CSSValueExpression;
-    exports2.parse = require_parse3().parse;
+    exports2.parse = require_parse4().parse;
     exports2.clone = require_clone().clone;
   }
 });
@@ -25843,7 +26396,7 @@ var require_enum_object = __commonJS({
 });
 
 // node_modules/@protobuf-ts/runtime/build/commonjs/index.js
-var require_commonjs = __commonJS({
+var require_commonjs2 = __commonJS({
   "node_modules/@protobuf-ts/runtime/build/commonjs/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -26034,7 +26587,7 @@ var require_reflection_info2 = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.readServiceOption = exports2.readMethodOption = exports2.readMethodOptions = exports2.normalizeMethodInfo = void 0;
-    var runtime_1 = require_commonjs();
+    var runtime_1 = require_commonjs2();
     function normalizeMethodInfo(method, service) {
       var _a3, _b, _c;
       let m = method;
@@ -26143,7 +26696,7 @@ var require_rpc_options = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.mergeRpcOptions = void 0;
-    var runtime_1 = require_commonjs();
+    var runtime_1 = require_commonjs2();
     function mergeRpcOptions(defaults2, options) {
       if (!options)
         return defaults2;
@@ -26280,7 +26833,7 @@ var require_rpc_output_stream = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.RpcOutputStreamController = void 0;
     var deferred_1 = require_deferred();
-    var runtime_1 = require_commonjs();
+    var runtime_1 = require_commonjs2();
     var RpcOutputStreamController = class {
       constructor() {
         this._lis = {
@@ -26735,7 +27288,7 @@ var require_test_transport = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.TestTransport = void 0;
     var rpc_error_1 = require_rpc_error();
-    var runtime_1 = require_commonjs();
+    var runtime_1 = require_commonjs2();
     var rpc_output_stream_1 = require_rpc_output_stream();
     var rpc_options_1 = require_rpc_options();
     var unary_call_1 = require_unary_call();
@@ -26979,7 +27532,7 @@ var require_rpc_interceptor = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.stackDuplexStreamingInterceptors = exports2.stackClientStreamingInterceptors = exports2.stackServerStreamingInterceptors = exports2.stackUnaryInterceptors = exports2.stackIntercept = void 0;
-    var runtime_1 = require_commonjs();
+    var runtime_1 = require_commonjs2();
     function stackIntercept(kind, transport, method, options, input) {
       var _a3, _b, _c, _d;
       if (kind == "unary") {
@@ -27103,7 +27656,7 @@ var require_server_call_context = __commonJS({
 });
 
 // node_modules/@protobuf-ts/runtime-rpc/build/commonjs/index.js
-var require_commonjs2 = __commonJS({
+var require_commonjs3 = __commonJS({
   "node_modules/@protobuf-ts/runtime-rpc/build/commonjs/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -27286,7 +27839,7 @@ var require_ms = __commonJS({
       options = options || {};
       var type2 = typeof val;
       if (type2 === "string" && val.length > 0) {
-        return parse8(val);
+        return parse9(val);
       } else if (type2 === "number" && isFinite(val)) {
         return options.long ? fmtLong(val) : fmtShort(val);
       }
@@ -27294,7 +27847,7 @@ var require_ms = __commonJS({
         "val is not a non-empty string or a valid number. val=" + JSON.stringify(val)
       );
     };
-    function parse8(str) {
+    function parse9(str) {
       str = String(str);
       if (str.length > 100) {
         return;
@@ -30855,13 +31408,13 @@ var require_async = __commonJS({
         });
       }
       function _filter(eachfn, coll, iteratee, callback) {
-        var filter5 = isArrayLike(coll) ? filterArray : filterGeneric;
-        return filter5(eachfn, coll, wrapAsync(iteratee), callback);
+        var filter4 = isArrayLike(coll) ? filterArray : filterGeneric;
+        return filter4(eachfn, coll, wrapAsync(iteratee), callback);
       }
-      function filter4(coll, iteratee, callback) {
+      function filter3(coll, iteratee, callback) {
         return _filter(eachOf$1, coll, iteratee, callback);
       }
-      var filter$1 = awaitify(filter4, 3);
+      var filter$1 = awaitify(filter3, 3);
       function filterLimit(coll, limit, iteratee, callback) {
         return _filter(eachOfLimit$2(limit), coll, iteratee, callback);
       }
@@ -41185,7 +41738,7 @@ var require_operators = __commonJS({
       }.call(this);
     }
     async function some(fn, options = void 0) {
-      for await (const unused of filter4.call(this, fn, options)) {
+      for await (const unused of filter3.call(this, fn, options)) {
         return true;
       }
       return false;
@@ -41202,8 +41755,8 @@ var require_operators = __commonJS({
         options
       );
     }
-    async function find4(fn, options) {
-      for await (const result of filter4.call(this, fn, options)) {
+    async function find3(fn, options) {
+      for await (const result of filter3.call(this, fn, options)) {
         return result;
       }
       return void 0;
@@ -41218,7 +41771,7 @@ var require_operators = __commonJS({
       }
       for await (const unused of map.call(this, forEachFn, options)) ;
     }
-    function filter4(fn, options) {
+    function filter3(fn, options) {
       if (typeof fn !== "function") {
         throw new ERR_INVALID_ARG_TYPE("fn", ["Function", "AsyncFunction"], fn);
       }
@@ -41383,7 +41936,7 @@ var require_operators = __commonJS({
     module.exports.streamReturningOperators = {
       asIndexedPairs: deprecate(asIndexedPairs, "readable.asIndexedPairs will be removed in a future version."),
       drop,
-      filter: filter4,
+      filter: filter3,
       flatMap,
       map,
       take,
@@ -41395,7 +41948,7 @@ var require_operators = __commonJS({
       reduce,
       toArray,
       some,
-      find: find4
+      find: find3
     };
   }
 });
@@ -43413,15 +43966,15 @@ var require_escape = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.escape = void 0;
-    var escape5 = (s, { windowsPathsNoEscape = false } = {}) => {
+    var escape4 = (s, { windowsPathsNoEscape = false } = {}) => {
       return windowsPathsNoEscape ? s.replace(/[?*()[\]]/g, "[$&]") : s.replace(/[?*()[\]\\]/g, "\\$&");
     };
-    exports2.escape = escape5;
+    exports2.escape = escape4;
   }
 });
 
 // node_modules/glob/node_modules/minimatch/dist/commonjs/index.js
-var require_commonjs3 = __commonJS({
+var require_commonjs4 = __commonJS({
   "node_modules/glob/node_modules/minimatch/dist/commonjs/index.js"(exports2) {
     "use strict";
     var __importDefault = exports2 && exports2.__importDefault || function(mod) {
@@ -43505,8 +44058,8 @@ var require_commonjs3 = __commonJS({
     var star = qmark + "*?";
     var twoStarDot = "(?:(?!(?:\\/|^)(?:\\.{1,2})($|\\/)).)*?";
     var twoStarNoDot = "(?:(?!(?:\\/|^)\\.).)*?";
-    var filter4 = (pattern, options = {}) => (p) => (0, exports2.minimatch)(p, pattern, options);
-    exports2.filter = filter4;
+    var filter3 = (pattern, options = {}) => (p) => (0, exports2.minimatch)(p, pattern, options);
+    exports2.filter = filter3;
     exports2.minimatch.filter = exports2.filter;
     var ext = (a, b = {}) => Object.assign({}, a, b);
     var defaults2 = (def) => {
@@ -44243,7 +44796,7 @@ var require_commonjs3 = __commonJS({
 });
 
 // node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js
-var require_commonjs4 = __commonJS({
+var require_commonjs5 = __commonJS({
   "node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -45619,7 +46172,7 @@ var require_commonjs4 = __commonJS({
 });
 
 // node_modules/minipass/dist/commonjs/index.js
-var require_commonjs5 = __commonJS({
+var require_commonjs6 = __commonJS({
   "node_modules/minipass/dist/commonjs/index.js"(exports2) {
     "use strict";
     var __importDefault = exports2 && exports2.__importDefault || function(mod) {
@@ -46515,7 +47068,7 @@ var require_commonjs5 = __commonJS({
 });
 
 // node_modules/path-scurry/dist/commonjs/index.js
-var require_commonjs6 = __commonJS({
+var require_commonjs7 = __commonJS({
   "node_modules/path-scurry/dist/commonjs/index.js"(exports2) {
     "use strict";
     var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
@@ -46547,14 +47100,14 @@ var require_commonjs6 = __commonJS({
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.PathScurry = exports2.Path = exports2.PathScurryDarwin = exports2.PathScurryPosix = exports2.PathScurryWin32 = exports2.PathScurryBase = exports2.PathPosix = exports2.PathWin32 = exports2.PathBase = exports2.ChildrenCache = exports2.ResolveCache = void 0;
-    var lru_cache_1 = require_commonjs4();
+    var lru_cache_1 = require_commonjs5();
     var node_path_1 = __require("node:path");
     var node_url_1 = __require("node:url");
     var fs_1 = __require("fs");
     var actualFS = __importStar(__require("node:fs"));
     var realpathSync = fs_1.realpathSync.native;
     var promises_1 = __require("node:fs/promises");
-    var minipass_1 = require_commonjs5();
+    var minipass_1 = require_commonjs6();
     var defaultFS = {
       lstatSync: fs_1.lstatSync,
       readdir: fs_1.readdir,
@@ -47945,9 +48498,9 @@ var require_commonjs6 = __commonJS({
           opts = entry;
           entry = this.cwd;
         }
-        const { withFileTypes = true, follow = false, filter: filter4, walkFilter } = opts;
+        const { withFileTypes = true, follow = false, filter: filter3, walkFilter } = opts;
         const results = [];
-        if (!filter4 || filter4(entry)) {
+        if (!filter3 || filter3(entry)) {
           results.push(withFileTypes ? entry : entry.fullpath());
         }
         const dirs = /* @__PURE__ */ new Set();
@@ -47966,7 +48519,7 @@ var require_commonjs6 = __commonJS({
               }
             };
             for (const e of entries2) {
-              if (!filter4 || filter4(e)) {
+              if (!filter3 || filter3(e)) {
                 results.push(withFileTypes ? e : e.fullpath());
               }
               if (follow && e.isSymbolicLink()) {
@@ -47997,16 +48550,16 @@ var require_commonjs6 = __commonJS({
           opts = entry;
           entry = this.cwd;
         }
-        const { withFileTypes = true, follow = false, filter: filter4, walkFilter } = opts;
+        const { withFileTypes = true, follow = false, filter: filter3, walkFilter } = opts;
         const results = [];
-        if (!filter4 || filter4(entry)) {
+        if (!filter3 || filter3(entry)) {
           results.push(withFileTypes ? entry : entry.fullpath());
         }
         const dirs = /* @__PURE__ */ new Set([entry]);
         for (const dir of dirs) {
           const entries2 = dir.readdirSync();
           for (const e of entries2) {
-            if (!filter4 || filter4(e)) {
+            if (!filter3 || filter3(e)) {
               results.push(withFileTypes ? e : e.fullpath());
             }
             let r = e;
@@ -48059,15 +48612,15 @@ var require_commonjs6 = __commonJS({
           opts = entry;
           entry = this.cwd;
         }
-        const { withFileTypes = true, follow = false, filter: filter4, walkFilter } = opts;
-        if (!filter4 || filter4(entry)) {
+        const { withFileTypes = true, follow = false, filter: filter3, walkFilter } = opts;
+        if (!filter3 || filter3(entry)) {
           yield withFileTypes ? entry : entry.fullpath();
         }
         const dirs = /* @__PURE__ */ new Set([entry]);
         for (const dir of dirs) {
           const entries2 = dir.readdirSync();
           for (const e of entries2) {
-            if (!filter4 || filter4(e)) {
+            if (!filter3 || filter3(e)) {
               yield withFileTypes ? e : e.fullpath();
             }
             let r = e;
@@ -48090,9 +48643,9 @@ var require_commonjs6 = __commonJS({
           opts = entry;
           entry = this.cwd;
         }
-        const { withFileTypes = true, follow = false, filter: filter4, walkFilter } = opts;
+        const { withFileTypes = true, follow = false, filter: filter3, walkFilter } = opts;
         const results = new minipass_1.Minipass({ objectMode: true });
-        if (!filter4 || filter4(entry)) {
+        if (!filter3 || filter3(entry)) {
           results.write(withFileTypes ? entry : entry.fullpath());
         }
         const dirs = /* @__PURE__ */ new Set();
@@ -48125,7 +48678,7 @@ var require_commonjs6 = __commonJS({
                 }
               }
               for (const e of entries2) {
-                if (e && (!filter4 || filter4(e))) {
+                if (e && (!filter3 || filter3(e))) {
                   if (!results.write(withFileTypes ? e : e.fullpath())) {
                     paused = true;
                   }
@@ -48159,10 +48712,10 @@ var require_commonjs6 = __commonJS({
           opts = entry;
           entry = this.cwd;
         }
-        const { withFileTypes = true, follow = false, filter: filter4, walkFilter } = opts;
+        const { withFileTypes = true, follow = false, filter: filter3, walkFilter } = opts;
         const results = new minipass_1.Minipass({ objectMode: true });
         const dirs = /* @__PURE__ */ new Set();
-        if (!filter4 || filter4(entry)) {
+        if (!filter3 || filter3(entry)) {
           results.write(withFileTypes ? entry : entry.fullpath());
         }
         const queue = [entry];
@@ -48180,7 +48733,7 @@ var require_commonjs6 = __commonJS({
             dirs.add(dir);
             const entries2 = dir.readdirSync();
             for (const e of entries2) {
-              if (!filter4 || filter4(e)) {
+              if (!filter3 || filter3(e)) {
                 if (!results.write(withFileTypes ? e : e.fullpath())) {
                   paused = true;
                 }
@@ -48294,7 +48847,7 @@ var require_pattern = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Pattern = void 0;
-    var minimatch_1 = require_commonjs3();
+    var minimatch_1 = require_commonjs4();
     var isPatternList = (pl) => pl.length >= 1;
     var isGlobList = (gl) => gl.length >= 1;
     var Pattern = class _Pattern {
@@ -48468,7 +49021,7 @@ var require_ignore = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Ignore = void 0;
-    var minimatch_1 = require_commonjs3();
+    var minimatch_1 = require_commonjs4();
     var pattern_js_1 = require_pattern();
     var defaultPlatform = typeof process === "object" && process && typeof process.platform === "string" ? process.platform : "linux";
     var Ignore = class {
@@ -48565,7 +49118,7 @@ var require_processor = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Processor = exports2.SubWalks = exports2.MatchRecord = exports2.HasWalkedCache = void 0;
-    var minimatch_1 = require_commonjs3();
+    var minimatch_1 = require_commonjs4();
     var HasWalkedCache = class _HasWalkedCache {
       store;
       constructor(store = /* @__PURE__ */ new Map()) {
@@ -48798,7 +49351,7 @@ var require_walker = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.GlobStream = exports2.GlobWalker = exports2.GlobUtil = void 0;
-    var minipass_1 = require_commonjs5();
+    var minipass_1 = require_commonjs6();
     var ignore_js_1 = require_ignore();
     var processor_js_1 = require_processor();
     var makeIgnore = (ignore, opts) => typeof ignore === "string" ? new ignore_js_1.Ignore([ignore], opts) : Array.isArray(ignore) ? new ignore_js_1.Ignore(ignore, opts) : ignore;
@@ -49138,9 +49691,9 @@ var require_glob = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Glob = void 0;
-    var minimatch_1 = require_commonjs3();
+    var minimatch_1 = require_commonjs4();
     var node_url_1 = __require("node:url");
-    var path_scurry_1 = require_commonjs6();
+    var path_scurry_1 = require_commonjs7();
     var pattern_js_1 = require_pattern();
     var walker_js_1 = require_walker();
     var defaultPlatform = typeof process === "object" && process && typeof process.platform === "string" ? process.platform : "linux";
@@ -49351,7 +49904,7 @@ var require_has_magic = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.hasMagic = void 0;
-    var minimatch_1 = require_commonjs3();
+    var minimatch_1 = require_commonjs4();
     var hasMagic = (pattern, options = {}) => {
       if (!Array.isArray(pattern)) {
         pattern = [pattern];
@@ -49367,7 +49920,7 @@ var require_has_magic = __commonJS({
 });
 
 // node_modules/glob/dist/commonjs/index.js
-var require_commonjs7 = __commonJS({
+var require_commonjs8 = __commonJS({
   "node_modules/glob/dist/commonjs/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -49377,10 +49930,10 @@ var require_commonjs7 = __commonJS({
     exports2.globSync = globSync;
     exports2.globIterateSync = globIterateSync;
     exports2.globIterate = globIterate;
-    var minimatch_1 = require_commonjs3();
+    var minimatch_1 = require_commonjs4();
     var glob_js_1 = require_glob();
     var has_magic_js_1 = require_has_magic();
-    var minimatch_2 = require_commonjs3();
+    var minimatch_2 = require_commonjs4();
     Object.defineProperty(exports2, "escape", { enumerable: true, get: function() {
       return minimatch_2.escape;
     } });
@@ -49457,7 +50010,7 @@ var require_file2 = __commonJS({
     var difference = require_difference();
     var union = require_union();
     var isPlainObject3 = require_isPlainObject();
-    var glob = require_commonjs7();
+    var glob = require_commonjs8();
     var file = module.exports = {};
     var pathSeparatorRe = /[\/\\]/g;
     var processPatterns = function(patterns, fn) {
@@ -53938,7 +54491,7 @@ var require_tar = __commonJS({
     Tar.prototype.append = function(source, data, callback) {
       var self2 = this;
       data.mtime = data.date;
-      function append4(err, sourceBuffer) {
+      function append3(err, sourceBuffer) {
         if (err) {
           callback(err);
           return;
@@ -53948,7 +54501,7 @@ var require_tar = __commonJS({
         });
       }
       if (data.sourceType === "buffer") {
-        append4(null, source);
+        append3(null, source);
       } else if (data.sourceType === "stream" && data.stats) {
         data.size = data.stats.size;
         var entry = self2.engine.entry(data, function(err) {
@@ -53956,7 +54509,7 @@ var require_tar = __commonJS({
         });
         source.pipe(entry);
       } else if (data.sourceType === "stream") {
-        util3.collectStream(source, append4);
+        util3.collectStream(source, append3);
       }
     };
     Tar.prototype.finalize = function() {
@@ -55142,7 +55695,7 @@ var require_binary = __commonJS({
             next();
           });
         };
-        self2.scan = function find4(name, search) {
+        self2.scan = function find3(name, search) {
           if (typeof search === "string") {
             search = new Buffer(search);
           } else if (!Buffer.isBuffer(search)) {
@@ -55206,7 +55759,7 @@ var require_binary = __commonJS({
       });
       return stream4;
     };
-    exports2.parse = function parse8(buffer2) {
+    exports2.parse = function parse9(buffer2) {
       var self2 = words(function(bytes, cb) {
         return function(name) {
           if (offset + bytes <= buffer2.length) {
@@ -59603,8 +60156,8 @@ function isPlainObject2(value) {
 }
 var noop = () => "";
 async function fetchWrapper(requestOptions) {
-  const fetch5 = requestOptions.request?.fetch || globalThis.fetch;
-  if (!fetch5) {
+  const fetch4 = requestOptions.request?.fetch || globalThis.fetch;
+  if (!fetch4) {
     throw new Error(
       "fetch is not set. Please pass a fetch implementation as new Octokit({ request: { fetch }}). Learn more at https://github.com/octokit/octokit.js/#fetch-missing"
     );
@@ -59620,7 +60173,7 @@ async function fetchWrapper(requestOptions) {
   );
   let fetchResponse;
   try {
-    fetchResponse = await fetch5(requestOptions.url, {
+    fetchResponse = await fetch4(requestOptions.url, {
       method: requestOptions.method,
       body: body2,
       redirect: requestOptions.request?.redirect,
@@ -62636,7 +63189,8 @@ function getOctokit(token, options, ...additionalPlugins) {
 }
 
 // src/git.ts
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
+import { createInterface } from "readline";
 import { promisify } from "util";
 
 // src/errors.ts
@@ -62646,6 +63200,7 @@ function toErrorMessage2(error2) {
 
 // src/git.ts
 var execFileAsync = promisify(execFile);
+var MAX_STDERR_LENGTH = 64 * 1024;
 var GitUtils = class _GitUtils {
   // The GitHub context is populated from the event payload, which is the most
   // reliable source of PR SHAs during pull_request events.
@@ -62715,17 +63270,52 @@ var GitUtils = class _GitUtils {
   static async getChangedLinesByFile(base, head = "HEAD") {
     try {
       info(`\u{1F50E} Getting changed lines between ${base} and ${head}`);
-      const { stdout } = await execFileAsync("git", [
-        "-c",
-        "diff.noprefix=false",
-        "-c",
-        "diff.mnemonicPrefix=false",
-        "diff",
-        "--unified=0",
-        "--diff-filter=AM",
-        `${base}..${head}`
-      ]);
-      return _GitUtils.parseChangedLines(stdout);
+      const child = spawn(
+        "git",
+        [
+          "-c",
+          "diff.noprefix=false",
+          "-c",
+          "diff.mnemonicPrefix=false",
+          "diff",
+          "--unified=0",
+          "--diff-filter=AM",
+          `${base}..${head}`
+        ],
+        { stdio: ["ignore", "pipe", "pipe"] }
+      );
+      let stderr = "";
+      child.stderr.setEncoding("utf8");
+      child.stderr.on("data", (chunk) => {
+        stderr = `${stderr}${chunk}`.slice(-MAX_STDERR_LENGTH);
+      });
+      const completion = new Promise((resolve3, reject) => {
+        child.once("error", reject);
+        child.once("close", (code) => {
+          if (code === 0) {
+            resolve3();
+            return;
+          }
+          reject(
+            new Error(stderr.trim() || `git diff exited with code ${code}`)
+          );
+        });
+      });
+      const state3 = {
+        changedLines: /* @__PURE__ */ new Map(),
+        previousLine: ""
+      };
+      const lines = createInterface({
+        input: child.stdout,
+        crlfDelay: Infinity
+      });
+      const parseOutput = async () => {
+        for await (const line of lines) {
+          _GitUtils.parseChangedLine(line, state3);
+        }
+      };
+      await Promise.all([completion, parseOutput()]);
+      return state3.changedLines;
     } catch (error2) {
       const errorMessage = `Failed to get changed lines between ${base} and ${head}`;
       error(`${errorMessage}: ${error2}`);
@@ -62734,36 +63324,29 @@ var GitUtils = class _GitUtils {
   }
   // Pairing `+++ ` with the preceding `--- ` line avoids mistaking an added
   // content line that merely starts with `+++ ` for a file header.
-  static parseChangedLines(diff) {
-    const HUNK_HEADER = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/;
-    const changedLines = /* @__PURE__ */ new Map();
-    let currentFile;
-    let previousLine = "";
-    for (const line of diff.split("\n")) {
-      const precedingLine = previousLine;
-      previousLine = line;
-      if (line.startsWith("+++ ") && precedingLine.startsWith("--- ")) {
-        const target = line.slice(4).trim();
-        currentFile = target === "/dev/null" ? void 0 : target.replace(/^b\//, "");
-        continue;
-      }
-      if (!currentFile) continue;
-      const match = HUNK_HEADER.exec(line);
-      if (!match) continue;
-      const start2 = Number(match[1]);
-      const count2 = match[2] === void 0 ? 1 : Number(match[2]);
-      if (count2 === 0) continue;
-      if (start2 < 1) {
-        debug(`Skipping hunk with invalid start line ${start2}`);
-        continue;
-      }
-      const lines = changedLines.get(currentFile) ?? [];
-      for (let offset = 0; offset < count2; offset++) {
-        lines.push(start2 + offset);
-      }
-      changedLines.set(currentFile, lines);
+  static parseChangedLine(line, state3) {
+    const precedingLine = state3.previousLine;
+    state3.previousLine = line;
+    if (line.startsWith("+++ ") && precedingLine.startsWith("--- ")) {
+      const target = line.slice(4).trim();
+      state3.currentFile = target === "/dev/null" ? void 0 : target.replace(/^b\//, "");
+      return;
     }
-    return changedLines;
+    if (!state3.currentFile) return;
+    const match = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    if (!match) return;
+    const start2 = Number(match[1]);
+    const count2 = match[2] === void 0 ? 1 : Number(match[2]);
+    if (count2 === 0) return;
+    if (start2 < 1) {
+      debug(`Skipping hunk with invalid start line ${start2}`);
+      return;
+    }
+    const lines = state3.changedLines.get(state3.currentFile) ?? [];
+    for (let offset = 0; offset < count2; offset++) {
+      lines.push(start2 + offset);
+    }
+    state3.changedLines.set(state3.currentFile, lines);
   }
 };
 
@@ -65428,16 +66011,16 @@ __export(esm_exports, {
   isTag: () => isTag
 });
 var ElementType;
-(function(ElementType3) {
-  ElementType3["Root"] = "root";
-  ElementType3["Text"] = "text";
-  ElementType3["Directive"] = "directive";
-  ElementType3["Comment"] = "comment";
-  ElementType3["Script"] = "script";
-  ElementType3["Style"] = "style";
-  ElementType3["Tag"] = "tag";
-  ElementType3["CDATA"] = "cdata";
-  ElementType3["Doctype"] = "doctype";
+(function(ElementType2) {
+  ElementType2["Root"] = "root";
+  ElementType2["Text"] = "text";
+  ElementType2["Directive"] = "directive";
+  ElementType2["Comment"] = "comment";
+  ElementType2["Script"] = "script";
+  ElementType2["Style"] = "style";
+  ElementType2["Tag"] = "tag";
+  ElementType2["CDATA"] = "cdata";
+  ElementType2["Doctype"] = "doctype";
 })(ElementType || (ElementType = {}));
 function isTag(elem) {
   return elem.type === ElementType.Tag || elem.type === ElementType.Script || elem.type === ElementType.Style;
@@ -66370,7 +66953,7 @@ function encodeXML(str) {
   return ret + str.substr(lastIdx);
 }
 function getEscaper(regex, map) {
-  return function escape5(data) {
+  return function escape4(data) {
     let match;
     let lastIdx = 0;
     let result = "";
@@ -66399,17 +66982,17 @@ var escapeText = getEscaper(/[&<>\u00A0]/g, /* @__PURE__ */ new Map([
 
 // node_modules/dom-serializer/node_modules/entities/lib/esm/index.js
 var EntityLevel;
-(function(EntityLevel3) {
-  EntityLevel3[EntityLevel3["XML"] = 0] = "XML";
-  EntityLevel3[EntityLevel3["HTML"] = 1] = "HTML";
+(function(EntityLevel2) {
+  EntityLevel2[EntityLevel2["XML"] = 0] = "XML";
+  EntityLevel2[EntityLevel2["HTML"] = 1] = "HTML";
 })(EntityLevel || (EntityLevel = {}));
 var EncodingMode;
-(function(EncodingMode3) {
-  EncodingMode3[EncodingMode3["UTF8"] = 0] = "UTF8";
-  EncodingMode3[EncodingMode3["ASCII"] = 1] = "ASCII";
-  EncodingMode3[EncodingMode3["Extensive"] = 2] = "Extensive";
-  EncodingMode3[EncodingMode3["Attribute"] = 3] = "Attribute";
-  EncodingMode3[EncodingMode3["Text"] = 4] = "Text";
+(function(EncodingMode2) {
+  EncodingMode2[EncodingMode2["UTF8"] = 0] = "UTF8";
+  EncodingMode2[EncodingMode2["ASCII"] = 1] = "ASCII";
+  EncodingMode2[EncodingMode2["Extensive"] = 2] = "Extensive";
+  EncodingMode2[EncodingMode2["Attribute"] = 3] = "Attribute";
+  EncodingMode2[EncodingMode2["Text"] = 4] = "Text";
 })(EncodingMode || (EncodingMode = {}));
 
 // node_modules/dom-serializer/lib/esm/foreignNames.js
@@ -66528,14 +67111,14 @@ var unencodedElements = /* @__PURE__ */ new Set([
 function replaceQuotes(value) {
   return value.replace(/"/g, "&quot;");
 }
-function formatAttributes(attributes, opts) {
+function formatAttributes(attributes2, opts) {
   var _a3;
-  if (!attributes)
+  if (!attributes2)
     return;
   const encode = ((_a3 = opts.encodeEntities) !== null && _a3 !== void 0 ? _a3 : opts.decodeEntities) === false ? replaceQuotes : opts.xmlMode || opts.encodeEntities !== "utf8" ? encodeXML : escapeAttribute;
-  return Object.keys(attributes).map((key2) => {
+  return Object.keys(attributes2).map((key2) => {
     var _a4, _b;
-    const value = (_a4 = attributes[key2]) !== null && _a4 !== void 0 ? _a4 : "";
+    const value = (_a4 = attributes2[key2]) !== null && _a4 !== void 0 ? _a4 : "";
     if (opts.xmlMode === "foreign") {
       key2 = (_b = attributeNames.get(key2)) !== null && _b !== void 0 ? _b : key2;
     }
@@ -66992,12 +67575,12 @@ function removeSubsets(nodes) {
   return nodes;
 }
 var DocumentPosition;
-(function(DocumentPosition3) {
-  DocumentPosition3[DocumentPosition3["DISCONNECTED"] = 1] = "DISCONNECTED";
-  DocumentPosition3[DocumentPosition3["PRECEDING"] = 2] = "PRECEDING";
-  DocumentPosition3[DocumentPosition3["FOLLOWING"] = 4] = "FOLLOWING";
-  DocumentPosition3[DocumentPosition3["CONTAINS"] = 8] = "CONTAINS";
-  DocumentPosition3[DocumentPosition3["CONTAINED_BY"] = 16] = "CONTAINED_BY";
+(function(DocumentPosition2) {
+  DocumentPosition2[DocumentPosition2["DISCONNECTED"] = 1] = "DISCONNECTED";
+  DocumentPosition2[DocumentPosition2["PRECEDING"] = 2] = "PRECEDING";
+  DocumentPosition2[DocumentPosition2["FOLLOWING"] = 4] = "FOLLOWING";
+  DocumentPosition2[DocumentPosition2["CONTAINS"] = 8] = "CONTAINS";
+  DocumentPosition2[DocumentPosition2["CONTAINED_BY"] = 16] = "CONTAINED_BY";
 })(DocumentPosition || (DocumentPosition = {}));
 function compareDocumentPosition(nodeA, nodeB) {
   const aParents = [];
@@ -67378,8 +67961,8 @@ var CustomElementRegistry = class {
     if (registry.has(ce)) {
       const { Class, check } = registry.get(ce);
       if (check(element)) {
-        const { attributes, isConnected: isConnected2 } = element;
-        for (const attr of attributes)
+        const { attributes: attributes2, isConnected: isConnected2 } = element;
+        for (const attr of attributes2)
           element.removeAttributeNode(attr);
         const values = entries(element);
         for (const [key2] of values)
@@ -67388,7 +67971,7 @@ var CustomElementRegistry = class {
         ownerDocument[UPGRADE] = { element, values };
         new Class(ownerDocument, ce);
         customElements.set(element, { connected: isConnected2 });
-        for (const attr of attributes)
+        for (const attr of attributes2)
           element.setAttributeNode(attr);
         if (isConnected2 && element.connectedCallback)
           element.connectedCallback();
@@ -67464,7 +68047,7 @@ var parseFromString = (document2, isHTML, markupLanguage) => {
         document2.doctype = data.slice(name.length).trim();
     },
     // <tagName>
-    onopentag(name, attributes) {
+    onopentag(name, attributes2) {
       let create4 = true;
       if (isHTML) {
         if (ownerSVGElement) {
@@ -67476,11 +68059,11 @@ var parseFromString = (document2, isHTML, markupLanguage) => {
           node = append2(node, ownerSVGElement, active);
           create4 = false;
         } else if (active) {
-          const ce = name.includes("-") ? name : attributes.is || "";
+          const ce = name.includes("-") ? name : attributes2.is || "";
           if (ce && registry.has(ce)) {
             const { Class } = registry.get(ce);
             node = append2(node, new Class(), active);
-            delete attributes.is;
+            delete attributes2.is;
             create4 = false;
           }
         }
@@ -67488,8 +68071,8 @@ var parseFromString = (document2, isHTML, markupLanguage) => {
       if (create4)
         node = append2(node, document2.createElement(name), false);
       let end = node[END];
-      for (const name2 of keys(attributes))
-        attribute(node, end, document2.createAttribute(name2), attributes[name2], active);
+      for (const name2 of keys(attributes2))
+        attribute(node, end, document2.createAttribute(name2), attributes2[name2], active);
     },
     // #text, #comment
     oncomment(data) {
@@ -67633,7 +68216,7 @@ var attributeChangedCallback2 = (element, attributeName, oldValue) => {
         {
           childList,
           subtree,
-          attributes,
+          attributes: attributes2,
           attributeFilter,
           attributeOldValue
         }
@@ -67650,7 +68233,7 @@ var attributeChangedCallback2 = (element, attributeName, oldValue) => {
             );
             break;
           }
-        } else if (attributes && target === element) {
+        } else if (attributes2 && target === element) {
           queueAttribute(
             observer,
             element,
@@ -68409,1234 +68992,78 @@ var Comment3 = class _Comment extends CharacterData {
   }
 };
 
-// node_modules/boolbase/dist/index.js
-function trueFunc() {
-  return true;
-}
-function falseFunc() {
-  return false;
-}
+// node_modules/css-select/lib/esm/index.js
+var import_boolbase6 = __toESM(require_boolbase(), 1);
 
-// node_modules/css-what/dist/types.js
-var SelectorType;
-(function(SelectorType2) {
-  SelectorType2["Attribute"] = "attribute";
-  SelectorType2["Pseudo"] = "pseudo";
-  SelectorType2["PseudoElement"] = "pseudo-element";
-  SelectorType2["Tag"] = "tag";
-  SelectorType2["Universal"] = "universal";
-  SelectorType2["Adjacent"] = "adjacent";
-  SelectorType2["Child"] = "child";
-  SelectorType2["Descendant"] = "descendant";
-  SelectorType2["Parent"] = "parent";
-  SelectorType2["Sibling"] = "sibling";
-  SelectorType2["ColumnCombinator"] = "column-combinator";
-})(SelectorType || (SelectorType = {}));
-var AttributeAction;
-(function(AttributeAction2) {
-  AttributeAction2["Any"] = "any";
-  AttributeAction2["Element"] = "element";
-  AttributeAction2["End"] = "end";
-  AttributeAction2["Equals"] = "equals";
-  AttributeAction2["Exists"] = "exists";
-  AttributeAction2["Hyphen"] = "hyphen";
-  AttributeAction2["Not"] = "not";
-  AttributeAction2["Start"] = "start";
-})(AttributeAction || (AttributeAction = {}));
+// node_modules/css-select/lib/esm/compile.js
+var import_css_what4 = __toESM(require_commonjs(), 1);
+var import_boolbase5 = __toESM(require_boolbase(), 1);
 
-// node_modules/css-what/dist/parse.js
-var reName = /^[^#\\]?(?:\\(?:[\da-f]{1,6}\s?|.)|[\w\u00B0-\uFFFF-])+/;
-var reEscape = /\\([\da-f]{1,6}\s?|(\s)|.)/gi;
-var CharCode;
-(function(CharCode2) {
-  CharCode2[CharCode2["LeftParenthesis"] = 40] = "LeftParenthesis";
-  CharCode2[CharCode2["RightParenthesis"] = 41] = "RightParenthesis";
-  CharCode2[CharCode2["LeftSquareBracket"] = 91] = "LeftSquareBracket";
-  CharCode2[CharCode2["RightSquareBracket"] = 93] = "RightSquareBracket";
-  CharCode2[CharCode2["Comma"] = 44] = "Comma";
-  CharCode2[CharCode2["Period"] = 46] = "Period";
-  CharCode2[CharCode2["Colon"] = 58] = "Colon";
-  CharCode2[CharCode2["SingleQuote"] = 39] = "SingleQuote";
-  CharCode2[CharCode2["DoubleQuote"] = 34] = "DoubleQuote";
-  CharCode2[CharCode2["Plus"] = 43] = "Plus";
-  CharCode2[CharCode2["Tilde"] = 126] = "Tilde";
-  CharCode2[CharCode2["QuestionMark"] = 63] = "QuestionMark";
-  CharCode2[CharCode2["ExclamationMark"] = 33] = "ExclamationMark";
-  CharCode2[CharCode2["Slash"] = 47] = "Slash";
-  CharCode2[CharCode2["Equal"] = 61] = "Equal";
-  CharCode2[CharCode2["Dollar"] = 36] = "Dollar";
-  CharCode2[CharCode2["Pipe"] = 124] = "Pipe";
-  CharCode2[CharCode2["Circumflex"] = 94] = "Circumflex";
-  CharCode2[CharCode2["Asterisk"] = 42] = "Asterisk";
-  CharCode2[CharCode2["GreaterThan"] = 62] = "GreaterThan";
-  CharCode2[CharCode2["LessThan"] = 60] = "LessThan";
-  CharCode2[CharCode2["Hash"] = 35] = "Hash";
-  CharCode2[CharCode2["LowerI"] = 105] = "LowerI";
-  CharCode2[CharCode2["LowerS"] = 115] = "LowerS";
-  CharCode2[CharCode2["BackSlash"] = 92] = "BackSlash";
-  CharCode2[CharCode2["Space"] = 32] = "Space";
-  CharCode2[CharCode2["Tab"] = 9] = "Tab";
-  CharCode2[CharCode2["NewLine"] = 10] = "NewLine";
-  CharCode2[CharCode2["FormFeed"] = 12] = "FormFeed";
-  CharCode2[CharCode2["CarriageReturn"] = 13] = "CarriageReturn";
-})(CharCode || (CharCode = {}));
-var actionTypes = /* @__PURE__ */ new Map([
-  [CharCode.Tilde, AttributeAction.Element],
-  [CharCode.Circumflex, AttributeAction.Start],
-  [CharCode.Dollar, AttributeAction.End],
-  [CharCode.Asterisk, AttributeAction.Any],
-  [CharCode.ExclamationMark, AttributeAction.Not],
-  [CharCode.Pipe, AttributeAction.Hyphen]
+// node_modules/css-select/lib/esm/sort.js
+var import_css_what = __toESM(require_commonjs(), 1);
+var procedure = /* @__PURE__ */ new Map([
+  [import_css_what.SelectorType.Universal, 50],
+  [import_css_what.SelectorType.Tag, 30],
+  [import_css_what.SelectorType.Attribute, 1],
+  [import_css_what.SelectorType.Pseudo, 0]
 ]);
-var unpackPseudos = /* @__PURE__ */ new Set([
-  "has",
-  "not",
-  "matches",
-  "is",
-  "where",
-  "host",
-  "host-context"
+function isTraversal(token) {
+  return !procedure.has(token.type);
+}
+var attributes = /* @__PURE__ */ new Map([
+  [import_css_what.AttributeAction.Exists, 10],
+  [import_css_what.AttributeAction.Equals, 8],
+  [import_css_what.AttributeAction.Not, 7],
+  [import_css_what.AttributeAction.Start, 6],
+  [import_css_what.AttributeAction.End, 6],
+  [import_css_what.AttributeAction.Any, 5]
 ]);
-var pseudosToPseudoElements = /* @__PURE__ */ new Set([
-  "before",
-  "after",
-  "first-line",
-  "first-letter"
-]);
-function isTraversal(selector) {
-  switch (selector.type) {
-    case SelectorType.Adjacent:
-    case SelectorType.Child:
-    case SelectorType.Descendant:
-    case SelectorType.Parent:
-    case SelectorType.Sibling:
-    case SelectorType.ColumnCombinator: {
-      return true;
-    }
-    case SelectorType.Attribute:
-    case SelectorType.Pseudo:
-    case SelectorType.PseudoElement:
-    case SelectorType.Tag:
-    case SelectorType.Universal: {
-      return false;
-    }
-  }
-}
-var stripQuotesFromPseudos = /* @__PURE__ */ new Set(["contains", "icontains"]);
-function funescape(_2, escaped, escapedWhitespace) {
-  const high = Number.parseInt(escaped, 16) - 65536;
-  return Number.isNaN(high) || escapedWhitespace ? escaped : high < 0 ? (
-    // BMP codepoint
-    String.fromCharCode(high + 65536)
-  ) : (
-    // Supplemental Plane codepoint (surrogate pair)
-    String.fromCharCode(high >> 10 | 55296, high & 1023 | 56320)
-  );
-}
-function unescapeCSS(cssString) {
-  return cssString.replace(reEscape, funescape);
-}
-function isQuote(c) {
-  return c === CharCode.SingleQuote || c === CharCode.DoubleQuote;
-}
-function isWhitespace2(c) {
-  return c === CharCode.Space || c === CharCode.Tab || c === CharCode.NewLine || c === CharCode.FormFeed || c === CharCode.CarriageReturn;
-}
-function parse3(selector) {
-  const subselects2 = [];
-  const endIndex = parseSelector(subselects2, `${selector}`, 0);
-  if (endIndex < selector.length) {
-    throw new Error(`Unmatched selector: ${selector.slice(endIndex)}`);
-  }
-  return subselects2;
-}
-function parseSelector(subselects2, selector, selectorIndex) {
-  let tokens = [];
-  function getName4(offset) {
-    const match = selector.slice(selectorIndex + offset).match(reName);
-    if (!match) {
-      throw new Error(`Expected name, found ${selector.slice(selectorIndex)}`);
-    }
-    const [name] = match;
-    selectorIndex += offset + name.length;
-    return unescapeCSS(name);
-  }
-  function stripWhitespace(offset) {
-    selectorIndex += offset;
-    while (selectorIndex < selector.length && isWhitespace2(selector.charCodeAt(selectorIndex))) {
-      selectorIndex++;
-    }
-  }
-  function readValueWithParenthesis() {
-    selectorIndex += 1;
-    const start2 = selectorIndex;
-    for (let counter = 1; selectorIndex < selector.length; selectorIndex++) {
-      switch (selector.charCodeAt(selectorIndex)) {
-        case CharCode.BackSlash: {
-          selectorIndex += 1;
-          break;
-        }
-        case CharCode.LeftParenthesis: {
-          counter += 1;
-          break;
-        }
-        case CharCode.RightParenthesis: {
-          counter -= 1;
-          if (counter === 0) {
-            return unescapeCSS(selector.slice(start2, selectorIndex++));
-          }
-          break;
-        }
-      }
-    }
-    throw new Error("Parenthesis not matched");
-  }
-  function ensureNotTraversal() {
-    if (tokens.length > 0 && isTraversal(tokens[tokens.length - 1])) {
-      throw new Error("Did not expect successive traversals.");
-    }
-  }
-  function addTraversal(type2) {
-    if (tokens.length > 0 && tokens[tokens.length - 1].type === SelectorType.Descendant) {
-      tokens[tokens.length - 1].type = type2;
-      return;
-    }
-    ensureNotTraversal();
-    tokens.push({ type: type2 });
-  }
-  function addSpecialAttribute(name, action5) {
-    tokens.push({
-      type: SelectorType.Attribute,
-      name,
-      action: action5,
-      value: getName4(1),
-      namespace: null,
-      ignoreCase: "quirks"
-    });
-  }
-  function finalizeSubselector() {
-    if (tokens.length > 0 && tokens[tokens.length - 1].type === SelectorType.Descendant) {
-      tokens.pop();
-    }
-    if (tokens.length === 0) {
-      throw new Error("Empty sub-selector");
-    }
-    subselects2.push(tokens);
-  }
-  stripWhitespace(0);
-  if (selector.length === selectorIndex) {
-    return selectorIndex;
-  }
-  loop: while (selectorIndex < selector.length) {
-    const firstChar = selector.charCodeAt(selectorIndex);
-    switch (firstChar) {
-      // Whitespace
-      case CharCode.Space:
-      case CharCode.Tab:
-      case CharCode.NewLine:
-      case CharCode.FormFeed:
-      case CharCode.CarriageReturn: {
-        if (tokens.length === 0 || tokens[0].type !== SelectorType.Descendant) {
-          ensureNotTraversal();
-          tokens.push({ type: SelectorType.Descendant });
-        }
-        stripWhitespace(1);
-        break;
-      }
-      // Traversals
-      case CharCode.GreaterThan: {
-        addTraversal(SelectorType.Child);
-        stripWhitespace(1);
-        break;
-      }
-      case CharCode.LessThan: {
-        addTraversal(SelectorType.Parent);
-        stripWhitespace(1);
-        break;
-      }
-      case CharCode.Tilde: {
-        addTraversal(SelectorType.Sibling);
-        stripWhitespace(1);
-        break;
-      }
-      case CharCode.Plus: {
-        addTraversal(SelectorType.Adjacent);
-        stripWhitespace(1);
-        break;
-      }
-      // Special attribute selectors: .class, #id
-      case CharCode.Period: {
-        addSpecialAttribute("class", AttributeAction.Element);
-        break;
-      }
-      case CharCode.Hash: {
-        addSpecialAttribute("id", AttributeAction.Equals);
-        break;
-      }
-      case CharCode.LeftSquareBracket: {
-        stripWhitespace(1);
-        let name;
-        let namespace = null;
-        if (selector.charCodeAt(selectorIndex) === CharCode.Pipe) {
-          name = getName4(1);
-        } else if (selector.startsWith("*|", selectorIndex)) {
-          namespace = "*";
-          name = getName4(2);
-        } else {
-          name = getName4(0);
-          if (selector.charCodeAt(selectorIndex) === CharCode.Pipe && selector.charCodeAt(selectorIndex + 1) !== CharCode.Equal) {
-            namespace = name;
-            name = getName4(1);
-          }
-        }
-        stripWhitespace(0);
-        let action5 = AttributeAction.Exists;
-        const possibleAction = actionTypes.get(selector.charCodeAt(selectorIndex));
-        if (possibleAction) {
-          action5 = possibleAction;
-          if (selector.charCodeAt(selectorIndex + 1) !== CharCode.Equal) {
-            throw new Error("Expected `=`");
-          }
-          stripWhitespace(2);
-        } else if (selector.charCodeAt(selectorIndex) === CharCode.Equal) {
-          action5 = AttributeAction.Equals;
-          stripWhitespace(1);
-        }
-        let value = "";
-        let ignoreCase2 = null;
-        if (action5 !== "exists") {
-          if (isQuote(selector.charCodeAt(selectorIndex))) {
-            const quote = selector.charCodeAt(selectorIndex);
-            selectorIndex += 1;
-            const sectionStart = selectorIndex;
-            while (selectorIndex < selector.length && selector.charCodeAt(selectorIndex) !== quote) {
-              selectorIndex += // Skip next character if it is escaped
-              selector.charCodeAt(selectorIndex) === CharCode.BackSlash ? 2 : 1;
-            }
-            if (selector.charCodeAt(selectorIndex) !== quote) {
-              throw new Error("Attribute value didn't end");
-            }
-            value = unescapeCSS(selector.slice(sectionStart, selectorIndex));
-            selectorIndex += 1;
-          } else {
-            const valueStart = selectorIndex;
-            while (selectorIndex < selector.length && !isWhitespace2(selector.charCodeAt(selectorIndex)) && selector.charCodeAt(selectorIndex) !== CharCode.RightSquareBracket) {
-              selectorIndex += // Skip next character if it is escaped
-              selector.charCodeAt(selectorIndex) === CharCode.BackSlash ? 2 : 1;
-            }
-            value = unescapeCSS(selector.slice(valueStart, selectorIndex));
-          }
-          stripWhitespace(0);
-          switch (selector.charCodeAt(selectorIndex) | 32) {
-            // If the forceIgnore flag is set (either `i` or `s`), use that value
-            case CharCode.LowerI: {
-              ignoreCase2 = true;
-              stripWhitespace(1);
-              break;
-            }
-            case CharCode.LowerS: {
-              ignoreCase2 = false;
-              stripWhitespace(1);
-              break;
-            }
-          }
-        }
-        if (selector.charCodeAt(selectorIndex) !== CharCode.RightSquareBracket) {
-          throw new Error("Attribute selector didn't terminate");
-        }
-        selectorIndex += 1;
-        const attributeSelector = {
-          type: SelectorType.Attribute,
-          name,
-          action: action5,
-          value,
-          namespace,
-          ignoreCase: ignoreCase2
-        };
-        tokens.push(attributeSelector);
-        break;
-      }
-      case CharCode.Colon: {
-        if (selector.charCodeAt(selectorIndex + 1) === CharCode.Colon) {
-          tokens.push({
-            type: SelectorType.PseudoElement,
-            name: getName4(2).toLowerCase(),
-            data: selector.charCodeAt(selectorIndex) === CharCode.LeftParenthesis ? readValueWithParenthesis() : null
-          });
-          break;
-        }
-        const name = getName4(1).toLowerCase();
-        if (pseudosToPseudoElements.has(name)) {
-          tokens.push({
-            type: SelectorType.PseudoElement,
-            name,
-            data: null
-          });
-          break;
-        }
-        let data = null;
-        if (selector.charCodeAt(selectorIndex) === CharCode.LeftParenthesis) {
-          if (unpackPseudos.has(name)) {
-            if (isQuote(selector.charCodeAt(selectorIndex + 1))) {
-              throw new Error(`Pseudo-selector ${name} cannot be quoted`);
-            }
-            data = [];
-            selectorIndex = parseSelector(data, selector, selectorIndex + 1);
-            if (selector.charCodeAt(selectorIndex) !== CharCode.RightParenthesis) {
-              throw new Error(`Missing closing parenthesis in :${name} (${selector})`);
-            }
-            selectorIndex += 1;
-          } else {
-            data = readValueWithParenthesis();
-            if (stripQuotesFromPseudos.has(name)) {
-              const quot = data.charCodeAt(0);
-              if (quot === data.charCodeAt(data.length - 1) && isQuote(quot)) {
-                data = data.slice(1, -1);
-              }
-            }
-            data = unescapeCSS(data);
-          }
-        }
-        tokens.push({ type: SelectorType.Pseudo, name, data });
-        break;
-      }
-      case CharCode.Comma: {
-        finalizeSubselector();
-        tokens = [];
-        stripWhitespace(1);
-        break;
-      }
-      default: {
-        if (selector.startsWith("/*", selectorIndex)) {
-          const endIndex = selector.indexOf("*/", selectorIndex + 2);
-          if (endIndex === -1) {
-            throw new Error("Comment was not terminated");
-          }
-          selectorIndex = endIndex + 2;
-          if (tokens.length === 0) {
-            stripWhitespace(0);
-          }
-          break;
-        }
-        let namespace = null;
-        let name;
-        if (firstChar === CharCode.Asterisk) {
-          selectorIndex += 1;
-          name = "*";
-        } else if (firstChar === CharCode.Pipe) {
-          name = "";
-          if (selector.charCodeAt(selectorIndex + 1) === CharCode.Pipe) {
-            addTraversal(SelectorType.ColumnCombinator);
-            stripWhitespace(2);
-            break;
-          }
-        } else if (reName.test(selector.slice(selectorIndex))) {
-          name = getName4(0);
-        } else {
-          break loop;
-        }
-        if (selector.charCodeAt(selectorIndex) === CharCode.Pipe && selector.charCodeAt(selectorIndex + 1) !== CharCode.Pipe) {
-          namespace = name;
-          if (selector.charCodeAt(selectorIndex + 1) === CharCode.Asterisk) {
-            name = "*";
-            selectorIndex += 2;
-          } else {
-            name = getName4(1);
-          }
-        }
-        tokens.push(name === "*" ? { type: SelectorType.Universal, namespace } : { type: SelectorType.Tag, name, namespace });
-      }
-    }
-  }
-  finalizeSubselector();
-  return selectorIndex;
-}
-
-// node_modules/css-select/node_modules/domelementtype/dist/index.js
-var ElementType2;
-(function(ElementType3) {
-  ElementType3["Root"] = "root";
-  ElementType3["Text"] = "text";
-  ElementType3["Directive"] = "directive";
-  ElementType3["Comment"] = "comment";
-  ElementType3["Script"] = "script";
-  ElementType3["Style"] = "style";
-  ElementType3["Tag"] = "tag";
-  ElementType3["CDATA"] = "cdata";
-  ElementType3["Doctype"] = "doctype";
-})(ElementType2 || (ElementType2 = {}));
-function isTag3(element) {
-  return element.type === ElementType2.Tag || element.type === ElementType2.Script || element.type === ElementType2.Style;
-}
-var Root2 = ElementType2.Root;
-var Text3 = ElementType2.Text;
-var Directive2 = ElementType2.Directive;
-var Comment4 = ElementType2.Comment;
-var Script2 = ElementType2.Script;
-var Style2 = ElementType2.Style;
-var Tag2 = ElementType2.Tag;
-var CDATA3 = ElementType2.CDATA;
-var Doctype2 = ElementType2.Doctype;
-
-// node_modules/css-select/node_modules/domhandler/dist/node.js
-function isTag4(node) {
-  return isTag3(node);
-}
-function isCDATA2(node) {
-  return node.type === ElementType2.CDATA;
-}
-function isText2(node) {
-  return node.type === ElementType2.Text;
-}
-function isComment2(node) {
-  return node.type === ElementType2.Comment;
-}
-function hasChildren2(node) {
-  return Object.hasOwn(node, "children");
-}
-
-// node_modules/css-select/node_modules/domutils/dist/index.js
-var dist_exports2 = {};
-__export(dist_exports2, {
-  DocumentPosition: () => DocumentPosition2,
-  append: () => append3,
-  appendChild: () => appendChild2,
-  compareDocumentPosition: () => compareDocumentPosition2,
-  existsOne: () => existsOne2,
-  filter: () => filter2,
-  find: () => find2,
-  findAll: () => findAll2,
-  findOne: () => findOne2,
-  getAttributeValue: () => getAttributeValue2,
-  getChildren: () => getChildren2,
-  getElementById: () => getElementById2,
-  getElements: () => getElements2,
-  getElementsByClassName: () => getElementsByClassName2,
-  getElementsByTagName: () => getElementsByTagName2,
-  getElementsByTagType: () => getElementsByTagType2,
-  getFeed: () => getFeed2,
-  getInnerHTML: () => getInnerHTML2,
-  getName: () => getName2,
-  getOuterHTML: () => getOuterHTML2,
-  getParent: () => getParent2,
-  getSiblings: () => getSiblings2,
-  getText: () => getText2,
-  hasAttrib: () => hasAttrib2,
-  innerText: () => innerText2,
-  nextElementSibling: () => nextElementSibling3,
-  prepend: () => prepend2,
-  prependChild: () => prependChild2,
-  prevElementSibling: () => prevElementSibling2,
-  removeElement: () => removeElement2,
-  removeSubsets: () => removeSubsets2,
-  replaceElement: () => replaceElement2,
-  testElement: () => testElement2,
-  textContent: () => textContent2,
-  uniqueSort: () => uniqueSort2
-});
-
-// node_modules/css-select/node_modules/domutils/dist/querying.js
-function filter2(test, node, recurse = true, limit = Number.POSITIVE_INFINITY) {
-  return find2(test, Array.isArray(node) ? node : [node], recurse, limit);
-}
-function find2(test, nodes, recurse, limit) {
-  const result = [];
-  const nodeStack = [Array.isArray(nodes) ? nodes : [nodes]];
-  const indexStack = [0];
-  for (; ; ) {
-    if (indexStack[0] >= nodeStack[0].length) {
-      if (indexStack.length === 1) {
-        return result;
-      }
-      nodeStack.shift();
-      indexStack.shift();
+function sortByProcedure(arr) {
+  const procs = arr.map(getProcedure);
+  for (let i = 1; i < arr.length; i++) {
+    const procNew = procs[i];
+    if (procNew < 0)
       continue;
-    }
-    const element = nodeStack[0][indexStack[0]++];
-    if (test(element)) {
-      result.push(element);
-      if (--limit <= 0)
-        return result;
-    }
-    if (recurse && hasChildren2(element) && element.children.length > 0) {
-      indexStack.unshift(0);
-      nodeStack.unshift(element.children);
+    for (let j = i - 1; j >= 0 && procNew < procs[j]; j--) {
+      const token = arr[j + 1];
+      arr[j + 1] = arr[j];
+      arr[j] = token;
+      procs[j + 1] = procs[j];
+      procs[j] = procNew;
     }
   }
 }
-function findOne2(test, nodes, recurse = true) {
-  const searchedNodes = Array.isArray(nodes) ? nodes : [nodes];
-  for (const node of searchedNodes) {
-    if (isTag4(node) && test(node)) {
-      return node;
+function getProcedure(token) {
+  var _a3, _b;
+  let proc = (_a3 = procedure.get(token.type)) !== null && _a3 !== void 0 ? _a3 : -1;
+  if (token.type === import_css_what.SelectorType.Attribute) {
+    proc = (_b = attributes.get(token.action)) !== null && _b !== void 0 ? _b : 4;
+    if (token.action === import_css_what.AttributeAction.Equals && token.name === "id") {
+      proc = 9;
     }
-    if (recurse && hasChildren2(node) && node.children.length > 0) {
-      const found = findOne2(test, node.children, true);
-      if (found)
-        return found;
+    if (token.ignoreCase) {
+      proc >>= 1;
     }
-  }
-  return null;
-}
-function existsOne2(test, nodes) {
-  return (Array.isArray(nodes) ? nodes : [nodes]).some((node) => isTag4(node) && test(node) || hasChildren2(node) && existsOne2(test, node.children));
-}
-function findAll2(test, nodes) {
-  const result = [];
-  const nodeStack = [Array.isArray(nodes) ? nodes : [nodes]];
-  const indexStack = [0];
-  for (; ; ) {
-    if (indexStack[0] >= nodeStack[0].length) {
-      if (nodeStack.length === 1) {
-        return result;
+  } else if (token.type === import_css_what.SelectorType.Pseudo) {
+    if (!token.data) {
+      proc = 3;
+    } else if (token.name === "has" || token.name === "contains") {
+      proc = 0;
+    } else if (Array.isArray(token.data)) {
+      proc = Math.min(...token.data.map((d) => Math.min(...d.map(getProcedure))));
+      if (proc < 0) {
+        proc = 0;
       }
-      nodeStack.shift();
-      indexStack.shift();
-      continue;
-    }
-    const element = nodeStack[0][indexStack[0]++];
-    if (isTag4(element) && test(element))
-      result.push(element);
-    if (hasChildren2(element) && element.children.length > 0) {
-      indexStack.unshift(0);
-      nodeStack.unshift(element.children);
+    } else {
+      proc = 2;
     }
   }
+  return proc;
 }
 
-// node_modules/css-select/node_modules/domutils/dist/legacy.js
-var Checks2 = {
-  tag_name(name) {
-    if (typeof name === "function") {
-      return (element) => isTag4(element) && name(element.name);
-    }
-    if (name === "*") {
-      return isTag4;
-    }
-    return (element) => isTag4(element) && element.name === name;
-  },
-  tag_type(type2) {
-    if (typeof type2 === "function") {
-      return (element) => type2(element.type);
-    }
-    return (element) => element.type === type2;
-  },
-  tag_contains(data) {
-    if (typeof data === "function") {
-      return (element) => isText2(element) && data(element.data);
-    }
-    return (element) => isText2(element) && element.data === data;
-  }
-};
-function getAttribCheck2(attrib, value) {
-  if (typeof value === "function") {
-    return (element) => isTag4(element) && value(element.attribs[attrib]);
-  }
-  return (element) => isTag4(element) && element.attribs[attrib] === value;
-}
-function combineFuncs2(a, b) {
-  return (element) => a(element) || b(element);
-}
-function compileTest2(options) {
-  const funcs = Object.keys(options).map((key2) => {
-    const value = options[key2];
-    return Object.hasOwn(Checks2, key2) ? Checks2[key2](value) : getAttribCheck2(key2, value);
-  });
-  return funcs.length === 0 ? null : funcs.reduce(combineFuncs2);
-}
-function testElement2(options, node) {
-  const test = compileTest2(options);
-  return test ? test(node) : true;
-}
-function getElements2(options, nodes, recurse, limit = Number.POSITIVE_INFINITY) {
-  const test = compileTest2(options);
-  return test ? filter2(test, nodes, recurse, limit) : [];
-}
-function getElementById2(id2, nodes, recurse = true) {
-  if (!Array.isArray(nodes))
-    nodes = [nodes];
-  return findOne2(getAttribCheck2("id", id2), nodes, recurse);
-}
-function getElementsByTagName2(tagName19, nodes, recurse = true, limit = Number.POSITIVE_INFINITY) {
-  return filter2(Checks2["tag_name"](tagName19), nodes, recurse, limit);
-}
-function getElementsByClassName2(className, nodes, recurse = true, limit = Number.POSITIVE_INFINITY) {
-  return filter2(getAttribCheck2("class", className), nodes, recurse, limit);
-}
-function getElementsByTagType2(type2, nodes, recurse = true, limit = Number.POSITIVE_INFINITY) {
-  return filter2(Checks2["tag_type"](type2), nodes, recurse, limit);
-}
-
-// node_modules/entities/dist/escape.js
-var xmlCodeMap2 = /* @__PURE__ */ new Map([
-  [34, "&quot;"],
-  [38, "&amp;"],
-  [39, "&apos;"],
-  [60, "&lt;"],
-  [62, "&gt;"]
-]);
-var getCodePoint2 = typeof String.prototype.codePointAt === "function" ? (input, index) => input.codePointAt(index) : (
-  // http://mathiasbynens.be/notes/javascript-encoding#surrogate-formulae
-  (c, index) => (c.charCodeAt(index) & 64512) === 55296 ? (c.charCodeAt(index) - 55296) * 1024 + c.charCodeAt(index + 1) - 56320 + 65536 : c.charCodeAt(index)
-);
-var XML_BITSET_VALUE = 1342177476;
-function encodeXML2(input) {
-  let out;
-  let last = 0;
-  const { length } = input;
-  for (let index = 0; index < length; index++) {
-    const char = input.charCodeAt(index);
-    if (char < 128 && ((XML_BITSET_VALUE >>> char & 1) === 0 || char >= 64 || char < 32)) {
-      continue;
-    }
-    if (out === void 0)
-      out = input.substring(0, index);
-    else if (last !== index)
-      out += input.substring(last, index);
-    if (char < 64) {
-      out += xmlCodeMap2.get(char);
-      last = index + 1;
-      continue;
-    }
-    const cp = getCodePoint2(input, index);
-    out += `&#x${cp.toString(16)};`;
-    if (cp !== char)
-      index++;
-    last = index + 1;
-  }
-  if (out === void 0)
-    return input;
-  if (last < length)
-    out += input.substr(last);
-  return out;
-}
-function getEscaper2(regex, map) {
-  return function escape5(data) {
-    let match;
-    let lastIndex = 0;
-    let result = "";
-    while (match = regex.exec(data)) {
-      if (lastIndex !== match.index) {
-        result += data.substring(lastIndex, match.index);
-      }
-      result += map.get(match[0].charCodeAt(0));
-      lastIndex = match.index + 1;
-    }
-    return result + data.substring(lastIndex);
-  };
-}
-var escapeAttribute2 = /* @__PURE__ */ getEscaper2(/["&\u00A0]/g, /* @__PURE__ */ new Map([
-  [34, "&quot;"],
-  [38, "&amp;"],
-  [160, "&nbsp;"]
-]));
-var escapeText2 = /* @__PURE__ */ getEscaper2(/[&<>\u00A0]/g, /* @__PURE__ */ new Map([
-  [38, "&amp;"],
-  [60, "&lt;"],
-  [62, "&gt;"],
-  [160, "&nbsp;"]
-]));
-
-// node_modules/entities/dist/index.js
-var EntityLevel2;
-(function(EntityLevel3) {
-  EntityLevel3[EntityLevel3["XML"] = 0] = "XML";
-  EntityLevel3[EntityLevel3["HTML"] = 1] = "HTML";
-})(EntityLevel2 || (EntityLevel2 = {}));
-var EncodingMode2;
-(function(EncodingMode3) {
-  EncodingMode3[EncodingMode3["UTF8"] = 0] = "UTF8";
-  EncodingMode3[EncodingMode3["ASCII"] = 1] = "ASCII";
-  EncodingMode3[EncodingMode3["Extensive"] = 2] = "Extensive";
-  EncodingMode3[EncodingMode3["Attribute"] = 3] = "Attribute";
-  EncodingMode3[EncodingMode3["Text"] = 4] = "Text";
-})(EncodingMode2 || (EncodingMode2 = {}));
-
-// node_modules/css-select/node_modules/dom-serializer/dist/foreign-names.js
-var elementNames2 = new Map("altGlyph altGlyphDef altGlyphItem animateColor animateMotion animateTransform clipPath feBlend feColorMatrix feComponentTransfer feComposite feConvolveMatrix feDiffuseLighting feDisplacementMap feDistantLight feDropShadow feFlood feFuncA feFuncB feFuncG feFuncR feGaussianBlur feImage feMerge feMergeNode feMorphology feOffset fePointLight feSpecularLighting feSpotLight feTile feTurbulence foreignObject glyphRef linearGradient radialGradient textPath".split(" ").map((name) => [name.toLowerCase(), name]));
-var attributeNames2 = new Map("definitionURL attributeName attributeType baseFrequency baseProfile calcMode clipPathUnits diffuseConstant edgeMode filterUnits glyphRef gradientTransform gradientUnits kernelMatrix kernelUnitLength keyPoints keySplines keyTimes lengthAdjust limitingConeAngle markerHeight markerUnits markerWidth maskContentUnits maskUnits numOctaves pathLength patternContentUnits patternTransform patternUnits pointsAtX pointsAtY pointsAtZ preserveAlpha preserveAspectRatio primitiveUnits refX refY repeatCount repeatDur requiredExtensions requiredFeatures specularConstant specularExponent spreadMethod startOffset stdDeviation stitchTiles surfaceScale systemLanguage tableValues targetX targetY textLength viewBox viewTarget xChannelSelector yChannelSelector zoomAndPan".split(" ").map((name) => [name.toLowerCase(), name]));
-
-// node_modules/css-select/node_modules/dom-serializer/dist/index.js
-var unencodedElements2 = new Set("style script xmp iframe noembed noframes plaintext noscript".split(" "));
-var voidElements2 = new Set("area base basefont br col command embed frame hr img input isindex keygen link meta param source track wbr".split(" "));
-var foreignElements2 = /* @__PURE__ */ new Set(["svg", "math"]);
-var foreignModeIntegrationPoints2 = new Set("mi mo mn ms mtext annotation-xml foreignObject desc title".split(" "));
-function render2(node, options = {}) {
-  const nodes = "length" in node ? node : [node];
-  const xmlMode = options.xmlMode ?? false;
-  let output = "";
-  for (let index = 0; index < nodes.length; index++) {
-    output += renderNode2(nodes[index], options, xmlMode);
-  }
-  return output;
-}
-var dist_default = render2;
-function renderChildren(children2, options, xmlMode) {
-  let output = "";
-  for (let index = 0; index < children2.length; index++) {
-    output += renderNode2(children2[index], options, xmlMode);
-  }
-  return output;
-}
-function renderNode2(node, options, xmlMode) {
-  switch (node.type) {
-    case Root2: {
-      return renderChildren(node.children, options, xmlMode);
-    }
-    case Directive2: {
-      return `<${node.data}>`;
-    }
-    case Comment4: {
-      return `<!--${node.data}-->`;
-    }
-    case CDATA3: {
-      return `<![CDATA[${node.children[0].data}]]>`;
-    }
-    case Script2:
-    case Style2:
-    case Tag2: {
-      return renderTag2(node, options, xmlMode);
-    }
-    case Text3: {
-      const element = node;
-      const data = element.data || "";
-      if ((options.encodeEntities ?? options.decodeEntities) !== false && !(!xmlMode && element.parent && unencodedElements2.has(element.parent.name))) {
-        return xmlMode || options.encodeEntities !== "utf8" ? encodeXML2(data) : escapeText2(data);
-      }
-      return data;
-    }
-  }
-}
-function renderTag2(element, options, xmlMode) {
-  if (xmlMode === "foreign") {
-    element.name = elementNames2.get(element.name) ?? element.name;
-    if (element.parent && foreignModeIntegrationPoints2.has(element.parent.name)) {
-      xmlMode = false;
-    }
-  }
-  if (!xmlMode && foreignElements2.has(element.name)) {
-    xmlMode = "foreign";
-  }
-  const { name, children: children2 } = element;
-  const isVoid2 = !xmlMode && voidElements2.has(name);
-  let tag = `<${name}${formatAttributes2(element.attribs, options, xmlMode)}`;
-  if (children2.length === 0 && (xmlMode ? options.selfClosingTags !== false : options.selfClosingTags && isVoid2)) {
-    tag += xmlMode ? "/>" : " />";
-  } else {
-    tag += ">";
-    if (children2.length > 0) {
-      tag += renderChildren(children2, options, xmlMode);
-    }
-    if (!isVoid2) {
-      tag += `</${name}>`;
-    }
-  }
-  return tag;
-}
-function replaceQuotes2(value) {
-  return value.replaceAll('"', "&quot;");
-}
-function formatAttributes2(attributes, options, xmlMode) {
-  if (!attributes)
-    return "";
-  const encode = (options.encodeEntities ?? options.decodeEntities) === false ? replaceQuotes2 : xmlMode || options.encodeEntities !== "utf8" ? encodeXML2 : escapeAttribute2;
-  const isForeign = xmlMode === "foreign";
-  const showEmpty = !!(options.emptyAttrs ?? xmlMode);
-  let result = "";
-  for (const key2 in attributes) {
-    if (!Object.hasOwn(attributes, key2))
-      continue;
-    const value = attributes[key2];
-    const k = isForeign ? attributeNames2.get(key2) ?? key2 : key2;
-    result += !showEmpty && (value == null || value === "") ? ` ${k}` : ` ${k}="${encode(value == null ? "" : String(value))}"`;
-  }
-  return result;
-}
-
-// node_modules/css-select/node_modules/domutils/dist/stringify.js
-function getOuterHTML2(node, options) {
-  return dist_default(node, options);
-}
-function getInnerHTML2(node, options) {
-  return hasChildren2(node) ? node.children.map((node2) => getOuterHTML2(node2, options)).join("") : "";
-}
-function getText2(node) {
-  if (Array.isArray(node))
-    return node.map(getText2).join("");
-  if (isTag4(node))
-    return node.name === "br" ? "\n" : getText2(node.children);
-  if (isCDATA2(node))
-    return getText2(node.children);
-  if (isText2(node))
-    return node.data;
-  return "";
-}
-function textContent2(node) {
-  if (Array.isArray(node))
-    return node.map(textContent2).join("");
-  if (hasChildren2(node) && !isComment2(node)) {
-    return textContent2(node.children);
-  }
-  if (isText2(node))
-    return node.data;
-  return "";
-}
-function innerText2(node) {
-  if (Array.isArray(node))
-    return node.map(innerText2).join("");
-  if (hasChildren2(node) && (node.type === ElementType2.Tag || isCDATA2(node))) {
-    return innerText2(node.children);
-  }
-  if (isText2(node))
-    return node.data;
-  return "";
-}
-
-// node_modules/css-select/node_modules/domutils/dist/feeds.js
-function getFeed2(document2) {
-  const feedRoot = getOneElement2(isValidFeed2, document2);
-  return feedRoot ? feedRoot.name === "feed" ? getAtomFeed2(feedRoot) : getRssFeed2(feedRoot) : null;
-}
-function getAtomFeed2(feedRoot) {
-  const childs = feedRoot.children;
-  const feed = {
-    type: "atom",
-    items: getElementsByTagName2("entry", childs).map((item) => {
-      const { children: children2 } = item;
-      const entry = { media: getMediaElements2(children2) };
-      addConditionally2(entry, "id", "id", children2);
-      addConditionally2(entry, "title", "title", children2);
-      const href2 = getOneElement2("link", children2)?.attribs["href"];
-      if (href2) {
-        entry.link = href2;
-      }
-      const description = fetch4("summary", children2) || fetch4("content", children2);
-      if (description) {
-        entry.description = description;
-      }
-      const pubDate = fetch4("updated", children2);
-      if (pubDate) {
-        entry.pubDate = new Date(pubDate);
-      }
-      return entry;
-    })
-  };
-  addConditionally2(feed, "id", "id", childs);
-  addConditionally2(feed, "title", "title", childs);
-  const href = getOneElement2("link", childs)?.attribs["href"];
-  if (href) {
-    feed.link = href;
-  }
-  addConditionally2(feed, "description", "subtitle", childs);
-  const updated = fetch4("updated", childs);
-  if (updated) {
-    feed.updated = new Date(updated);
-  }
-  addConditionally2(feed, "author", "email", childs, true);
-  return feed;
-}
-function getRssFeed2(feedRoot) {
-  const childs = getOneElement2("channel", feedRoot.children)?.children ?? [];
-  const feed = {
-    type: feedRoot.name.substr(0, 3),
-    id: "",
-    items: getElementsByTagName2("item", feedRoot.children).map((item) => {
-      const { children: children2 } = item;
-      const entry = { media: getMediaElements2(children2) };
-      addConditionally2(entry, "id", "guid", children2);
-      addConditionally2(entry, "title", "title", children2);
-      addConditionally2(entry, "link", "link", children2);
-      addConditionally2(entry, "description", "description", children2);
-      const pubDate = fetch4("pubDate", children2) || fetch4("dc:date", children2);
-      if (pubDate)
-        entry.pubDate = new Date(pubDate);
-      return entry;
-    })
-  };
-  addConditionally2(feed, "title", "title", childs);
-  addConditionally2(feed, "link", "link", childs);
-  addConditionally2(feed, "description", "description", childs);
-  const updated = fetch4("lastBuildDate", childs);
-  if (updated) {
-    feed.updated = new Date(updated);
-  }
-  addConditionally2(feed, "author", "managingEditor", childs, true);
-  return feed;
-}
-var MEDIA_KEYS_STRING2 = ["url", "type", "lang"];
-var MEDIA_KEYS_INT2 = [
-  "fileSize",
-  "bitrate",
-  "framerate",
-  "samplingrate",
-  "channels",
-  "duration",
-  "height",
-  "width"
-];
-function getMediaElements2(where2) {
-  return getElementsByTagName2("media:content", where2).map((element) => {
-    const { attribs } = element;
-    const media = {
-      medium: attribs["medium"],
-      isDefault: !!attribs["isDefault"]
-    };
-    for (const attrib of MEDIA_KEYS_STRING2) {
-      if (attribs[attrib]) {
-        media[attrib] = attribs[attrib];
-      }
-    }
-    for (const attrib of MEDIA_KEYS_INT2) {
-      if (attribs[attrib]) {
-        media[attrib] = Number.parseInt(attribs[attrib], 10);
-      }
-    }
-    if (attribs["expression"]) {
-      media.expression = attribs["expression"];
-    }
-    return media;
-  });
-}
-function getOneElement2(tagName19, node) {
-  return getElementsByTagName2(tagName19, node, true, 1)[0];
-}
-function fetch4(tagName19, where2, recurse = false) {
-  return textContent2(getElementsByTagName2(tagName19, where2, recurse, 1)).trim();
-}
-function addConditionally2(object, property, tagName19, where2, recurse = false) {
-  const value = fetch4(tagName19, where2, recurse);
-  if (value)
-    object[property] = value;
-}
-function isValidFeed2(value) {
-  return value === "rss" || value === "feed" || value === "rdf:RDF";
-}
-
-// node_modules/css-select/node_modules/domutils/dist/helpers.js
-function removeSubsets2(nodes) {
-  let index = nodes.length;
-  while (--index >= 0) {
-    const node = nodes[index];
-    if (index > 0 && nodes.lastIndexOf(node, index - 1) >= 0) {
-      nodes.splice(index, 1);
-      continue;
-    }
-    for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
-      if (nodes.includes(ancestor)) {
-        nodes.splice(index, 1);
-        break;
-      }
-    }
-  }
-  return nodes;
-}
-var DocumentPosition2;
-(function(DocumentPosition3) {
-  DocumentPosition3[DocumentPosition3["DISCONNECTED"] = 1] = "DISCONNECTED";
-  DocumentPosition3[DocumentPosition3["PRECEDING"] = 2] = "PRECEDING";
-  DocumentPosition3[DocumentPosition3["FOLLOWING"] = 4] = "FOLLOWING";
-  DocumentPosition3[DocumentPosition3["CONTAINS"] = 8] = "CONTAINS";
-  DocumentPosition3[DocumentPosition3["CONTAINED_BY"] = 16] = "CONTAINED_BY";
-})(DocumentPosition2 || (DocumentPosition2 = {}));
-function compareDocumentPosition2(nodeA, nodeB) {
-  const aParents = [];
-  const bParents = [];
-  if (nodeA === nodeB) {
-    return 0;
-  }
-  let current = hasChildren2(nodeA) ? nodeA : nodeA.parent;
-  while (current) {
-    aParents.unshift(current);
-    current = current.parent;
-  }
-  current = hasChildren2(nodeB) ? nodeB : nodeB.parent;
-  while (current) {
-    bParents.unshift(current);
-    current = current.parent;
-  }
-  const maxIndex = Math.min(aParents.length, bParents.length);
-  let index = 0;
-  while (index < maxIndex && aParents[index] === bParents[index]) {
-    index++;
-  }
-  if (index === 0) {
-    return DocumentPosition2.DISCONNECTED;
-  }
-  const sharedParent = aParents[index - 1];
-  const siblings = sharedParent.children;
-  const aSibling = aParents[index];
-  const bSibling = bParents[index];
-  if (siblings.indexOf(aSibling) > siblings.indexOf(bSibling)) {
-    if (sharedParent === nodeB) {
-      return DocumentPosition2.FOLLOWING | DocumentPosition2.CONTAINED_BY;
-    }
-    return DocumentPosition2.FOLLOWING;
-  }
-  if (sharedParent === nodeA) {
-    return DocumentPosition2.PRECEDING | DocumentPosition2.CONTAINS;
-  }
-  return DocumentPosition2.PRECEDING;
-}
-function uniqueSort2(nodes) {
-  nodes = nodes.filter((node, index, array2) => !array2.includes(node, index + 1));
-  nodes.sort((a, b) => {
-    const relative = compareDocumentPosition2(a, b);
-    if (relative & DocumentPosition2.PRECEDING) {
-      return -1;
-    }
-    if (relative & DocumentPosition2.FOLLOWING) {
-      return 1;
-    }
-    return 0;
-  });
-  return nodes;
-}
-
-// node_modules/css-select/node_modules/domutils/dist/manipulation.js
-function removeElement2(element) {
-  if (element.prev)
-    element.prev.next = element.next;
-  if (element.next)
-    element.next.prev = element.prev;
-  if (element.parent) {
-    const childs = element.parent.children;
-    const childsIndex = childs.lastIndexOf(element);
-    if (childsIndex !== -1) {
-      childs.splice(childsIndex, 1);
-    }
-  }
-  element.next = null;
-  element.prev = null;
-  element.parent = null;
-}
-function replaceElement2(element, replacement) {
-  replacement.prev = element.prev;
-  if (replacement.prev) {
-    replacement.prev.next = replacement;
-  }
-  replacement.next = element.next;
-  if (replacement.next) {
-    replacement.next.prev = replacement;
-  }
-  replacement.parent = element.parent;
-  if (replacement.parent) {
-    const { children: children2 } = replacement.parent;
-    const elementIndex = children2.lastIndexOf(element);
-    if (elementIndex === -1) {
-      return;
-    }
-    children2[elementIndex] = replacement;
-    element.parent = null;
-  }
-}
-function appendChild2(parent, child) {
-  removeElement2(child);
-  child.next = null;
-  child.parent = parent;
-  if (parent.children.push(child) > 1) {
-    const sibling = parent.children[parent.children.length - 2];
-    sibling.next = child;
-    child.prev = sibling;
-  } else {
-    child.prev = null;
-  }
-}
-function append3(element, next) {
-  removeElement2(next);
-  const { parent } = element;
-  const currentNext = element.next;
-  next.next = currentNext;
-  next.prev = element;
-  element.next = next;
-  next.parent = parent;
-  if (currentNext) {
-    currentNext.prev = next;
-    if (parent) {
-      const childs = parent.children;
-      childs.splice(childs.lastIndexOf(currentNext), 0, next);
-    }
-  } else if (parent) {
-    parent.children.push(next);
-  }
-}
-function prependChild2(parent, child) {
-  removeElement2(child);
-  child.parent = parent;
-  child.prev = null;
-  if (parent.children.unshift(child) === 1) {
-    child.next = null;
-  } else {
-    const sibling = parent.children[1];
-    sibling.prev = child;
-    child.next = sibling;
-  }
-}
-function prepend2(element, previous) {
-  removeElement2(previous);
-  const { parent } = element;
-  if (parent) {
-    const childs = parent.children;
-    childs.splice(childs.indexOf(element), 0, previous);
-  }
-  if (element.prev) {
-    element.prev.next = previous;
-  }
-  previous.parent = parent;
-  previous.prev = element.prev;
-  previous.next = element;
-  element.prev = previous;
-}
-
-// node_modules/css-select/node_modules/domutils/dist/traversal.js
-function getChildren2(element) {
-  return hasChildren2(element) ? element.children : [];
-}
-function getParent2(element) {
-  return element.parent || null;
-}
-function getSiblings2(element) {
-  const parent = getParent2(element);
-  if (parent != null)
-    return getChildren2(parent);
-  const siblings = [element];
-  let { prev, next } = element;
-  while (prev != null) {
-    siblings.unshift(prev);
-    ({ prev } = prev);
-  }
-  while (next != null) {
-    siblings.push(next);
-    ({ next } = next);
-  }
-  return siblings;
-}
-function getAttributeValue2(element, name) {
-  const { attribs } = element;
-  return attribs?.[name];
-}
-function hasAttrib2(element, name) {
-  const { attribs } = element;
-  return attribs != null && Object.hasOwn(attribs, name) && attribs[name] != null;
-}
-function getName2(element) {
-  return element.name;
-}
-function nextElementSibling3(element) {
-  let { next } = element;
-  while (next !== null && !isTag4(next))
-    ({ next } = next);
-  return next;
-}
-function prevElementSibling2(element) {
-  let { prev } = element;
-  while (prev !== null && !isTag4(prev))
-    ({ prev } = prev);
-  return prev;
-}
-
-// node_modules/css-select/dist/attributes.js
+// node_modules/css-select/lib/esm/attributes.js
+var import_boolbase = __toESM(require_boolbase(), 1);
 var reChars = /[-[\]{}()*+?.,\\^$|#\s]/g;
-var whitespaceRe = /\s/;
 function escapeRegex(value) {
   return value.replace(reChars, "\\$&");
 }
@@ -69698,187 +69125,405 @@ var attributeRules = {
     let { value } = data;
     if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
-      return (element) => {
-        const attribute2 = adapter2.getAttributeValue(element, name);
-        return attribute2 != null && attribute2.length === value.length && attribute2.toLowerCase() === value && next(element);
+      return (elem) => {
+        const attr = adapter2.getAttributeValue(elem, name);
+        return attr != null && attr.length === value.length && attr.toLowerCase() === value && next(elem);
       };
     }
-    return (element) => adapter2.getAttributeValue(element, name) === value && next(element);
+    return (elem) => adapter2.getAttributeValue(elem, name) === value && next(elem);
   },
   hyphen(next, data, options) {
     const { adapter: adapter2 } = options;
     const { name } = data;
     let { value } = data;
-    const { length } = value;
+    const len = value.length;
     if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
-      return function hyphenIC(element) {
-        const attribute2 = adapter2.getAttributeValue(element, name);
-        return attribute2 != null && (attribute2.length === length || attribute2.charAt(length) === "-") && attribute2.substr(0, length).toLowerCase() === value && next(element);
+      return function hyphenIC(elem) {
+        const attr = adapter2.getAttributeValue(elem, name);
+        return attr != null && (attr.length === len || attr.charAt(len) === "-") && attr.substr(0, len).toLowerCase() === value && next(elem);
       };
     }
-    return function hyphen(element) {
-      const attribute2 = adapter2.getAttributeValue(element, name);
-      return attribute2 != null && (attribute2.length === length || attribute2.charAt(length) === "-") && attribute2.substr(0, length) === value && next(element);
+    return function hyphen(elem) {
+      const attr = adapter2.getAttributeValue(elem, name);
+      return attr != null && (attr.length === len || attr.charAt(len) === "-") && attr.substr(0, len) === value && next(elem);
     };
   },
   element(next, data, options) {
     const { adapter: adapter2 } = options;
     const { name, value } = data;
-    if (whitespaceRe.test(value)) {
-      return falseFunc;
+    if (/\s/.test(value)) {
+      return import_boolbase.default.falseFunc;
     }
     const regex = new RegExp(`(?:^|\\s)${escapeRegex(value)}(?:$|\\s)`, shouldIgnoreCase(data, options) ? "i" : "");
-    return function element(node) {
-      const attribute2 = adapter2.getAttributeValue(node, name);
-      return attribute2 != null && attribute2.length >= value.length && regex.test(attribute2) && next(node);
+    return function element(elem) {
+      const attr = adapter2.getAttributeValue(elem, name);
+      return attr != null && attr.length >= value.length && regex.test(attr) && next(elem);
     };
   },
   exists(next, { name }, { adapter: adapter2 }) {
-    return (element) => adapter2.hasAttrib(element, name) && next(element);
+    return (elem) => adapter2.hasAttrib(elem, name) && next(elem);
   },
   start(next, data, options) {
     const { adapter: adapter2 } = options;
     const { name } = data;
     let { value } = data;
-    const { length } = value;
-    if (length === 0) {
-      return falseFunc;
+    const len = value.length;
+    if (len === 0) {
+      return import_boolbase.default.falseFunc;
     }
     if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
-      return (element) => {
-        const attribute2 = adapter2.getAttributeValue(element, name);
-        return attribute2 != null && attribute2.length >= length && attribute2.substr(0, length).toLowerCase() === value && next(element);
+      return (elem) => {
+        const attr = adapter2.getAttributeValue(elem, name);
+        return attr != null && attr.length >= len && attr.substr(0, len).toLowerCase() === value && next(elem);
       };
     }
-    return (element) => !!adapter2.getAttributeValue(element, name)?.startsWith(value) && next(element);
+    return (elem) => {
+      var _a3;
+      return !!((_a3 = adapter2.getAttributeValue(elem, name)) === null || _a3 === void 0 ? void 0 : _a3.startsWith(value)) && next(elem);
+    };
   },
   end(next, data, options) {
     const { adapter: adapter2 } = options;
     const { name } = data;
     let { value } = data;
-    const length = -value.length;
-    if (length === 0) {
-      return falseFunc;
+    const len = -value.length;
+    if (len === 0) {
+      return import_boolbase.default.falseFunc;
     }
     if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
-      return (element) => adapter2.getAttributeValue(element, name)?.substr(length).toLowerCase() === value && next(element);
+      return (elem) => {
+        var _a3;
+        return ((_a3 = adapter2.getAttributeValue(elem, name)) === null || _a3 === void 0 ? void 0 : _a3.substr(len).toLowerCase()) === value && next(elem);
+      };
     }
-    return (element) => !!adapter2.getAttributeValue(element, name)?.endsWith(value) && next(element);
+    return (elem) => {
+      var _a3;
+      return !!((_a3 = adapter2.getAttributeValue(elem, name)) === null || _a3 === void 0 ? void 0 : _a3.endsWith(value)) && next(elem);
+    };
   },
   any(next, data, options) {
     const { adapter: adapter2 } = options;
     const { name, value } = data;
     if (value === "") {
-      return falseFunc;
+      return import_boolbase.default.falseFunc;
     }
     if (shouldIgnoreCase(data, options)) {
       const regex = new RegExp(escapeRegex(value), "i");
-      return function anyIC(element) {
-        const attribute2 = adapter2.getAttributeValue(element, name);
-        return attribute2 != null && attribute2.length >= value.length && regex.test(attribute2) && next(element);
+      return function anyIC(elem) {
+        const attr = adapter2.getAttributeValue(elem, name);
+        return attr != null && attr.length >= value.length && regex.test(attr) && next(elem);
       };
     }
-    return (element) => !!adapter2.getAttributeValue(element, name)?.includes(value) && next(element);
+    return (elem) => {
+      var _a3;
+      return !!((_a3 = adapter2.getAttributeValue(elem, name)) === null || _a3 === void 0 ? void 0 : _a3.includes(value)) && next(elem);
+    };
   },
   not(next, data, options) {
     const { adapter: adapter2 } = options;
     const { name } = data;
     let { value } = data;
     if (value === "") {
-      return (element) => !!adapter2.getAttributeValue(element, name) && next(element);
-    }
-    if (shouldIgnoreCase(data, options)) {
+      return (elem) => !!adapter2.getAttributeValue(elem, name) && next(elem);
+    } else if (shouldIgnoreCase(data, options)) {
       value = value.toLowerCase();
-      return (element) => {
-        const attribute2 = adapter2.getAttributeValue(element, name);
-        return (attribute2 == null || attribute2.length !== value.length || attribute2.toLowerCase() !== value) && next(element);
+      return (elem) => {
+        const attr = adapter2.getAttributeValue(elem, name);
+        return (attr == null || attr.length !== value.length || attr.toLowerCase() !== value) && next(elem);
       };
     }
-    return (element) => adapter2.getAttributeValue(element, name) !== value && next(element);
+    return (elem) => adapter2.getAttributeValue(elem, name) !== value && next(elem);
   }
 };
 
-// node_modules/css-select/dist/helpers/querying.js
-function findAll3(query2, nodes, options) {
-  const { adapter: adapter2, xmlMode = false } = options;
-  const result = [];
-  const nodeStack = [nodes];
-  const indexStack = [0];
-  for (; ; ) {
-    if (indexStack[0] >= nodeStack[0].length) {
-      if (nodeStack.length === 1) {
-        return result;
-      }
-      nodeStack.shift();
-      indexStack.shift();
-      continue;
-    }
-    const element = nodeStack[0][indexStack[0]++];
-    if (!adapter2.isTag(element)) {
-      continue;
-    }
-    if (query2(element)) {
-      result.push(element);
-    }
-    if (xmlMode || adapter2.getName(element) !== "template") {
-      const children2 = adapter2.getChildren(element);
-      if (children2.length > 0) {
-        nodeStack.unshift(children2);
-        indexStack.unshift(0);
-      }
+// node_modules/css-select/lib/esm/pseudo-selectors/index.js
+var import_css_what2 = __toESM(require_commonjs(), 1);
+
+// node_modules/nth-check/lib/esm/parse.js
+var whitespace = /* @__PURE__ */ new Set([9, 10, 12, 13, 32]);
+var ZERO = "0".charCodeAt(0);
+var NINE = "9".charCodeAt(0);
+function parse3(formula) {
+  formula = formula.trim().toLowerCase();
+  if (formula === "even") {
+    return [2, 0];
+  } else if (formula === "odd") {
+    return [2, 1];
+  }
+  let idx = 0;
+  let a = 0;
+  let sign = readSign();
+  let number = readNumber();
+  if (idx < formula.length && formula.charAt(idx) === "n") {
+    idx++;
+    a = sign * (number !== null && number !== void 0 ? number : 1);
+    skipWhitespace2();
+    if (idx < formula.length) {
+      sign = readSign();
+      skipWhitespace2();
+      number = readNumber();
+    } else {
+      sign = number = 0;
     }
   }
-}
-function findOne3(query2, nodes, options) {
-  const { adapter: adapter2, xmlMode = false } = options;
-  const nodeStack = [nodes];
-  const indexStack = [0];
-  for (; ; ) {
-    if (indexStack[0] >= nodeStack[0].length) {
-      if (nodeStack.length === 1) {
-        return null;
-      }
-      nodeStack.shift();
-      indexStack.shift();
-      continue;
+  if (number === null || idx < formula.length) {
+    throw new Error(`n-th rule couldn't be parsed ('${formula}')`);
+  }
+  return [a, sign * number];
+  function readSign() {
+    if (formula.charAt(idx) === "-") {
+      idx++;
+      return -1;
     }
-    const element = nodeStack[0][indexStack[0]++];
-    if (!adapter2.isTag(element)) {
-      continue;
+    if (formula.charAt(idx) === "+") {
+      idx++;
     }
-    if (query2(element)) {
-      return element;
+    return 1;
+  }
+  function readNumber() {
+    const start2 = idx;
+    let value = 0;
+    while (idx < formula.length && formula.charCodeAt(idx) >= ZERO && formula.charCodeAt(idx) <= NINE) {
+      value = value * 10 + (formula.charCodeAt(idx) - ZERO);
+      idx++;
     }
-    if (xmlMode || adapter2.getName(element) !== "template") {
-      const children2 = adapter2.getChildren(element);
-      if (children2.length > 0) {
-        nodeStack.unshift(children2);
-        indexStack.unshift(0);
-      }
+    return idx === start2 ? null : value;
+  }
+  function skipWhitespace2() {
+    while (idx < formula.length && whitespace.has(formula.charCodeAt(idx))) {
+      idx++;
     }
   }
-}
-function getNextSiblings(element, adapter2) {
-  const siblings = adapter2.getSiblings(element);
-  if (siblings.length <= 1) {
-    return [];
-  }
-  const elementIndex = siblings.indexOf(element);
-  if (elementIndex === -1 || elementIndex === siblings.length - 1) {
-    return [];
-  }
-  return siblings.slice(elementIndex + 1).filter(adapter2.isTag);
-}
-function getElementParent(node, adapter2) {
-  const parent = adapter2.getParent(node);
-  return parent != null && adapter2.isTag(parent) ? parent : null;
 }
 
-// node_modules/css-select/dist/pseudo-selectors/aliases.js
-var textControl = "input:is([type=text i],[type=search i],[type=url i],[type=tel i],[type=email i],[type=password i],[type=date i],[type=month i],[type=week i],[type=time i],[type=datetime-local i],[type=number i])";
+// node_modules/nth-check/lib/esm/compile.js
+var import_boolbase2 = __toESM(require_boolbase(), 1);
+function compile(parsed) {
+  const a = parsed[0];
+  const b = parsed[1] - 1;
+  if (b < 0 && a <= 0)
+    return import_boolbase2.default.falseFunc;
+  if (a === -1)
+    return (index) => index <= b;
+  if (a === 0)
+    return (index) => index === b;
+  if (a === 1)
+    return b < 0 ? import_boolbase2.default.trueFunc : (index) => index >= b;
+  const absA = Math.abs(a);
+  const bMod = (b % absA + absA) % absA;
+  return a > 1 ? (index) => index >= b && index % absA === bMod : (index) => index <= b && index % absA === bMod;
+}
+
+// node_modules/nth-check/lib/esm/index.js
+function nthCheck(formula) {
+  return compile(parse3(formula));
+}
+
+// node_modules/css-select/lib/esm/pseudo-selectors/filters.js
+var import_boolbase3 = __toESM(require_boolbase(), 1);
+function getChildFunc(next, adapter2) {
+  return (elem) => {
+    const parent = adapter2.getParent(elem);
+    return parent != null && adapter2.isTag(parent) && next(elem);
+  };
+}
+var filters = {
+  contains(next, text, { adapter: adapter2 }) {
+    return function contains(elem) {
+      return next(elem) && adapter2.getText(elem).includes(text);
+    };
+  },
+  icontains(next, text, { adapter: adapter2 }) {
+    const itext = text.toLowerCase();
+    return function icontains(elem) {
+      return next(elem) && adapter2.getText(elem).toLowerCase().includes(itext);
+    };
+  },
+  // Location specific methods
+  "nth-child"(next, rule, { adapter: adapter2, equals }) {
+    const func = nthCheck(rule);
+    if (func === import_boolbase3.default.falseFunc)
+      return import_boolbase3.default.falseFunc;
+    if (func === import_boolbase3.default.trueFunc)
+      return getChildFunc(next, adapter2);
+    return function nthChild(elem) {
+      const siblings = adapter2.getSiblings(elem);
+      let pos = 0;
+      for (let i = 0; i < siblings.length; i++) {
+        if (equals(elem, siblings[i]))
+          break;
+        if (adapter2.isTag(siblings[i])) {
+          pos++;
+        }
+      }
+      return func(pos) && next(elem);
+    };
+  },
+  "nth-last-child"(next, rule, { adapter: adapter2, equals }) {
+    const func = nthCheck(rule);
+    if (func === import_boolbase3.default.falseFunc)
+      return import_boolbase3.default.falseFunc;
+    if (func === import_boolbase3.default.trueFunc)
+      return getChildFunc(next, adapter2);
+    return function nthLastChild(elem) {
+      const siblings = adapter2.getSiblings(elem);
+      let pos = 0;
+      for (let i = siblings.length - 1; i >= 0; i--) {
+        if (equals(elem, siblings[i]))
+          break;
+        if (adapter2.isTag(siblings[i])) {
+          pos++;
+        }
+      }
+      return func(pos) && next(elem);
+    };
+  },
+  "nth-of-type"(next, rule, { adapter: adapter2, equals }) {
+    const func = nthCheck(rule);
+    if (func === import_boolbase3.default.falseFunc)
+      return import_boolbase3.default.falseFunc;
+    if (func === import_boolbase3.default.trueFunc)
+      return getChildFunc(next, adapter2);
+    return function nthOfType(elem) {
+      const siblings = adapter2.getSiblings(elem);
+      let pos = 0;
+      for (let i = 0; i < siblings.length; i++) {
+        const currentSibling = siblings[i];
+        if (equals(elem, currentSibling))
+          break;
+        if (adapter2.isTag(currentSibling) && adapter2.getName(currentSibling) === adapter2.getName(elem)) {
+          pos++;
+        }
+      }
+      return func(pos) && next(elem);
+    };
+  },
+  "nth-last-of-type"(next, rule, { adapter: adapter2, equals }) {
+    const func = nthCheck(rule);
+    if (func === import_boolbase3.default.falseFunc)
+      return import_boolbase3.default.falseFunc;
+    if (func === import_boolbase3.default.trueFunc)
+      return getChildFunc(next, adapter2);
+    return function nthLastOfType(elem) {
+      const siblings = adapter2.getSiblings(elem);
+      let pos = 0;
+      for (let i = siblings.length - 1; i >= 0; i--) {
+        const currentSibling = siblings[i];
+        if (equals(elem, currentSibling))
+          break;
+        if (adapter2.isTag(currentSibling) && adapter2.getName(currentSibling) === adapter2.getName(elem)) {
+          pos++;
+        }
+      }
+      return func(pos) && next(elem);
+    };
+  },
+  // TODO determine the actual root element
+  root(next, _rule, { adapter: adapter2 }) {
+    return (elem) => {
+      const parent = adapter2.getParent(elem);
+      return (parent == null || !adapter2.isTag(parent)) && next(elem);
+    };
+  },
+  scope(next, rule, options, context5) {
+    const { equals } = options;
+    if (!context5 || context5.length === 0) {
+      return filters["root"](next, rule, options);
+    }
+    if (context5.length === 1) {
+      return (elem) => equals(context5[0], elem) && next(elem);
+    }
+    return (elem) => context5.includes(elem) && next(elem);
+  },
+  hover: dynamicStatePseudo("isHovered"),
+  visited: dynamicStatePseudo("isVisited"),
+  active: dynamicStatePseudo("isActive")
+};
+function dynamicStatePseudo(name) {
+  return function dynamicPseudo(next, _rule, { adapter: adapter2 }) {
+    const func = adapter2[name];
+    if (typeof func !== "function") {
+      return import_boolbase3.default.falseFunc;
+    }
+    return function active(elem) {
+      return func(elem) && next(elem);
+    };
+  };
+}
+
+// node_modules/css-select/lib/esm/pseudo-selectors/pseudos.js
+var pseudos = {
+  empty(elem, { adapter: adapter2 }) {
+    return !adapter2.getChildren(elem).some((elem2) => (
+      // FIXME: `getText` call is potentially expensive.
+      adapter2.isTag(elem2) || adapter2.getText(elem2) !== ""
+    ));
+  },
+  "first-child"(elem, { adapter: adapter2, equals }) {
+    if (adapter2.prevElementSibling) {
+      return adapter2.prevElementSibling(elem) == null;
+    }
+    const firstChild = adapter2.getSiblings(elem).find((elem2) => adapter2.isTag(elem2));
+    return firstChild != null && equals(elem, firstChild);
+  },
+  "last-child"(elem, { adapter: adapter2, equals }) {
+    const siblings = adapter2.getSiblings(elem);
+    for (let i = siblings.length - 1; i >= 0; i--) {
+      if (equals(elem, siblings[i]))
+        return true;
+      if (adapter2.isTag(siblings[i]))
+        break;
+    }
+    return false;
+  },
+  "first-of-type"(elem, { adapter: adapter2, equals }) {
+    const siblings = adapter2.getSiblings(elem);
+    const elemName = adapter2.getName(elem);
+    for (let i = 0; i < siblings.length; i++) {
+      const currentSibling = siblings[i];
+      if (equals(elem, currentSibling))
+        return true;
+      if (adapter2.isTag(currentSibling) && adapter2.getName(currentSibling) === elemName) {
+        break;
+      }
+    }
+    return false;
+  },
+  "last-of-type"(elem, { adapter: adapter2, equals }) {
+    const siblings = adapter2.getSiblings(elem);
+    const elemName = adapter2.getName(elem);
+    for (let i = siblings.length - 1; i >= 0; i--) {
+      const currentSibling = siblings[i];
+      if (equals(elem, currentSibling))
+        return true;
+      if (adapter2.isTag(currentSibling) && adapter2.getName(currentSibling) === elemName) {
+        break;
+      }
+    }
+    return false;
+  },
+  "only-of-type"(elem, { adapter: adapter2, equals }) {
+    const elemName = adapter2.getName(elem);
+    return adapter2.getSiblings(elem).every((sibling) => equals(elem, sibling) || !adapter2.isTag(sibling) || adapter2.getName(sibling) !== elemName);
+  },
+  "only-child"(elem, { adapter: adapter2, equals }) {
+    return adapter2.getSiblings(elem).every((sibling) => equals(elem, sibling) || !adapter2.isTag(sibling));
+  }
+};
+function verifyPseudoArgs(func, name, subselect, argIndex) {
+  if (subselect === null) {
+    if (func.length > argIndex) {
+      throw new Error(`Pseudo-class :${name} requires an argument`);
+    }
+  } else if (func.length === argIndex) {
+    throw new Error(`Pseudo-class :${name} doesn't have any arguments`);
+  }
+}
+
+// node_modules/css-select/lib/esm/pseudo-selectors/aliases.js
 var aliases = {
   // Links
   "any-link": ":is(a, area, link)[href]",
@@ -69890,20 +69535,12 @@ var aliases = {
         optgroup[disabled] > option,
         fieldset[disabled]:not(fieldset[disabled] legend:first-of-type *)
     )`,
-  enabled: ":is(button, input, select, textarea, optgroup, option, fieldset):not(:disabled)",
-  checked: ":is(:is(input[type=radio], input[type=checkbox])[checked], :selected)",
+  enabled: ":not(:disabled)",
+  checked: ":is(:is(input[type=radio], input[type=checkbox])[checked], option:selected)",
   required: ":is(input, select, textarea)[required]",
   optional: ":is(input, select, textarea):not([required])",
-  "read-only": `[readonly]:is(textarea, ${textControl})`,
-  "read-write": `:not([readonly]):is(textarea, ${textControl})`,
   // JQuery extensions
-  /**
-   * `:selected` matches option elements that have the `selected` attribute,
-   * or are the first option element in a select element that does not have
-   * the `multiple` attribute and does not have any option elements with the
-   * `selected` attribute.
-   * @see https://html.spec.whatwg.org/multipage/form-elements.html#concept-option-selectedness
-   */
+  // https://html.spec.whatwg.org/multipage/form-elements.html#concept-option-selectedness
   selected: "option:is([selected], select:not([multiple]):not(:has(> option[selected])) > :first-of-type)",
   checkbox: "[type=checkbox]",
   file: "[type=file]",
@@ -69919,423 +69556,38 @@ var aliases = {
   text: "input:is(:not([type!='']), [type=text])"
 };
 
-// node_modules/nth-check/dist/compile.js
-function compile(parsed) {
-  const a = parsed[0];
-  const b = parsed[1] - 1;
-  if (b < 0 && a <= 0)
-    return falseFunc;
-  if (a === -1)
-    return (index) => index <= b;
-  if (a === 0)
-    return (index) => index === b;
-  if (a === 1)
-    return b < 0 ? trueFunc : (index) => index >= b;
-  const absA = Math.abs(a);
-  const bModulo = (b % absA + absA) % absA;
-  return a > 1 ? (index) => index >= b && index % absA === bModulo : (index) => index <= b && index % absA === bModulo;
-}
-
-// node_modules/nth-check/dist/parse.js
-var whitespace = /* @__PURE__ */ new Set([9, 10, 12, 13, 32]);
-var ZERO = "0".charCodeAt(0);
-var NINE = "9".charCodeAt(0);
-function parse4(formula) {
-  formula = formula.trim().toLowerCase();
-  switch (formula) {
-    case "even": {
-      return [2, 0];
-    }
-    case "odd": {
-      return [2, 1];
-    }
-  }
-  let index = 0;
-  let a = 0;
-  let sign = readSign();
-  let number = readNumber();
-  if (index < formula.length && formula.charAt(index) === "n") {
-    index++;
-    a = sign * (number ?? 1);
-    skipWhitespace2();
-    if (index < formula.length) {
-      sign = readSign();
-      skipWhitespace2();
-      number = readNumber();
-    } else {
-      sign = number = 0;
-    }
-  }
-  if (number === null || index < formula.length) {
-    throw new Error(`n-th rule couldn't be parsed ('${formula}')`);
-  }
-  return [a, sign * number];
-  function readSign() {
-    switch (formula.charAt(index)) {
-      case "-": {
-        index++;
-        return -1;
-      }
-      case "+": {
-        index++;
-        break;
-      }
-    }
-    return 1;
-  }
-  function readNumber() {
-    const start2 = index;
-    let value = 0;
-    while (index < formula.length && formula.charCodeAt(index) >= ZERO && formula.charCodeAt(index) <= NINE) {
-      value = value * 10 + (formula.charCodeAt(index) - ZERO);
-      index++;
-    }
-    return index === start2 ? null : value;
-  }
-  function skipWhitespace2() {
-    while (index < formula.length && whitespace.has(formula.charCodeAt(index))) {
-      index++;
-    }
-  }
-}
-
-// node_modules/nth-check/dist/index.js
-function nthCheck(formula) {
-  return compile(parse4(formula));
-}
-
-// node_modules/css-select/dist/helpers/cache.js
-function cacheParentResults(next, { adapter: adapter2, cacheResults }, matches2) {
-  if (cacheResults === false || typeof WeakMap === "undefined") {
-    return (element) => next(element) && matches2(element);
-  }
-  const resultCache = /* @__PURE__ */ new WeakMap();
-  function addResultToCache(element) {
-    const result = matches2(element);
-    resultCache.set(element, result);
-    return result;
-  }
-  return function cachedMatcher(element) {
-    if (!next(element)) {
-      return false;
-    }
-    if (resultCache.has(element)) {
-      return resultCache.get(element) ?? false;
-    }
-    let node = element;
-    do {
-      const parent = getElementParent(node, adapter2);
-      if (parent === null) {
-        return addResultToCache(element);
-      }
-      node = parent;
-    } while (!resultCache.has(node));
-    return resultCache.get(node) ? addResultToCache(element) : false;
-  };
-}
-
-// node_modules/css-select/dist/helpers/options.js
-function copyOptions(options) {
-  const { context: _2, rootFunc: __, ...copied } = options;
-  return copied;
-}
-
-// node_modules/css-select/dist/pseudo-selectors/filters.js
-function extendedFilter(tag, range2) {
-  if (range2[0] !== "*" && range2[0] !== tag[0])
-    return false;
-  let tagIndex = 1;
-  for (let rangeIndex = 1; rangeIndex < range2.length; rangeIndex++) {
-    if (range2[rangeIndex] === "*")
-      continue;
-    while (tagIndex < tag.length && tag[tagIndex] !== range2[rangeIndex]) {
-      if (tag[tagIndex++].length <= 1)
-        return false;
-    }
-    if (tagIndex >= tag.length)
-      return false;
-    tagIndex++;
-  }
-  return true;
-}
-var nthOfRegex = /^(.+?)\s+of\s+(.+)$/is;
-function compileNth(reverse, ofType) {
-  return function nth(next, rule, options, context5, compileToken2) {
-    const { adapter: adapter2, equals } = options;
-    const ofMatch = ofType ? null : rule.match(nthOfRegex);
-    const nthCheck2 = nthCheck(ofMatch ? ofMatch[1].trim() : rule);
-    if (nthCheck2 === falseFunc)
-      return falseFunc;
-    const ofSelector = ofMatch && compileToken2 ? compileToken2(parse3(ofMatch[2].trim()), copyOptions(options), context5) : void 0;
-    if (ofSelector === falseFunc)
-      return falseFunc;
-    if (nthCheck2 === trueFunc && !ofSelector) {
-      return (element) => getElementParent(element, adapter2) !== null && next(element);
-    }
-    const shouldCount = ofSelector ? (_element, sibling) => ofSelector(sibling) : ofType ? (element, sibling) => adapter2.getName(sibling) === adapter2.getName(element) : trueFunc;
-    if (reverse) {
-      return function nthLast(element) {
-        if (ofSelector && !ofSelector(element))
-          return false;
-        const siblings = adapter2.getSiblings(element);
-        let pos = 0;
-        for (let index = siblings.length - 1; index >= 0; index--) {
-          const sibling = siblings[index];
-          if (equals(element, sibling))
-            break;
-          if (adapter2.isTag(sibling) && shouldCount(element, sibling))
-            pos++;
-        }
-        return nthCheck2(pos) && next(element);
-      };
-    }
-    return function nth2(element) {
-      if (ofSelector && !ofSelector(element))
-        return false;
-      const siblings = adapter2.getSiblings(element);
-      let pos = 0;
-      for (const sibling of siblings) {
-        if (equals(element, sibling))
-          break;
-        if (adapter2.isTag(sibling) && shouldCount(element, sibling))
-          pos++;
-      }
-      return nthCheck2(pos) && next(element);
-    };
-  };
-}
-var filters = {
-  contains(next, text, options) {
-    const { getText: getText4 } = options.adapter;
-    return cacheParentResults(next, options, (element) => getText4(element).includes(text));
-  },
-  icontains(next, text, options) {
-    const itext = text.toLowerCase();
-    const { getText: getText4 } = options.adapter;
-    return cacheParentResults(next, options, (element) => getText4(element).toLowerCase().includes(itext));
-  },
-  // Location specific methods
-  "nth-child": compileNth(false, false),
-  "nth-last-child": compileNth(true, false),
-  "nth-of-type": compileNth(false, true),
-  "nth-last-of-type": compileNth(true, true),
-  // TODO determine the actual root element
-  root(next, _rule, { adapter: adapter2 }) {
-    return (element) => getElementParent(element, adapter2) === null && next(element);
-  },
-  scope(next, rule, options, context5) {
-    const { equals } = options;
-    if (!context5 || context5.length === 0) {
-      return filters["root"](next, rule, options);
-    }
-    if (context5.length === 1) {
-      return (element) => equals(context5[0], element) && next(element);
-    }
-    return (element) => context5.includes(element) && next(element);
-  },
-  lang(next, code, { adapter: adapter2 }) {
-    const ranges = code.split(",").map((r) => r.trim()).filter((r) => r.length > 0).map((r) => r.replace(/^['"]|['"]$/g, "").toLowerCase().split("-"));
-    return function lang(element) {
-      let node = element;
-      while (node != null) {
-        const value = adapter2.getAttributeValue(node, "xml:lang") ?? adapter2.getAttributeValue(node, "lang");
-        if (value != null) {
-          if (!value) {
-            return ranges.some((r) => r[0] === "") && next(element);
-          }
-          const tag = value.toLowerCase().split("-");
-          return ranges.some((r) => extendedFilter(tag, r)) && next(element);
-        }
-        const parent = adapter2.getParent(node);
-        node = parent != null && adapter2.isTag(parent) ? parent : null;
-      }
-      return ranges.some((r) => r[0] === "") && next(element);
-    };
-  },
-  hover: dynamicStatePseudo("isHovered"),
-  visited: dynamicStatePseudo("isVisited"),
-  active: dynamicStatePseudo("isActive")
-};
-function dynamicStatePseudo(name) {
-  return function dynamicPseudo(next, _rule, { adapter: adapter2 }) {
-    const filterFunction = adapter2[name];
-    if (typeof filterFunction !== "function") {
-      return falseFunc;
-    }
-    return function active(element) {
-      return filterFunction(element) && next(element);
-    };
-  };
-}
-
-// node_modules/css-select/dist/pseudo-selectors/pseudos.js
-var isDocumentWhiteSpace = /^[ \t\r\n]*$/;
-var pseudos = {
-  empty(element, { adapter: adapter2 }) {
-    const children2 = adapter2.getChildren(element);
-    return (
-      // First, make sure the tag does not have any element children.
-      children2.every((element2) => !adapter2.isTag(element2)) && // Then, check that the text content is only whitespace.
-      children2.every((element2) => (
-        // FIXME: `getText` call is potentially expensive.
-        isDocumentWhiteSpace.test(adapter2.getText(element2))
-      ))
-    );
-  },
-  "first-child"(element, { adapter: adapter2, equals }) {
-    if (adapter2.prevElementSibling) {
-      return adapter2.prevElementSibling(element) == null;
-    }
-    const firstChild = adapter2.getSiblings(element).find((sibling) => adapter2.isTag(sibling));
-    return firstChild != null && equals(element, firstChild);
-  },
-  "last-child"(element, { adapter: adapter2, equals }) {
-    const siblings = adapter2.getSiblings(element);
-    for (let index = siblings.length - 1; index >= 0; index--) {
-      if (equals(element, siblings[index])) {
-        return true;
-      }
-      if (adapter2.isTag(siblings[index])) {
-        break;
-      }
-    }
-    return false;
-  },
-  "first-of-type"(element, { adapter: adapter2, equals }) {
-    const siblings = adapter2.getSiblings(element);
-    const elementName = adapter2.getName(element);
-    for (const currentSibling of siblings) {
-      if (equals(element, currentSibling)) {
-        return true;
-      }
-      if (adapter2.isTag(currentSibling) && adapter2.getName(currentSibling) === elementName) {
-        break;
-      }
-    }
-    return false;
-  },
-  "last-of-type"(element, { adapter: adapter2, equals }) {
-    const siblings = adapter2.getSiblings(element);
-    const elementName = adapter2.getName(element);
-    for (let index = siblings.length - 1; index >= 0; index--) {
-      const currentSibling = siblings[index];
-      if (equals(element, currentSibling)) {
-        return true;
-      }
-      if (adapter2.isTag(currentSibling) && adapter2.getName(currentSibling) === elementName) {
-        break;
-      }
-    }
-    return false;
-  },
-  "only-of-type"(element, { adapter: adapter2, equals }) {
-    const elementName = adapter2.getName(element);
-    return adapter2.getSiblings(element).every((sibling) => equals(element, sibling) || !adapter2.isTag(sibling) || adapter2.getName(sibling) !== elementName);
-  },
-  "only-child"(element, { adapter: adapter2, equals }) {
-    return adapter2.getSiblings(element).every((sibling) => equals(element, sibling) || !adapter2.isTag(sibling));
-  }
-};
-function verifyPseudoArguments(pseudoClassCondition, name, subselect, argumentIndex) {
-  if (subselect === null) {
-    if (pseudoClassCondition.length > argumentIndex) {
-      throw new Error(`Pseudo-class :${name} requires an argument`);
-    }
-  } else if (pseudoClassCondition.length === argumentIndex) {
-    throw new Error(`Pseudo-class :${name} doesn't have any arguments`);
-  }
-}
-
-// node_modules/css-select/dist/helpers/selectors.js
-function isTraversal2(token) {
-  return token.type === "_flexibleDescendant" || isTraversal(token);
-}
-function sortRules(array2) {
-  const ratings = array2.map(getQuality);
-  for (let index = 1; index < array2.length; index++) {
-    const procNew = ratings[index];
-    if (procNew < 0) {
-      continue;
-    }
-    for (let currentIndex = index; currentIndex > 0 && procNew < ratings[currentIndex - 1]; currentIndex--) {
-      const token = array2[currentIndex];
-      array2[currentIndex] = array2[currentIndex - 1];
-      array2[currentIndex - 1] = token;
-      ratings[currentIndex] = ratings[currentIndex - 1];
-      ratings[currentIndex - 1] = procNew;
-    }
-  }
-}
-function getAttributeQuality(token) {
-  switch (token.action) {
-    case AttributeAction.Exists: {
-      return 10;
-    }
-    case AttributeAction.Equals: {
-      return token.name === "id" ? 9 : 8;
-    }
-    case AttributeAction.Not: {
-      return 7;
-    }
-    case AttributeAction.Start: {
-      return 6;
-    }
-    case AttributeAction.End: {
-      return 6;
-    }
-    case AttributeAction.Any: {
-      return 5;
-    }
-    case AttributeAction.Hyphen: {
-      return 4;
-    }
-    case AttributeAction.Element: {
-      return 3;
-    }
-  }
-}
-function getQuality(token) {
-  switch (token.type) {
-    case SelectorType.Universal: {
-      return 50;
-    }
-    case SelectorType.Tag: {
-      return 30;
-    }
-    case SelectorType.Attribute: {
-      return Math.floor(getAttributeQuality(token) / // `ignoreCase` adds some overhead, half the result if applicable.
-      (token.ignoreCase ? 2 : 1));
-    }
-    case SelectorType.Pseudo: {
-      return token.data ? token.name === "has" || token.name === "contains" || token.name === "icontains" ? (
-        // Expensive in any case — run as late as possible.
-        0
-      ) : Array.isArray(token.data) ? (
-        // Eg. `:is`, `:not`
-        Math.max(
-          // If we have traversals, try to avoid executing this selector
-          0,
-          Math.min(...token.data.map((d) => Math.min(...d.map(getQuality))))
-        )
-      ) : 2 : 3;
-    }
-    default: {
-      return -1;
-    }
-  }
-}
-function includesScopePseudo(t) {
-  return t.type === SelectorType.Pseudo && (t.name === "scope" || Array.isArray(t.data) && t.data.some((data) => data.some(includesScopePseudo)));
-}
-
-// node_modules/css-select/dist/pseudo-selectors/subselects.js
+// node_modules/css-select/lib/esm/pseudo-selectors/subselects.js
+var import_boolbase4 = __toESM(require_boolbase(), 1);
 var PLACEHOLDER_ELEMENT = {};
-function hasDependsOnCurrentElement(selector) {
-  return selector.some((sel) => sel.length > 0 && (isTraversal2(sel[0]) || sel.some(includesScopePseudo)));
+function ensureIsTag(next, adapter2) {
+  if (next === import_boolbase4.default.falseFunc)
+    return import_boolbase4.default.falseFunc;
+  return (elem) => adapter2.isTag(elem) && next(elem);
+}
+function getNextSiblings(elem, adapter2) {
+  const siblings = adapter2.getSiblings(elem);
+  if (siblings.length <= 1)
+    return [];
+  const elemIndex = siblings.indexOf(elem);
+  if (elemIndex < 0 || elemIndex === siblings.length - 1)
+    return [];
+  return siblings.slice(elemIndex + 1).filter(adapter2.isTag);
+}
+function copyOptions(options) {
+  return {
+    xmlMode: !!options.xmlMode,
+    lowerCaseAttributeNames: !!options.lowerCaseAttributeNames,
+    lowerCaseTags: !!options.lowerCaseTags,
+    quirksMode: !!options.quirksMode,
+    cacheResults: !!options.cacheResults,
+    pseudos: options.pseudos,
+    adapter: options.adapter,
+    equals: options.equals
+  };
 }
 var is = (next, token, options, context5, compileToken2) => {
-  const compiledToken = compileToken2(token, copyOptions(options), context5);
-  return compiledToken === trueFunc ? next : compiledToken === falseFunc ? falseFunc : (element) => compiledToken(element) && next(element);
+  const func = compileToken2(token, copyOptions(options), context5);
+  return func === import_boolbase4.default.trueFunc ? next : func === import_boolbase4.default.falseFunc ? import_boolbase4.default.falseFunc : (elem) => func(elem) && next(elem);
 };
 var subselects = {
   is,
@@ -70345,45 +69597,39 @@ var subselects = {
   matches: is,
   where: is,
   not(next, token, options, context5, compileToken2) {
-    const compiledToken = compileToken2(token, copyOptions(options), context5);
-    return compiledToken === falseFunc ? next : compiledToken === trueFunc ? falseFunc : (element) => !compiledToken(element) && next(element);
+    const func = compileToken2(token, copyOptions(options), context5);
+    return func === import_boolbase4.default.falseFunc ? next : func === import_boolbase4.default.trueFunc ? import_boolbase4.default.falseFunc : (elem) => !func(elem) && next(elem);
   },
   has(next, subselect, options, _context, compileToken2) {
     const { adapter: adapter2 } = options;
-    const copiedOptions = copyOptions(options);
-    copiedOptions.relativeSelector = true;
-    const context5 = subselect.some((s) => s.some(isTraversal2)) ? (
+    const opts = copyOptions(options);
+    opts.relativeSelector = true;
+    const context5 = subselect.some((s) => s.some(isTraversal)) ? (
       // Used as a placeholder. Will be replaced with the actual element.
       [PLACEHOLDER_ELEMENT]
     ) : void 0;
-    const skipCache = hasDependsOnCurrentElement(subselect);
-    const compiled = compileToken2(subselect, copiedOptions, context5);
-    if (compiled === falseFunc) {
-      return falseFunc;
-    }
-    if (context5 && compiled !== trueFunc) {
-      return skipCache ? (element) => {
-        if (!next(element)) {
+    const compiled = compileToken2(subselect, opts, context5);
+    if (compiled === import_boolbase4.default.falseFunc)
+      return import_boolbase4.default.falseFunc;
+    const hasElement = ensureIsTag(compiled, adapter2);
+    if (context5 && compiled !== import_boolbase4.default.trueFunc) {
+      const { shouldTestNextSiblings = false } = compiled;
+      return (elem) => {
+        if (!next(elem))
           return false;
-        }
-        context5[0] = element;
-        const childs = adapter2.getChildren(element);
-        return findOne3(compiled, compiled.shouldTestNextSiblings ? [
-          ...childs,
-          ...getNextSiblings(element, adapter2)
-        ] : childs, options) !== null;
-      } : cacheParentResults(next, options, (element) => {
-        context5[0] = element;
-        return findOne3(compiled, adapter2.getChildren(element), options) !== null;
-      });
+        context5[0] = elem;
+        const childs = adapter2.getChildren(elem);
+        const nextElements = shouldTestNextSiblings ? [...childs, ...getNextSiblings(elem, adapter2)] : childs;
+        return adapter2.existsOne(hasElement, nextElements);
+      };
     }
-    const hasOne = (element) => findOne3(compiled, adapter2.getChildren(element), options) !== null;
-    return skipCache ? (element) => next(element) && hasOne(element) : cacheParentResults(next, options, hasOne);
+    return (elem) => next(elem) && adapter2.existsOne(hasElement, adapter2.getChildren(elem));
   }
 };
 
-// node_modules/css-select/dist/pseudo-selectors/index.js
+// node_modules/css-select/lib/esm/pseudo-selectors/index.js
 function compilePseudoSelector(next, selector, options, context5, compileToken2) {
+  var _a3;
   const { name, data } = selector;
   if (Array.isArray(data)) {
     if (!(name in subselects)) {
@@ -70391,41 +69637,49 @@ function compilePseudoSelector(next, selector, options, context5, compileToken2)
     }
     return subselects[name](next, data, options, context5, compileToken2);
   }
-  const userPseudo = options.pseudos?.[name];
+  const userPseudo = (_a3 = options.pseudos) === null || _a3 === void 0 ? void 0 : _a3[name];
   const stringPseudo = typeof userPseudo === "string" ? userPseudo : aliases[name];
   if (typeof stringPseudo === "string") {
     if (data != null) {
       throw new Error(`Pseudo ${name} doesn't have any arguments`);
     }
-    const alias = parse3(stringPseudo);
+    const alias = (0, import_css_what2.parse)(stringPseudo);
     return subselects["is"](next, alias, options, context5, compileToken2);
   }
   if (typeof userPseudo === "function") {
-    verifyPseudoArguments(userPseudo, name, data, 1);
-    return (element) => userPseudo(element, data) && next(element);
+    verifyPseudoArgs(userPseudo, name, data, 1);
+    return (elem) => userPseudo(elem, data) && next(elem);
   }
   if (name in filters) {
-    return filters[name](next, data, options, context5, compileToken2);
+    return filters[name](next, data, options, context5);
   }
   if (name in pseudos) {
     const pseudo = pseudos[name];
-    verifyPseudoArguments(pseudo, name, data, 2);
-    return (element) => pseudo(element, options, data) && next(element);
+    verifyPseudoArgs(pseudo, name, data, 2);
+    return (elem) => pseudo(elem, options, data) && next(elem);
   }
   throw new Error(`Unknown pseudo-class :${name}`);
 }
 
-// node_modules/css-select/dist/general.js
-function compileGeneralSelector(next, selector, options, context5, compileToken2, hasExpensiveSubselector) {
-  const { adapter: adapter2, equals, cacheResults } = options;
+// node_modules/css-select/lib/esm/general.js
+var import_css_what3 = __toESM(require_commonjs(), 1);
+function getElementParent(node, adapter2) {
+  const parent = adapter2.getParent(node);
+  if (parent && adapter2.isTag(parent)) {
+    return parent;
+  }
+  return null;
+}
+function compileGeneralSelector(next, selector, options, context5, compileToken2) {
+  const { adapter: adapter2, equals } = options;
   switch (selector.type) {
-    case SelectorType.PseudoElement: {
+    case import_css_what3.SelectorType.PseudoElement: {
       throw new Error("Pseudo-elements are not supported by css-select");
     }
-    case SelectorType.ColumnCombinator: {
+    case import_css_what3.SelectorType.ColumnCombinator: {
       throw new Error("Column combinators are not yet supported by css-select");
     }
-    case SelectorType.Attribute: {
+    case import_css_what3.SelectorType.Attribute: {
       if (selector.namespace != null) {
         throw new Error("Namespaced attributes are not yet supported by css-select");
       }
@@ -70434,11 +69688,11 @@ function compileGeneralSelector(next, selector, options, context5, compileToken2
       }
       return attributeRules[selector.action](next, selector, options);
     }
-    case SelectorType.Pseudo: {
+    case import_css_what3.SelectorType.Pseudo: {
       return compilePseudoSelector(next, selector, options, context5, compileToken2);
     }
     // Tags
-    case SelectorType.Tag: {
+    case import_css_what3.SelectorType.Tag: {
       if (selector.namespace != null) {
         throw new Error("Namespaced tag names are not yet supported by css-select");
       }
@@ -70446,15 +69700,15 @@ function compileGeneralSelector(next, selector, options, context5, compileToken2
       if (!options.xmlMode || options.lowerCaseTags) {
         name = name.toLowerCase();
       }
-      return function tag(element) {
-        return adapter2.getName(element) === name && next(element);
+      return function tag(elem) {
+        return adapter2.getName(elem) === name && next(elem);
       };
     }
     // Traversal
-    case SelectorType.Descendant: {
-      if (!hasExpensiveSubselector || cacheResults === false || typeof WeakMap === "undefined") {
-        return function descendant(element) {
-          let current = element;
+    case import_css_what3.SelectorType.Descendant: {
+      if (options.cacheResults === false || typeof WeakSet === "undefined") {
+        return function descendant(elem) {
+          let current = elem;
           while (current = getElementParent(current, adapter2)) {
             if (next(current)) {
               return true;
@@ -70463,59 +69717,48 @@ function compileGeneralSelector(next, selector, options, context5, compileToken2
           return false;
         };
       }
-      const resultCache = /* @__PURE__ */ new WeakMap();
-      return function cachedDescendant(element) {
-        let current = element;
-        let result;
+      const isFalseCache = /* @__PURE__ */ new WeakSet();
+      return function cachedDescendant(elem) {
+        let current = elem;
         while (current = getElementParent(current, adapter2)) {
-          const cached = resultCache.get(current);
-          if (cached === void 0) {
-            result ??= { matches: false };
-            result.matches = next(current);
-            resultCache.set(current, result);
-            if (result.matches) {
+          if (!isFalseCache.has(current)) {
+            if (adapter2.isTag(current) && next(current)) {
               return true;
             }
-          } else {
-            if (result) {
-              result.matches = cached.matches;
-            }
-            return cached.matches;
+            isFalseCache.add(current);
           }
         }
         return false;
       };
     }
     case "_flexibleDescendant": {
-      return function flexibleDescendant(element) {
-        let current = element;
+      return function flexibleDescendant(elem) {
+        let current = elem;
         do {
-          if (next(current)) {
+          if (next(current))
             return true;
-          }
-          current = getElementParent(current, adapter2);
-        } while (current);
+        } while (current = getElementParent(current, adapter2));
         return false;
       };
     }
-    case SelectorType.Parent: {
-      return function parent(element) {
-        return adapter2.getChildren(element).some((element2) => adapter2.isTag(element2) && next(element2));
+    case import_css_what3.SelectorType.Parent: {
+      return function parent(elem) {
+        return adapter2.getChildren(elem).some((elem2) => adapter2.isTag(elem2) && next(elem2));
       };
     }
-    case SelectorType.Child: {
-      return function child(element) {
-        const parent = getElementParent(element, adapter2);
-        return parent !== null && next(parent);
+    case import_css_what3.SelectorType.Child: {
+      return function child(elem) {
+        const parent = adapter2.getParent(elem);
+        return parent != null && adapter2.isTag(parent) && next(parent);
       };
     }
-    case SelectorType.Sibling: {
-      return function sibling(element) {
-        const siblings = adapter2.getSiblings(element);
-        for (const currentSibling of siblings) {
-          if (equals(element, currentSibling)) {
+    case import_css_what3.SelectorType.Sibling: {
+      return function sibling(elem) {
+        const siblings = adapter2.getSiblings(elem);
+        for (let i = 0; i < siblings.length; i++) {
+          const currentSibling = siblings[i];
+          if (equals(elem, currentSibling))
             break;
-          }
           if (adapter2.isTag(currentSibling) && next(currentSibling)) {
             return true;
           }
@@ -70523,20 +69766,20 @@ function compileGeneralSelector(next, selector, options, context5, compileToken2
         return false;
       };
     }
-    case SelectorType.Adjacent: {
+    case import_css_what3.SelectorType.Adjacent: {
       if (adapter2.prevElementSibling) {
-        return function adjacent(element) {
-          const previous = adapter2.prevElementSibling(element);
+        return function adjacent(elem) {
+          const previous = adapter2.prevElementSibling(elem);
           return previous != null && next(previous);
         };
       }
-      return function adjacent(element) {
-        const siblings = adapter2.getSiblings(element);
+      return function adjacent(elem) {
+        const siblings = adapter2.getSiblings(elem);
         let lastElement;
-        for (const currentSibling of siblings) {
-          if (equals(element, currentSibling)) {
+        for (let i = 0; i < siblings.length; i++) {
+          const currentSibling = siblings[i];
+          if (equals(elem, currentSibling))
             break;
-          }
           if (adapter2.isTag(currentSibling)) {
             lastElement = currentSibling;
           }
@@ -70544,7 +69787,7 @@ function compileGeneralSelector(next, selector, options, context5, compileToken2
         return !!lastElement && next(lastElement);
       };
     }
-    case SelectorType.Universal: {
+    case import_css_what3.SelectorType.Universal: {
       if (selector.namespace != null && selector.namespace !== "*") {
         throw new Error("Namespaced universal selectors are not yet supported by css-select");
       }
@@ -70553,20 +69796,34 @@ function compileGeneralSelector(next, selector, options, context5, compileToken2
   }
 }
 
-// node_modules/css-select/dist/compile.js
-var DESCENDANT_TOKEN = { type: SelectorType.Descendant };
+// node_modules/css-select/lib/esm/compile.js
+function compile2(selector, options, context5) {
+  const next = compileUnsafe(selector, options, context5);
+  return ensureIsTag(next, options.adapter);
+}
+function compileUnsafe(selector, options, context5) {
+  const token = typeof selector === "string" ? (0, import_css_what4.parse)(selector) : selector;
+  return compileToken(token, options, context5);
+}
+function includesScopePseudo(t) {
+  return t.type === import_css_what4.SelectorType.Pseudo && (t.name === "scope" || Array.isArray(t.data) && t.data.some((data) => data.some(includesScopePseudo)));
+}
+var DESCENDANT_TOKEN = { type: import_css_what4.SelectorType.Descendant };
 var FLEXIBLE_DESCENDANT_TOKEN = {
   type: "_flexibleDescendant"
 };
 var SCOPE_TOKEN = {
-  type: SelectorType.Pseudo,
+  type: import_css_what4.SelectorType.Pseudo,
   name: "scope",
   data: null
 };
 function absolutize(token, { adapter: adapter2 }, context5) {
-  const hasContext = !!context5?.every((element) => element === PLACEHOLDER_ELEMENT || adapter2.isTag(element) && getElementParent(element, adapter2) !== null);
+  const hasContext = !!(context5 === null || context5 === void 0 ? void 0 : context5.every((e) => {
+    const parent = adapter2.isTag(e) && adapter2.getParent(e);
+    return e === PLACEHOLDER_ELEMENT || parent && adapter2.isTag(parent);
+  }));
   for (const t of token) {
-    if (t.length > 0 && isTraversal2(t[0]) && t[0].type !== SelectorType.Descendant) {
+    if (t.length > 0 && isTraversal(t[0]) && t[0].type !== import_css_what4.SelectorType.Descendant) {
     } else if (hasContext && !t.some(includesScopePseudo)) {
       t.unshift(DESCENDANT_TOKEN);
     } else {
@@ -70575,133 +69832,131 @@ function absolutize(token, { adapter: adapter2 }, context5) {
     t.unshift(SCOPE_TOKEN);
   }
 }
-function compileToken(token, options, compilationContext) {
-  for (const rules of token) {
-    sortRules(rules);
-  }
-  const { context: context5 = compilationContext, rootFunc: rootFunction = trueFunc } = options;
+function compileToken(token, options, context5) {
+  var _a3;
+  token.forEach(sortByProcedure);
+  context5 = (_a3 = options.context) !== null && _a3 !== void 0 ? _a3 : context5;
   const isArrayContext = Array.isArray(context5);
   const finalContext = context5 && (Array.isArray(context5) ? context5 : [context5]);
   if (options.relativeSelector !== false) {
     absolutize(token, options, finalContext);
-  } else if (token.some((t) => t.length > 0 && isTraversal2(t[0]))) {
+  } else if (token.some((t) => t.length > 0 && isTraversal(t[0]))) {
     throw new Error("Relative selectors are not allowed when the `relativeSelector` option is disabled");
   }
   let shouldTestNextSiblings = false;
-  let query2 = falseFunc;
-  combineLoop: for (const rules of token) {
+  const query2 = token.map((rules) => {
     if (rules.length >= 2) {
       const [first, second] = rules;
-      if (first.type !== SelectorType.Pseudo || first.name !== "scope") {
-      } else if (isArrayContext && second.type === SelectorType.Descendant) {
+      if (first.type !== import_css_what4.SelectorType.Pseudo || first.name !== "scope") {
+      } else if (isArrayContext && second.type === import_css_what4.SelectorType.Descendant) {
         rules[1] = FLEXIBLE_DESCENDANT_TOKEN;
-      } else if (second.type === SelectorType.Adjacent || second.type === SelectorType.Sibling) {
+      } else if (second.type === import_css_what4.SelectorType.Adjacent || second.type === import_css_what4.SelectorType.Sibling) {
         shouldTestNextSiblings = true;
       }
     }
-    let next = rootFunction;
-    let hasExpensiveSubselector = false;
-    for (const rule of rules) {
-      next = compileGeneralSelector(next, rule, options, finalContext, compileToken, hasExpensiveSubselector);
-      const quality = getQuality(rule);
-      if (quality === 0) {
-        hasExpensiveSubselector = true;
-      }
-      if (next === falseFunc) {
-        continue combineLoop;
-      }
-    }
-    if (next === rootFunction) {
-      return rootFunction;
-    }
-    query2 = query2 === falseFunc ? next : or(query2, next);
-  }
+    return compileRules(rules, options, finalContext);
+  }).reduce(reduceRules, import_boolbase5.default.falseFunc);
   query2.shouldTestNextSiblings = shouldTestNextSiblings;
   return query2;
 }
-function or(a, b) {
-  return (element) => a(element) || b(element);
+function compileRules(rules, options, context5) {
+  var _a3;
+  return rules.reduce((previous, rule) => previous === import_boolbase5.default.falseFunc ? import_boolbase5.default.falseFunc : compileGeneralSelector(previous, rule, options, context5, compileToken), (_a3 = options.rootFunc) !== null && _a3 !== void 0 ? _a3 : import_boolbase5.default.trueFunc);
+}
+function reduceRules(a, b) {
+  if (b === import_boolbase5.default.falseFunc || a === import_boolbase5.default.trueFunc) {
+    return a;
+  }
+  if (a === import_boolbase5.default.falseFunc || b === import_boolbase5.default.trueFunc) {
+    return b;
+  }
+  return function combine(elem) {
+    return a(elem) || b(elem);
+  };
 }
 
-// node_modules/css-select/dist/index.js
+// node_modules/css-select/lib/esm/index.js
 var defaultEquals = (a, b) => a === b;
 var defaultOptions = {
-  adapter: { ...dist_exports2, isTag: isTag4 },
+  adapter: esm_exports2,
   equals: defaultEquals
 };
 function convertOptionFormats(options) {
-  const finalOptions = options ?? defaultOptions;
-  finalOptions.adapter ??= defaultOptions.adapter;
-  finalOptions.equals ??= finalOptions.adapter?.equals ?? defaultEquals;
-  return finalOptions;
+  var _a3, _b, _c, _d;
+  const opts = options !== null && options !== void 0 ? options : defaultOptions;
+  (_a3 = opts.adapter) !== null && _a3 !== void 0 ? _a3 : opts.adapter = esm_exports2;
+  (_b = opts.equals) !== null && _b !== void 0 ? _b : opts.equals = (_d = (_c = opts.adapter) === null || _c === void 0 ? void 0 : _c.equals) !== null && _d !== void 0 ? _d : defaultEquals;
+  return opts;
 }
-function compile2(selector, options, context5) {
-  const convertedOptions = convertOptionFormats(options);
-  const next = _compileUnsafe(selector, convertedOptions, context5);
-  return next === falseFunc ? falseFunc : (element) => convertedOptions.adapter.isTag(element) && next(element);
-}
-function _compileUnsafe(selector, options, context5) {
-  return compileToken(typeof selector === "string" ? parse3(selector) : selector, convertOptionFormats(options), context5);
-}
-function getSelectorFunction(searchFunction) {
-  return function select(query2, elements, options) {
-    const convertedOptions = convertOptionFormats(options);
-    if (typeof query2 !== "function") {
-      query2 = _compileUnsafe(query2, convertedOptions, elements);
-    }
-    const filteredElements = prepareContext(elements, convertedOptions.adapter, query2.shouldTestNextSiblings);
-    return searchFunction(query2, filteredElements, convertedOptions);
+function wrapCompile(func) {
+  return function addAdapter(selector, options, context5) {
+    const opts = convertOptionFormats(options);
+    return func(selector, opts, context5);
   };
 }
-function prepareContext(elements, adapter2, shouldTestNextSiblings = false) {
+var compile3 = wrapCompile(compile2);
+var _compileUnsafe = wrapCompile(compileUnsafe);
+var _compileToken = wrapCompile(compileToken);
+function getSelectorFunc(searchFunc) {
+  return function select(query2, elements, options) {
+    const opts = convertOptionFormats(options);
+    if (typeof query2 !== "function") {
+      query2 = compileUnsafe(query2, opts, elements);
+    }
+    const filteredElements = prepareContext(elements, opts.adapter, query2.shouldTestNextSiblings);
+    return searchFunc(query2, filteredElements, opts);
+  };
+}
+function prepareContext(elems, adapter2, shouldTestNextSiblings = false) {
   if (shouldTestNextSiblings) {
-    elements = appendNextSiblings(elements, adapter2);
+    elems = appendNextSiblings(elems, adapter2);
   }
-  return Array.isArray(elements) ? adapter2.removeSubsets(elements) : adapter2.getChildren(elements);
+  return Array.isArray(elems) ? adapter2.removeSubsets(elems) : adapter2.getChildren(elems);
 }
-function appendNextSiblings(element, adapter2) {
-  const elements = Array.isArray(element) ? [...element] : [element];
-  const elementsLength = elements.length;
-  for (let index = 0; index < elementsLength; index++) {
-    const nextSiblings = getNextSiblings(elements[index], adapter2);
-    elements.push(...nextSiblings);
+function appendNextSiblings(elem, adapter2) {
+  const elems = Array.isArray(elem) ? elem.slice(0) : [elem];
+  const elemsLength = elems.length;
+  for (let i = 0; i < elemsLength; i++) {
+    const nextSiblings = getNextSiblings(elems[i], adapter2);
+    elems.push(...nextSiblings);
   }
-  return elements;
+  return elems;
 }
-var selectAll = getSelectorFunction((query2, elements, options) => query2 === falseFunc || !elements || elements.length === 0 ? [] : findAll3(query2, elements, options));
-var selectOne = getSelectorFunction((query2, elements, options) => query2 === falseFunc || !elements || elements.length === 0 ? null : findOne3(query2, elements, options));
-function is2(element, query2, options) {
-  return (typeof query2 === "function" ? query2 : compile2(query2, options))(element);
+var selectAll = getSelectorFunc((query2, elems, options) => query2 === import_boolbase6.default.falseFunc || !elems || elems.length === 0 ? [] : options.adapter.findAll(query2, elems));
+var selectOne = getSelectorFunc((query2, elems, options) => query2 === import_boolbase6.default.falseFunc || !elems || elems.length === 0 ? null : options.adapter.findOne(query2, elems));
+function is2(elem, query2, options) {
+  const opts = convertOptionFormats(options);
+  return (typeof query2 === "function" ? query2 : compile2(query2, opts))(elem);
 }
 
 // node_modules/linkedom/esm/shared/matches.js
 var { isArray } = Array;
-var isTag5 = ({ nodeType }) => nodeType === ELEMENT_NODE;
-var existsOne3 = (test, elements) => elements.some(
-  (element) => isTag5(element) && (test(element) || existsOne3(test, getChildren3(element)))
+var isTag3 = ({ nodeType }) => nodeType === ELEMENT_NODE;
+var existsOne2 = (test, elements) => elements.some(
+  (element) => isTag3(element) && (test(element) || existsOne2(test, getChildren2(element)))
 );
-var getAttributeValue3 = (element, name) => name === "class" ? element.classList.value : element.getAttribute(name);
-var getChildren3 = ({ childNodes }) => childNodes;
-var getName3 = (element) => {
+var getAttributeValue2 = (element, name) => name === "class" ? element.classList.value : element.getAttribute(name);
+var getChildren2 = ({ childNodes }) => childNodes;
+var getName2 = (element) => {
   const { localName } = element;
   return ignoreCase(element) ? localName.toLowerCase() : localName;
 };
-var getParent3 = ({ parentNode }) => parentNode;
-var getSiblings3 = (element) => {
+var getParent2 = ({ parentNode }) => parentNode;
+var getSiblings2 = (element) => {
   const { parentNode } = element;
-  return parentNode ? getChildren3(parentNode) : element;
+  return parentNode ? getChildren2(parentNode) : element;
 };
-var getText3 = (node) => {
+var getText2 = (node) => {
   if (isArray(node))
-    return node.map(getText3).join("");
-  if (isTag5(node))
-    return getText3(getChildren3(node));
+    return node.map(getText2).join("");
+  if (isTag3(node))
+    return getText2(getChildren2(node));
   if (node.nodeType === TEXT_NODE)
     return node.data;
   return "";
 };
-var hasAttrib3 = (element, name) => element.hasAttribute(name);
-var removeSubsets3 = (nodes) => {
+var hasAttrib2 = (element, name) => element.hasAttribute(name);
+var removeSubsets2 = (nodes) => {
   let { length } = nodes;
   while (length--) {
     const node = nodes[length];
@@ -70718,38 +69973,38 @@ var removeSubsets3 = (nodes) => {
   }
   return nodes;
 };
-var findAll4 = (test, nodes) => {
+var findAll2 = (test, nodes) => {
   const matches2 = [];
   for (const node of nodes) {
-    if (isTag5(node)) {
+    if (isTag3(node)) {
       if (test(node))
         matches2.push(node);
-      matches2.push(...findAll4(test, getChildren3(node)));
+      matches2.push(...findAll2(test, getChildren2(node)));
     }
   }
   return matches2;
 };
-var findOne4 = (test, nodes) => {
+var findOne2 = (test, nodes) => {
   for (let node of nodes)
-    if (test(node) || (node = findOne4(test, getChildren3(node))))
+    if (test(node) || (node = findOne2(test, getChildren2(node))))
       return node;
   return null;
 };
 var adapter = {
-  isTag: isTag5,
-  existsOne: existsOne3,
-  getAttributeValue: getAttributeValue3,
-  getChildren: getChildren3,
-  getName: getName3,
-  getParent: getParent3,
-  getSiblings: getSiblings3,
-  getText: getText3,
-  hasAttrib: hasAttrib3,
-  removeSubsets: removeSubsets3,
-  findAll: findAll4,
-  findOne: findOne4
+  isTag: isTag3,
+  existsOne: existsOne2,
+  getAttributeValue: getAttributeValue2,
+  getChildren: getChildren2,
+  getName: getName2,
+  getParent: getParent2,
+  getSiblings: getSiblings2,
+  getText: getText2,
+  hasAttrib: hasAttrib2,
+  removeSubsets: removeSubsets2,
+  findAll: findAll2,
+  findOne: findOne2
 };
-var prepareMatch = (element, selectors) => compile2(
+var prepareMatch = (element, selectors) => compile3(
   selectors,
   {
     context: selectors.includes(":scope") ? element : void 0,
@@ -70769,7 +70024,7 @@ var matches = (element, selectors) => is2(
 );
 
 // node_modules/linkedom/esm/interface/text.js
-var Text4 = class _Text extends CharacterData {
+var Text3 = class _Text extends CharacterData {
   constructor(ownerDocument, data = "") {
     super(ownerDocument, "#text", TEXT_NODE, data);
   }
@@ -70808,7 +70063,7 @@ var insert = (parentNode, child, nodes) => {
   const { ownerDocument } = parentNode;
   for (const node of nodes)
     parentNode.insertBefore(
-      isNode(node) ? node : new Text4(ownerDocument, node),
+      isNode(node) ? node : new Text3(ownerDocument, node),
       child
     );
 };
@@ -71279,7 +70534,7 @@ var handler3 = {
       return getKeys(style).length;
     if (/^\d+$/.test(name))
       return getKeys(style)[name];
-    return style.get(esm_default2(name)) ?? "";
+    return style.get(esm_default2(name));
   },
   set(style, name, value) {
     if (name === "cssText")
@@ -71619,7 +70874,7 @@ var Element2 = class extends ParentNode {
   set textContent(text) {
     this.replaceChildren();
     if (text != null && text !== "")
-      this.appendChild(new Text4(this.ownerDocument, text));
+      this.appendChild(new Text3(this.ownerDocument, text));
   }
   get innerHTML() {
     return getInnerHtml(this);
@@ -71638,13 +70893,13 @@ var Element2 = class extends ParentNode {
   // </contentRelated>
   // <attributes>
   get attributes() {
-    const attributes = new NamedNodeMap(this);
+    const attributes2 = new NamedNodeMap(this);
     let next = this[NEXT];
     while (next.nodeType === ATTRIBUTE_NODE) {
-      attributes.push(next);
+      attributes2.push(next);
       next = next[NEXT];
     }
-    return new Proxy(attributes, attributesHandler);
+    return new Proxy(attributes2, attributesHandler);
   }
   focus() {
     this.dispatchEvent(new GlobalEvent("focus"));
@@ -71665,13 +70920,13 @@ var Element2 = class extends ParentNode {
     return null;
   }
   getAttributeNames() {
-    const attributes = new NodeList();
+    const attributes2 = new NodeList();
     let next = this[NEXT];
     while (next.nodeType === ATTRIBUTE_NODE) {
-      attributes.push(next.name);
+      attributes2.push(next.name);
       next = next[NEXT];
     }
-    return attributes;
+    return attributes2;
   }
   hasAttribute(name) {
     return !!this.getAttributeNode(name);
@@ -71993,11 +71248,11 @@ function CharacterData2() {
 }
 setPrototypeOf(CharacterData2, CharacterData);
 CharacterData2.prototype = CharacterData.prototype;
-function Comment5() {
+function Comment4() {
   illegalConstructor();
 }
-setPrototypeOf(Comment5, Comment3);
-Comment5.prototype = Comment3.prototype;
+setPrototypeOf(Comment4, Comment3);
+Comment4.prototype = Comment3.prototype;
 function DocumentFragment2() {
   illegalConstructor();
 }
@@ -72023,11 +71278,11 @@ function ShadowRoot2() {
 }
 setPrototypeOf(ShadowRoot2, ShadowRoot);
 ShadowRoot2.prototype = ShadowRoot.prototype;
-function Text5() {
+function Text4() {
   illegalConstructor();
 }
-setPrototypeOf(Text5, Text4);
-Text5.prototype = Text4.prototype;
+setPrototypeOf(Text4, Text3);
+Text4.prototype = Text3.prototype;
 function SVGElement3() {
   illegalConstructor();
 }
@@ -72037,13 +71292,13 @@ var Facades = {
   Attr: Attr2,
   CDATASection: CDATASection2,
   CharacterData: CharacterData2,
-  Comment: Comment5,
+  Comment: Comment4,
   DocumentFragment: DocumentFragment2,
   DocumentType: DocumentType2,
   Element: Element3,
   Node: Node3,
   ShadowRoot: ShadowRoot2,
-  Text: Text5,
+  Text: Text4,
   SVGElement: SVGElement3
 };
 
@@ -73700,7 +72955,7 @@ var HTMLClasses = {
 };
 
 // node_modules/linkedom/esm/shared/mime.js
-var voidElements3 = { test: () => true };
+var voidElements2 = { test: () => true };
 var Mime = {
   "text/html": {
     docType: "<!DOCTYPE html>",
@@ -73710,22 +72965,22 @@ var Mime = {
   "image/svg+xml": {
     docType: '<?xml version="1.0" encoding="utf-8"?>',
     ignoreCase: false,
-    voidElements: voidElements3
+    voidElements: voidElements2
   },
   "text/xml": {
     docType: '<?xml version="1.0" encoding="utf-8"?>',
     ignoreCase: false,
-    voidElements: voidElements3
+    voidElements: voidElements2
   },
   "application/xml": {
     docType: '<?xml version="1.0" encoding="utf-8"?>',
     ignoreCase: false,
-    voidElements: voidElements3
+    voidElements: voidElements2
   },
   "application/xhtml+xml": {
     docType: '<?xml version="1.0" encoding="utf-8"?>',
     ignoreCase: false,
-    voidElements: voidElements3
+    voidElements: voidElements2
   }
 };
 
@@ -74041,8 +73296,8 @@ var Document2 = class extends NonElementParentNode {
   createCDATASection(data) {
     return new CDATASection(this, data);
   }
-  createComment(textContent3) {
-    return new Comment3(this, textContent3);
+  createComment(textContent2) {
+    return new Comment3(this, textContent2);
   }
   createDocumentFragment() {
     return new DocumentFragment(this);
@@ -74058,8 +73313,8 @@ var Document2 = class extends NonElementParentNode {
     range2.commonAncestorContainer = this;
     return range2;
   }
-  createTextNode(textContent3) {
-    return new Text4(this, textContent3);
+  createTextNode(textContent2) {
+    return new Text3(this, textContent2);
   }
   createTreeWalker(root2, whatToShow = -1) {
     return new TreeWalker(root2, whatToShow);
@@ -74206,12 +73461,12 @@ var HTMLDocument = class extends Document2 {
    */
   get body() {
     const { head } = this;
-    let { nextElementSibling: nextElementSibling4 } = head;
-    if (!nextElementSibling4 || nextElementSibling4.tagName !== "BODY") {
-      nextElementSibling4 = this.createElement("body");
-      head.after(nextElementSibling4);
+    let { nextElementSibling: nextElementSibling3 } = head;
+    if (!nextElementSibling3 || nextElementSibling3.tagName !== "BODY") {
+      nextElementSibling3 = this.createElement("body");
+      head.after(nextElementSibling3);
     }
-    return nextElementSibling4;
+    return nextElementSibling3;
   }
   /**
    * @type HTMLTitleElement
@@ -74220,16 +73475,16 @@ var HTMLDocument = class extends Document2 {
     const { head } = this;
     return head.getElementsByTagName("title").at(0)?.textContent || "";
   }
-  set title(textContent3) {
+  set title(textContent2) {
     const { head } = this;
     let title = head.getElementsByTagName("title").at(0);
     if (title)
-      title.textContent = textContent3;
+      title.textContent = textContent2;
     else {
       head.insertBefore(
         this.createElement("title"),
         head.firstChild
-      ).textContent = textContent3;
+      ).textContent = textContent2;
     }
   }
   createElement(localName, options) {
@@ -74289,7 +73544,7 @@ var DOMParser = class _DOMParser {
 };
 
 // node_modules/linkedom/esm/shared/parse-json.js
-var { parse: parse6 } = JSON;
+var { parse: parse7 } = JSON;
 
 // node_modules/linkedom/esm/index.js
 var parseHTML = (html, globals = null) => new DOMParser().parseFromString(
@@ -74477,10 +73732,10 @@ function childMatcher(selector) {
 }
 
 // node_modules/d3-selection/src/selection/selectChild.js
-var find3 = Array.prototype.find;
+var find2 = Array.prototype.find;
 function childFind(match) {
   return function() {
-    return find3.call(this.children, match);
+    return find2.call(this.children, match);
   };
 }
 function childFirst() {
@@ -74491,13 +73746,13 @@ function selectChild_default(match) {
 }
 
 // node_modules/d3-selection/src/selection/selectChildren.js
-var filter3 = Array.prototype.filter;
+var filter2 = Array.prototype.filter;
 function children() {
   return Array.from(this.children);
 }
 function childrenFilter(match) {
   return function() {
-    return filter3.call(this.children, match);
+    return filter2.call(this.children, match);
   };
 }
 function selectChildren_default(match) {
@@ -75685,7 +74940,7 @@ function parseSvg(value) {
 }
 
 // node_modules/d3-interpolate/src/transform/index.js
-function interpolateTransform(parse8, pxComma, pxParen, degParen) {
+function interpolateTransform(parse9, pxComma, pxParen, degParen) {
   function pop(s) {
     return s.length ? s.pop() + " " : "";
   }
@@ -75723,7 +74978,7 @@ function interpolateTransform(parse8, pxComma, pxParen, degParen) {
   }
   return function(a, b) {
     var s = [], q = [];
-    a = parse8(a), b = parse8(b);
+    a = parse9(a), b = parse9(b);
     translate(a.translateX, a.translateY, b.translateX, b.translateY, s, q);
     rotate(a.rotate, b.rotate, s, q);
     skewX(a.skewX, b.skewX, s, q);
@@ -77862,13 +77117,13 @@ async function __wbg_init(input) {
   const { instance, module } = await __wbg_load(await input, imports);
   return __wbg_finalize_init(instance, module);
 }
-var dist_default2 = __wbg_init;
+var dist_default = __wbg_init;
 var initialized = false;
 var initWasm = async (module_or_path) => {
   if (initialized) {
     throw new Error("Already initialized. The `initWasm()` function can be used only once.");
   }
-  await dist_default2(await module_or_path);
+  await dist_default(await module_or_path);
   initialized = true;
 };
 var Resvg2 = class extends Resvg {
@@ -78051,13 +77306,13 @@ import * as fs9 from "fs";
 import * as path5 from "path";
 
 // node_modules/@actions/artifact/lib/generated/google/protobuf/timestamp.js
-var import_runtime2 = __toESM(require_commonjs(), 1);
-var import_runtime3 = __toESM(require_commonjs(), 1);
-var import_runtime4 = __toESM(require_commonjs(), 1);
-var import_runtime5 = __toESM(require_commonjs(), 1);
-var import_runtime6 = __toESM(require_commonjs(), 1);
-var import_runtime7 = __toESM(require_commonjs(), 1);
-var import_runtime8 = __toESM(require_commonjs(), 1);
+var import_runtime2 = __toESM(require_commonjs2(), 1);
+var import_runtime3 = __toESM(require_commonjs2(), 1);
+var import_runtime4 = __toESM(require_commonjs2(), 1);
+var import_runtime5 = __toESM(require_commonjs2(), 1);
+var import_runtime6 = __toESM(require_commonjs2(), 1);
+var import_runtime7 = __toESM(require_commonjs2(), 1);
+var import_runtime8 = __toESM(require_commonjs2(), 1);
 var Timestamp$Type = class extends import_runtime8.MessageType {
   constructor() {
     super("google.protobuf.Timestamp", [
@@ -78193,13 +77448,13 @@ var Timestamp$Type = class extends import_runtime8.MessageType {
 var Timestamp = new Timestamp$Type();
 
 // node_modules/@actions/artifact/lib/generated/google/protobuf/wrappers.js
-var import_runtime9 = __toESM(require_commonjs(), 1);
-var import_runtime10 = __toESM(require_commonjs(), 1);
-var import_runtime11 = __toESM(require_commonjs(), 1);
-var import_runtime12 = __toESM(require_commonjs(), 1);
-var import_runtime13 = __toESM(require_commonjs(), 1);
-var import_runtime14 = __toESM(require_commonjs(), 1);
-var import_runtime15 = __toESM(require_commonjs(), 1);
+var import_runtime9 = __toESM(require_commonjs2(), 1);
+var import_runtime10 = __toESM(require_commonjs2(), 1);
+var import_runtime11 = __toESM(require_commonjs2(), 1);
+var import_runtime12 = __toESM(require_commonjs2(), 1);
+var import_runtime13 = __toESM(require_commonjs2(), 1);
+var import_runtime14 = __toESM(require_commonjs2(), 1);
+var import_runtime15 = __toESM(require_commonjs2(), 1);
 var DoubleValue$Type = class extends import_runtime15.MessageType {
   constructor() {
     super("google.protobuf.DoubleValue", [
@@ -78778,12 +78033,12 @@ var BytesValue$Type = class extends import_runtime15.MessageType {
 var BytesValue = new BytesValue$Type();
 
 // node_modules/@actions/artifact/lib/generated/results/api/v1/artifact.js
-var import_runtime_rpc = __toESM(require_commonjs2(), 1);
-var import_runtime16 = __toESM(require_commonjs(), 1);
-var import_runtime17 = __toESM(require_commonjs(), 1);
-var import_runtime18 = __toESM(require_commonjs(), 1);
-var import_runtime19 = __toESM(require_commonjs(), 1);
-var import_runtime20 = __toESM(require_commonjs(), 1);
+var import_runtime_rpc = __toESM(require_commonjs3(), 1);
+var import_runtime16 = __toESM(require_commonjs2(), 1);
+var import_runtime17 = __toESM(require_commonjs2(), 1);
+var import_runtime18 = __toESM(require_commonjs2(), 1);
+var import_runtime19 = __toESM(require_commonjs2(), 1);
+var import_runtime20 = __toESM(require_commonjs2(), 1);
 var CreateArtifactRequest$Type = class extends import_runtime20.MessageType {
   constructor() {
     super("github.actions.results.api.v1.CreateArtifactRequest", [
@@ -83880,7 +83135,7 @@ function shouldDeserializeResponse(parsedResponse) {
   return result;
 }
 async function deserializeResponseBody(jsonContentTypes, xmlContentTypes, response, options, parseXML2) {
-  const parsedResponse = await parse7(jsonContentTypes, xmlContentTypes, response, options, parseXML2);
+  const parsedResponse = await parse8(jsonContentTypes, xmlContentTypes, response, options, parseXML2);
   if (!shouldDeserializeResponse(parsedResponse)) {
     return parsedResponse;
   }
@@ -83981,7 +83236,7 @@ function handleErrorResponse(parsedResponse, operationSpec, responseSpec, option
   }
   return { error: error2, shouldReturnResponse: false };
 }
-async function parse7(jsonContentTypes, xmlContentTypes, operationResponse, opts, parseXML2) {
+async function parse8(jsonContentTypes, xmlContentTypes, operationResponse, opts, parseXML2) {
   if (!operationResponse.request.streamResponseStatusCodes?.has(operationResponse.status) && operationResponse.bodyAsText) {
     const text = operationResponse.bodyAsText;
     const contentType2 = operationResponse.headers.get("Content-Type") || "";
@@ -89964,7 +89219,7 @@ function safeComment(val) {
 function safeCdata(val) {
   return String(val).replace(/\]\]>/g, "]]]]><![CDATA[>");
 }
-function escapeAttribute3(val) {
+function escapeAttribute2(val) {
   return String(val).replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
@@ -90109,7 +89364,7 @@ function extractAttributeValues(attrMap, options) {
   for (let attr in attrMap) {
     if (!Object.prototype.hasOwnProperty.call(attrMap, attr)) continue;
     const cleanAttrName = attr.startsWith(options.attributeNamePrefix) ? attr.substr(options.attributeNamePrefix.length) : attr;
-    attrValues[cleanAttrName] = escapeAttribute3(attrMap[attr]);
+    attrValues[cleanAttrName] = escapeAttribute2(attrMap[attr]);
     hasAttrs = true;
   }
   return hasAttrs ? attrValues : null;
@@ -90154,7 +89409,7 @@ function attr_to_str_raw(attrMap, options) {
       if (attrVal === true && options.suppressBooleanAttributes) {
         attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}`;
       } else {
-        attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}="${escapeAttribute3(attrVal)}"`;
+        attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}="${escapeAttribute2(attrVal)}"`;
       }
     }
   }
@@ -90185,7 +89440,7 @@ function attr_to_str(attrMap, options, isStopNode, matcher, xmlVersion) {
       if (attrVal === true && options.suppressBooleanAttributes) {
         attrStr += ` ${resolvedAttrName}`;
       } else {
-        attrStr += ` ${resolvedAttrName}="${escapeAttribute3(attrVal)}"`;
+        attrStr += ` ${resolvedAttrName}="${escapeAttribute2(attrVal)}"`;
       }
     }
   }
@@ -90470,7 +89725,7 @@ Builder.prototype.buildAttrPairStr = function(attrName, val, isStopNode) {
   }
   if (this.options.suppressBooleanAttributes && val === "true") {
     return " " + attrName;
-  } else return " " + attrName + '="' + escapeAttribute3(val) + '"';
+  } else return " " + attrName + '="' + escapeAttribute2(val) + '"';
 };
 function processTextOrObjNode(object, key2, level, matcher, xmlVersion) {
   const attrValues = this.extractAttributes(object);
@@ -90501,7 +89756,7 @@ Builder.prototype.extractAttributes = function(obj) {
     for (let attrKey in attrGroup) {
       if (!Object.prototype.hasOwnProperty.call(attrGroup, attrKey)) continue;
       const cleanKey = attrKey.startsWith(this.options.attributeNamePrefix) ? attrKey.substring(this.options.attributeNamePrefix.length) : attrKey;
-      attrValues[cleanKey] = escapeAttribute3(attrGroup[attrKey]);
+      attrValues[cleanKey] = escapeAttribute2(attrGroup[attrKey]);
       hasAttrs = true;
     }
   } else {
@@ -90509,7 +89764,7 @@ Builder.prototype.extractAttributes = function(obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key2)) continue;
       const attr = this.isAttribute(key2);
       if (attr) {
-        attrValues[attr] = escapeAttribute3(obj[key2]);
+        attrValues[attr] = escapeAttribute2(obj[key2]);
         hasAttrs = true;
       }
     }
@@ -109377,7 +108632,7 @@ function escapeURLPath(url2) {
   const urlParsed = new URL(url2);
   let path8 = urlParsed.pathname;
   path8 = path8 || "/";
-  path8 = escape4(path8);
+  path8 = escape3(path8);
   urlParsed.pathname = path8;
   return urlParsed.toString();
 }
@@ -109458,7 +108713,7 @@ function extractConnectionStringParts(connectionString) {
     return { kind: "SASConnString", url: blobEndpoint, accountName, accountSas };
   }
 }
-function escape4(text) {
+function escape3(text) {
   return encodeURIComponent(text).replace(/%2F/g, "/").replace(/'/g, "%27").replace(/\+/g, "%20").replace(/%25/g, "%");
 }
 function appendToURLPath(url2, name) {
