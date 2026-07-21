@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { GitUtils } from "./git";
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
+import { EventEmitter } from "events";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { PassThrough } from "stream";
 import * as core from "@actions/core";
 
 const loadDiff = (name: string): string =>
@@ -18,19 +20,21 @@ jest.mock("@actions/github", () => ({
 }));
 
 const mockedExecFile = execFile as unknown as jest.MockedFunction<any>;
+const mockedSpawn = spawn as unknown as jest.MockedFunction<any>;
 const mockedCore = core as jest.Mocked<typeof core>;
 
 import { context } from "@actions/github";
 
-// Helper to mock execFile with specific stdout/stderr. promisify(execFile)
-// invokes it as execFile(file, args, callback).
 const mockExecSuccess = (stdout: string, stderr = "") => {
   mockedExecFile.mockImplementation(((
     _file: string,
     _args: string[],
-    callback: any,
+    optionsOrCallback: object | ((error: null, result: object) => void),
+    callback?: (error: null, result: object) => void,
   ) => {
-    callback(null, { stdout, stderr });
+    const completionCallback =
+      typeof optionsOrCallback === "function" ? optionsOrCallback : callback;
+    completionCallback!(null, { stdout, stderr });
   }) as any);
 };
 
@@ -38,10 +42,37 @@ const mockExecError = (error: Error) => {
   mockedExecFile.mockImplementation(((
     _file: string,
     _args: string[],
-    callback: any,
+    optionsOrCallback: object | ((error: Error, result: object) => void),
+    callback?: (error: Error, result: object) => void,
   ) => {
-    callback(error, { stdout: "", stderr: "" });
+    const completionCallback =
+      typeof optionsOrCallback === "function" ? optionsOrCallback : callback;
+    completionCallback!(error, { stdout: "", stderr: "" });
   }) as any);
+};
+
+const mockDiffProcess = (
+  stdout: string,
+  exitCode: number | null = 0,
+  chunkSize = stdout.length || 1,
+  signal: NodeJS.Signals | null = null,
+) => {
+  mockedSpawn.mockImplementation(() => {
+    const child = new EventEmitter() as any;
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+
+    process.nextTick(() => {
+      for (let offset = 0; offset < stdout.length; offset += chunkSize) {
+        child.stdout.write(stdout.slice(offset, offset + chunkSize));
+      }
+      child.stdout.end();
+      child.stderr.end();
+      child.emit("close", exitCode, signal);
+    });
+
+    return child;
+  });
 };
 
 describe("GitUtils", () => {
@@ -253,13 +284,28 @@ describe("GitUtils", () => {
   });
 
   describe("getChangedLinesByFile", () => {
+    it("should handle diff output larger than the execFile default buffer", async () => {
+      const largeDiff = [
+        "--- a/src/large.ts",
+        "+++ b/src/large.ts",
+        "@@ -0,0 +1 @@",
+        `+${"x".repeat(1024 * 1024)}`,
+      ].join("\n");
+
+      mockDiffProcess(largeDiff, 0, 16 * 1024);
+
+      const result = await GitUtils.getChangedLinesByFile("base", "head");
+
+      expect(result.get("src/large.ts")).toEqual([1]);
+    });
+
     it("should map files to the new-side lines their hunks added", async () => {
-      mockExecSuccess(loadDiff("diff-multi-hunk"));
+      mockDiffProcess(loadDiff("diff-multi-hunk"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
       expect(result.get("src/file1.ts")).toEqual([11, 12, 13, 24]);
-      expect(mockedExecFile).toHaveBeenCalledWith(
+      expect(mockedSpawn).toHaveBeenCalledWith(
         "git",
         [
           "-c",
@@ -271,12 +317,12 @@ describe("GitUtils", () => {
           "--diff-filter=AM",
           "base..head",
         ],
-        expect.any(Function),
+        { stdio: ["ignore", "pipe", "pipe"] },
       );
     });
 
     it("should default an omitted hunk count to a single line", async () => {
-      mockExecSuccess(loadDiff("diff-omitted-count"));
+      mockDiffProcess(loadDiff("diff-omitted-count"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -284,7 +330,7 @@ describe("GitUtils", () => {
     });
 
     it("should ignore pure deletions that add no new lines", async () => {
-      mockExecSuccess(loadDiff("diff-pure-deletion"));
+      mockDiffProcess(loadDiff("diff-pure-deletion"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -292,7 +338,7 @@ describe("GitUtils", () => {
     });
 
     it("should track multiple files independently", async () => {
-      mockExecSuccess(loadDiff("diff-multiple-files"));
+      mockDiffProcess(loadDiff("diff-multiple-files"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -301,7 +347,7 @@ describe("GitUtils", () => {
     });
 
     it("should track added files whose header pairs with /dev/null", async () => {
-      mockExecSuccess(loadDiff("diff-added-file-dev-null"));
+      mockDiffProcess(loadDiff("diff-added-file-dev-null"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -311,7 +357,7 @@ describe("GitUtils", () => {
     it("should not treat an added content line starting with +++ as a header", async () => {
       // An added source line beginning "+++ " must not be read as a file header
       // because it is not preceded by a "--- " line.
-      mockExecSuccess(loadDiff("diff-plus-content-not-header"));
+      mockDiffProcess(loadDiff("diff-plus-content-not-header"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -321,7 +367,7 @@ describe("GitUtils", () => {
     });
 
     it("should ignore hunks that appear before any file header", async () => {
-      mockExecSuccess(loadDiff("diff-orphan-hunk"));
+      mockDiffProcess(loadDiff("diff-orphan-hunk"));
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -329,7 +375,7 @@ describe("GitUtils", () => {
     });
 
     it("should return an empty map for empty diff output", async () => {
-      mockExecSuccess("");
+      mockDiffProcess("");
 
       const result = await GitUtils.getChangedLinesByFile("base", "head");
 
@@ -337,7 +383,7 @@ describe("GitUtils", () => {
     });
 
     it("should throw error when git command fails", async () => {
-      mockExecError(new Error("Git command failed"));
+      mockDiffProcess("", 1);
 
       await expect(
         GitUtils.getChangedLinesByFile("base", "head"),
@@ -345,6 +391,18 @@ describe("GitUtils", () => {
 
       expect(mockedCore.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to get changed lines"),
+      );
+    });
+
+    it("should report when git is terminated by a signal", async () => {
+      mockDiffProcess("", null, 1, "SIGTERM");
+
+      await expect(
+        GitUtils.getChangedLinesByFile("base", "head"),
+      ).rejects.toThrow("Failed to get changed lines between base and head");
+
+      expect(mockedCore.error).toHaveBeenCalledWith(
+        expect.stringContaining("git diff terminated by signal SIGTERM"),
       );
     });
   });
