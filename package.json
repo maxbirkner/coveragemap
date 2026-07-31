@@ -17,17 +17,15 @@
     "@eslint/js": "10.0.1",
     "@types/d3": "^7.4.3",
     "@types/jest": "^30.0.0",
-    "@types/node": "26.1.1",
+    "@types/node": "26.1.2",
     "@types/picomatch": "^4.0.3",
-    "@typescript-eslint/eslint-plugin": "^8.63.0",
-    "@typescript-eslint/parser": "^8.63.0",
     "esbuild": "0.28.1",
-    "eslint": "10.6.0",
+    "eslint": "10.8.0",
     "jest": "^30.0.0",
     "prettier": "^3.9.4",
-    "ts-jest": "^29.2.5",
+    "ts-jest": "^29.4.12",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.63.0"
+    "typescript-eslint": "8.65.0"
   },
   "keywords": [
     "github-action",
@@ -39,6 +37,11 @@
   "license": "MIT",
   "main": "dist/index.js",
   "name": "coveragemap-action",
+  "overrides": {
+    "glob": "13.0.6",
+    "readdir-glob": "3.0.0",
+    "test-exclude": "8.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/maxbirkner/coveragemap.git"
