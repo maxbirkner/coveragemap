@@ -22,7 +22,7 @@
     "@typescript-eslint/eslint-plugin": "^8.63.0",
     "@typescript-eslint/parser": "^8.63.0",
     "esbuild": "0.28.1",
-    "eslint": "10.6.0",
+    "eslint": "10.8.0",
     "jest": "^30.0.0",
     "prettier": "^3.9.4",
     "ts-jest": "^29.2.5",
