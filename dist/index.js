@@ -28662,17 +28662,17 @@ var require_state_cjs = __commonJS({
   }
 });
 
-// node_modules/readdir-glob/node_modules/minimatch/lib/path.js
+// node_modules/archiver/node_modules/minimatch/lib/path.js
 var require_path = __commonJS({
-  "node_modules/readdir-glob/node_modules/minimatch/lib/path.js"(exports2, module) {
+  "node_modules/archiver/node_modules/minimatch/lib/path.js"(exports2, module) {
     var isWindows = typeof process === "object" && process && process.platform === "win32";
     module.exports = isWindows ? { sep: "\\" } : { sep: "/" };
   }
 });
 
-// node_modules/readdir-glob/node_modules/balanced-match/index.js
+// node_modules/archiver/node_modules/balanced-match/index.js
 var require_balanced_match = __commonJS({
-  "node_modules/readdir-glob/node_modules/balanced-match/index.js"(exports2, module) {
+  "node_modules/archiver/node_modules/balanced-match/index.js"(exports2, module) {
     "use strict";
     module.exports = balanced;
     function balanced(a, b, str) {
@@ -28728,9 +28728,9 @@ var require_balanced_match = __commonJS({
   }
 });
 
-// node_modules/readdir-glob/node_modules/brace-expansion/index.js
+// node_modules/archiver/node_modules/brace-expansion/index.js
 var require_brace_expansion = __commonJS({
-  "node_modules/readdir-glob/node_modules/brace-expansion/index.js"(exports2, module) {
+  "node_modules/archiver/node_modules/brace-expansion/index.js"(exports2, module) {
     var balanced = require_balanced_match();
     module.exports = expandTop;
     var escSlash = "\0SLASH" + Math.random() + "\0";
@@ -28738,6 +28738,8 @@ var require_brace_expansion = __commonJS({
     var escClose = "\0CLOSE" + Math.random() + "\0";
     var escComma = "\0COMMA" + Math.random() + "\0";
     var escPeriod = "\0PERIOD" + Math.random() + "\0";
+    var EXPANSION_MAX = 1e5;
+    var EXPANSION_MAX_LENGTH = 4e6;
     function numeric(str) {
       return parseInt(str, 10) == str ? parseInt(str, 10) : str.charCodeAt(0);
     }
@@ -28771,11 +28773,12 @@ var require_brace_expansion = __commonJS({
       if (!str)
         return [];
       options = options || {};
-      var max2 = options.max == null ? Infinity : options.max;
+      var max2 = options.max == null ? EXPANSION_MAX : options.max;
+      var maxLength = options.maxLength == null ? EXPANSION_MAX_LENGTH : options.maxLength;
       if (str.substr(0, 2) === "{}") {
         str = "\\{\\}" + str.substr(2);
       }
-      return expand2(escapeBraces(str), max2, true).map(unescapeBraces);
+      return expand2(escapeBraces(str), max2, maxLength, true).map(unescapeBraces);
     }
     function embrace(str) {
       return "{" + str + "}";
@@ -28789,18 +28792,90 @@ var require_brace_expansion = __commonJS({
     function gte(i, y) {
       return i >= y;
     }
-    function expand2(str, max2, isTop) {
-      var expansions = [];
-      var m = balanced("{", "}", str);
-      if (!m) return [str];
-      var pre = m.pre;
-      var post = m.post.length ? expand2(m.post, max2, false) : [""];
-      if (/\$$/.test(m.pre)) {
-        for (var k = 0; k < post.length && k < max2; k++) {
-          var expansion = pre + "{" + m.body + "}" + post[k];
-          expansions.push(expansion);
+    function combine(acc, pre, values, max2, maxLength, dropEmpties) {
+      var out = [];
+      var length = 0;
+      for (var a = 0; a < acc.length; a++) {
+        for (var v = 0; v < values.length; v++) {
+          if (out.length >= max2) return out;
+          var expansion = acc[a] + pre + values[v];
+          if (dropEmpties && !expansion) continue;
+          if (length + expansion.length > maxLength) return out;
+          out.push(expansion);
+          length += expansion.length;
         }
-      } else {
+      }
+      return out;
+    }
+    function expandSequence(body2, isAlphaSequence, max2, maxLength) {
+      var n = body2.split(/\.\./);
+      var N = [];
+      if (n[0] === void 0 || n[1] === void 0) {
+        return N;
+      }
+      var x = numeric(n[0]);
+      var y = numeric(n[1]);
+      var width = Math.max(n[0].length, n[1].length);
+      var incr = n.length === 3 && n[2] !== void 0 ? Math.max(Math.abs(numeric(n[2])), 1) : 1;
+      var test = lte;
+      var reverse = y < x;
+      if (reverse) {
+        incr *= -1;
+        test = gte;
+      }
+      var pad = n.some(isPadded);
+      var length = 0;
+      for (var i = x; test(i, y) && N.length < max2; i += incr) {
+        var c;
+        if (isAlphaSequence) {
+          c = String.fromCharCode(i);
+          if (c === "\\") {
+            c = "";
+          }
+        } else {
+          c = String(i);
+          if (pad) {
+            var need = width - c.length;
+            if (need > 0) {
+              var z = new Array(need + 1).join("0");
+              if (i < 0) {
+                c = "-" + z + c.slice(1);
+              } else {
+                c = z + c;
+              }
+            }
+          }
+        }
+        if (length + c.length > maxLength) break;
+        N.push(c);
+        length += c.length;
+      }
+      return N;
+    }
+    function expand2(str, max2, maxLength, isTop) {
+      var acc = [""];
+      var dropEmpties = false;
+      var firstGroup = true;
+      for (; ; ) {
+        const m = balanced("{", "}", str);
+        if (!m) {
+          return combine(acc, str, [""], max2, maxLength, dropEmpties);
+        }
+        const pre = m.pre;
+        if (/\$$/.test(pre)) {
+          acc = combine(
+            acc,
+            pre + "{" + m.body + "}",
+            [""],
+            max2,
+            maxLength,
+            dropEmpties && !m.post.length
+          );
+          firstGroup = false;
+          if (!m.post.length) break;
+          str = m.post;
+          continue;
+        }
         var isNumericSequence = /^-?\d+\.\.-?\d+(?:\.\.-?\d+)?$/.test(m.body);
         var isAlphaSequence = /^[a-zA-Z]\.\.[a-zA-Z](?:\.\.-?\d+)?$/.test(m.body);
         var isSequence = isNumericSequence || isAlphaSequence;
@@ -28808,81 +28883,76 @@ var require_brace_expansion = __commonJS({
         if (!isSequence && !isOptions) {
           if (m.post.match(/,(?!,).*\}/)) {
             str = m.pre + "{" + m.body + escClose + m.post;
-            return expand2(str, max2, true);
+            isTop = true;
+            continue;
           }
-          return [str];
+          return combine(
+            acc,
+            pre + "{" + m.body + "}" + m.post,
+            [""],
+            max2,
+            maxLength,
+            dropEmpties
+          );
         }
-        var n;
+        if (firstGroup) {
+          dropEmpties = isTop && !isSequence;
+          firstGroup = false;
+        }
+        var values;
         if (isSequence) {
-          n = m.body.split(/\.\./);
+          values = expandSequence(m.body, isAlphaSequence, max2, maxLength);
         } else {
-          n = parseCommaParts(m.body);
-          if (n.length === 1) {
-            n = expand2(n[0], max2, false).map(embrace);
+          var n = parseCommaParts(m.body);
+          if (n.length === 1 && n[0] !== void 0) {
+            n = expand2(n[0], max2, maxLength, false).map(embrace);
             if (n.length === 1) {
-              return post.map(function(p) {
-                return m.pre + n[0] + p;
-              });
+              acc = combine(
+                acc,
+                pre + n[0],
+                [""],
+                max2,
+                maxLength,
+                dropEmpties && !m.post.length
+              );
+              if (!m.post.length) break;
+              str = m.post;
+              continue;
             }
           }
-        }
-        var N;
-        if (isSequence) {
-          var x = numeric(n[0]);
-          var y = numeric(n[1]);
-          var width = Math.max(n[0].length, n[1].length);
-          var incr = n.length == 3 ? Math.max(Math.abs(numeric(n[2])), 1) : 1;
-          var test = lte;
-          var reverse = y < x;
-          if (reverse) {
-            incr *= -1;
-            test = gte;
+          var dropsEmpties = dropEmpties && !m.post.length && !pre;
+          for (var d = 0; dropsEmpties && d < acc.length; d++) {
+            if (acc[d]) {
+              dropsEmpties = false;
+            }
           }
-          var pad = n.some(isPadded);
-          N = [];
-          for (var i = x; test(i, y) && N.length < max2; i += incr) {
-            var c;
-            if (isAlphaSequence) {
-              c = String.fromCharCode(i);
-              if (c === "\\")
-                c = "";
-            } else {
-              c = String(i);
-              if (pad) {
-                var need = width - c.length;
-                if (need > 0) {
-                  var z = new Array(need + 1).join("0");
-                  if (i < 0)
-                    c = "-" + z + c.slice(1);
-                  else
-                    c = z + c;
-                }
+          values = [];
+          var valuesLength = 0;
+          outer: for (var j = 0; j < n.length; j++) {
+            var expanded = expand2(n[j], max2, maxLength, false);
+            for (var k = 0; k < expanded.length; k++) {
+              var v = expanded[k];
+              if (dropsEmpties && !v) continue;
+              if (values.length >= max2 || valuesLength + v.length > maxLength) {
+                break outer;
               }
+              values.push(v);
+              valuesLength += v.length;
             }
-            N.push(c);
-          }
-        } else {
-          N = [];
-          for (var j = 0; j < n.length; j++) {
-            N.push.apply(N, expand2(n[j], max2, false));
           }
         }
-        for (var j = 0; j < N.length; j++) {
-          for (var k = 0; k < post.length && expansions.length < max2; k++) {
-            var expansion = pre + N[j] + post[k];
-            if (!isTop || isSequence || expansion)
-              expansions.push(expansion);
-          }
-        }
+        acc = combine(acc, pre, values, max2, maxLength, dropEmpties && !m.post.length);
+        if (!m.post.length) break;
+        str = m.post;
       }
-      return expansions;
+      return acc;
     }
   }
 });
 
-// node_modules/readdir-glob/node_modules/minimatch/minimatch.js
+// node_modules/archiver/node_modules/minimatch/minimatch.js
 var require_minimatch = __commonJS({
-  "node_modules/readdir-glob/node_modules/minimatch/minimatch.js"(exports2, module) {
+  "node_modules/archiver/node_modules/minimatch/minimatch.js"(exports2, module) {
     var minimatch = module.exports = (p, pattern, options = {}) => {
       assertValidPattern(pattern);
       if (!options.nocomment && pattern.charAt(0) === "#") {
@@ -29533,9 +29603,9 @@ var require_minimatch = __commonJS({
   }
 });
 
-// node_modules/readdir-glob/index.js
+// node_modules/archiver/node_modules/readdir-glob/index.js
 var require_readdir_glob = __commonJS({
-  "node_modules/readdir-glob/index.js"(exports2, module) {
+  "node_modules/archiver/node_modules/readdir-glob/index.js"(exports2, module) {
     module.exports = readdirGlob;
     var fs12 = __require("fs");
     var { EventEmitter: EventEmitter3 } = __require("events");
@@ -42426,9 +42496,9 @@ var require_isPlainObject = __commonJS({
   }
 });
 
-// node_modules/glob/node_modules/balanced-match/index.js
+// node_modules/archiver-utils/node_modules/balanced-match/index.js
 var require_balanced_match2 = __commonJS({
-  "node_modules/glob/node_modules/balanced-match/index.js"(exports2, module) {
+  "node_modules/archiver-utils/node_modules/balanced-match/index.js"(exports2, module) {
     "use strict";
     module.exports = balanced;
     function balanced(a, b, str) {
@@ -42484,9 +42554,9 @@ var require_balanced_match2 = __commonJS({
   }
 });
 
-// node_modules/glob/node_modules/brace-expansion/index.js
+// node_modules/archiver-utils/node_modules/brace-expansion/index.js
 var require_brace_expansion2 = __commonJS({
-  "node_modules/glob/node_modules/brace-expansion/index.js"(exports2, module) {
+  "node_modules/archiver-utils/node_modules/brace-expansion/index.js"(exports2, module) {
     var balanced = require_balanced_match2();
     module.exports = expandTop;
     var escSlash = "\0SLASH" + Math.random() + "\0";
@@ -42494,6 +42564,8 @@ var require_brace_expansion2 = __commonJS({
     var escClose = "\0CLOSE" + Math.random() + "\0";
     var escComma = "\0COMMA" + Math.random() + "\0";
     var escPeriod = "\0PERIOD" + Math.random() + "\0";
+    var EXPANSION_MAX = 1e5;
+    var EXPANSION_MAX_LENGTH = 4e6;
     function numeric(str) {
       return parseInt(str, 10) == str ? parseInt(str, 10) : str.charCodeAt(0);
     }
@@ -42527,11 +42599,12 @@ var require_brace_expansion2 = __commonJS({
       if (!str)
         return [];
       options = options || {};
-      var max2 = options.max == null ? Infinity : options.max;
+      var max2 = options.max == null ? EXPANSION_MAX : options.max;
+      var maxLength = options.maxLength == null ? EXPANSION_MAX_LENGTH : options.maxLength;
       if (str.substr(0, 2) === "{}") {
         str = "\\{\\}" + str.substr(2);
       }
-      return expand2(escapeBraces(str), max2, true).map(unescapeBraces);
+      return expand2(escapeBraces(str), max2, maxLength, true).map(unescapeBraces);
     }
     function embrace(str) {
       return "{" + str + "}";
@@ -42545,18 +42618,90 @@ var require_brace_expansion2 = __commonJS({
     function gte(i, y) {
       return i >= y;
     }
-    function expand2(str, max2, isTop) {
-      var expansions = [];
-      var m = balanced("{", "}", str);
-      if (!m) return [str];
-      var pre = m.pre;
-      var post = m.post.length ? expand2(m.post, max2, false) : [""];
-      if (/\$$/.test(m.pre)) {
-        for (var k = 0; k < post.length && k < max2; k++) {
-          var expansion = pre + "{" + m.body + "}" + post[k];
-          expansions.push(expansion);
+    function combine(acc, pre, values, max2, maxLength, dropEmpties) {
+      var out = [];
+      var length = 0;
+      for (var a = 0; a < acc.length; a++) {
+        for (var v = 0; v < values.length; v++) {
+          if (out.length >= max2) return out;
+          var expansion = acc[a] + pre + values[v];
+          if (dropEmpties && !expansion) continue;
+          if (length + expansion.length > maxLength) return out;
+          out.push(expansion);
+          length += expansion.length;
         }
-      } else {
+      }
+      return out;
+    }
+    function expandSequence(body2, isAlphaSequence, max2, maxLength) {
+      var n = body2.split(/\.\./);
+      var N = [];
+      if (n[0] === void 0 || n[1] === void 0) {
+        return N;
+      }
+      var x = numeric(n[0]);
+      var y = numeric(n[1]);
+      var width = Math.max(n[0].length, n[1].length);
+      var incr = n.length === 3 && n[2] !== void 0 ? Math.max(Math.abs(numeric(n[2])), 1) : 1;
+      var test = lte;
+      var reverse = y < x;
+      if (reverse) {
+        incr *= -1;
+        test = gte;
+      }
+      var pad = n.some(isPadded);
+      var length = 0;
+      for (var i = x; test(i, y) && N.length < max2; i += incr) {
+        var c;
+        if (isAlphaSequence) {
+          c = String.fromCharCode(i);
+          if (c === "\\") {
+            c = "";
+          }
+        } else {
+          c = String(i);
+          if (pad) {
+            var need = width - c.length;
+            if (need > 0) {
+              var z = new Array(need + 1).join("0");
+              if (i < 0) {
+                c = "-" + z + c.slice(1);
+              } else {
+                c = z + c;
+              }
+            }
+          }
+        }
+        if (length + c.length > maxLength) break;
+        N.push(c);
+        length += c.length;
+      }
+      return N;
+    }
+    function expand2(str, max2, maxLength, isTop) {
+      var acc = [""];
+      var dropEmpties = false;
+      var firstGroup = true;
+      for (; ; ) {
+        const m = balanced("{", "}", str);
+        if (!m) {
+          return combine(acc, str, [""], max2, maxLength, dropEmpties);
+        }
+        const pre = m.pre;
+        if (/\$$/.test(pre)) {
+          acc = combine(
+            acc,
+            pre + "{" + m.body + "}",
+            [""],
+            max2,
+            maxLength,
+            dropEmpties && !m.post.length
+          );
+          firstGroup = false;
+          if (!m.post.length) break;
+          str = m.post;
+          continue;
+        }
         var isNumericSequence = /^-?\d+\.\.-?\d+(?:\.\.-?\d+)?$/.test(m.body);
         var isAlphaSequence = /^[a-zA-Z]\.\.[a-zA-Z](?:\.\.-?\d+)?$/.test(m.body);
         var isSequence = isNumericSequence || isAlphaSequence;
@@ -42564,81 +42709,76 @@ var require_brace_expansion2 = __commonJS({
         if (!isSequence && !isOptions) {
           if (m.post.match(/,(?!,).*\}/)) {
             str = m.pre + "{" + m.body + escClose + m.post;
-            return expand2(str, max2, true);
+            isTop = true;
+            continue;
           }
-          return [str];
+          return combine(
+            acc,
+            pre + "{" + m.body + "}" + m.post,
+            [""],
+            max2,
+            maxLength,
+            dropEmpties
+          );
         }
-        var n;
+        if (firstGroup) {
+          dropEmpties = isTop && !isSequence;
+          firstGroup = false;
+        }
+        var values;
         if (isSequence) {
-          n = m.body.split(/\.\./);
+          values = expandSequence(m.body, isAlphaSequence, max2, maxLength);
         } else {
-          n = parseCommaParts(m.body);
-          if (n.length === 1) {
-            n = expand2(n[0], max2, false).map(embrace);
+          var n = parseCommaParts(m.body);
+          if (n.length === 1 && n[0] !== void 0) {
+            n = expand2(n[0], max2, maxLength, false).map(embrace);
             if (n.length === 1) {
-              return post.map(function(p) {
-                return m.pre + n[0] + p;
-              });
+              acc = combine(
+                acc,
+                pre + n[0],
+                [""],
+                max2,
+                maxLength,
+                dropEmpties && !m.post.length
+              );
+              if (!m.post.length) break;
+              str = m.post;
+              continue;
             }
           }
-        }
-        var N;
-        if (isSequence) {
-          var x = numeric(n[0]);
-          var y = numeric(n[1]);
-          var width = Math.max(n[0].length, n[1].length);
-          var incr = n.length == 3 ? Math.max(Math.abs(numeric(n[2])), 1) : 1;
-          var test = lte;
-          var reverse = y < x;
-          if (reverse) {
-            incr *= -1;
-            test = gte;
+          var dropsEmpties = dropEmpties && !m.post.length && !pre;
+          for (var d = 0; dropsEmpties && d < acc.length; d++) {
+            if (acc[d]) {
+              dropsEmpties = false;
+            }
           }
-          var pad = n.some(isPadded);
-          N = [];
-          for (var i = x; test(i, y) && N.length < max2; i += incr) {
-            var c;
-            if (isAlphaSequence) {
-              c = String.fromCharCode(i);
-              if (c === "\\")
-                c = "";
-            } else {
-              c = String(i);
-              if (pad) {
-                var need = width - c.length;
-                if (need > 0) {
-                  var z = new Array(need + 1).join("0");
-                  if (i < 0)
-                    c = "-" + z + c.slice(1);
-                  else
-                    c = z + c;
-                }
+          values = [];
+          var valuesLength = 0;
+          outer: for (var j = 0; j < n.length; j++) {
+            var expanded = expand2(n[j], max2, maxLength, false);
+            for (var k = 0; k < expanded.length; k++) {
+              var v = expanded[k];
+              if (dropsEmpties && !v) continue;
+              if (values.length >= max2 || valuesLength + v.length > maxLength) {
+                break outer;
               }
+              values.push(v);
+              valuesLength += v.length;
             }
-            N.push(c);
-          }
-        } else {
-          N = [];
-          for (var j = 0; j < n.length; j++) {
-            N.push.apply(N, expand2(n[j], max2, false));
           }
         }
-        for (var j = 0; j < N.length; j++) {
-          for (var k = 0; k < post.length && expansions.length < max2; k++) {
-            var expansion = pre + N[j] + post[k];
-            if (!isTop || isSequence || expansion)
-              expansions.push(expansion);
-          }
-        }
+        acc = combine(acc, pre, values, max2, maxLength, dropEmpties && !m.post.length);
+        if (!m.post.length) break;
+        str = m.post;
       }
-      return expansions;
+      return acc;
     }
   }
 });
 
-// node_modules/glob/node_modules/minimatch/dist/commonjs/assert-valid-pattern.js
+// node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/assert-valid-pattern.js
 var require_assert_valid_pattern = __commonJS({
-  "node_modules/glob/node_modules/minimatch/dist/commonjs/assert-valid-pattern.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/assert-valid-pattern.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.assertValidPattern = void 0;
@@ -42655,9 +42795,9 @@ var require_assert_valid_pattern = __commonJS({
   }
 });
 
-// node_modules/glob/node_modules/minimatch/dist/commonjs/brace-expressions.js
+// node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/brace-expressions.js
 var require_brace_expressions = __commonJS({
-  "node_modules/glob/node_modules/minimatch/dist/commonjs/brace-expressions.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/brace-expressions.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.parseClass = void 0;
@@ -42772,9 +42912,9 @@ var require_brace_expressions = __commonJS({
   }
 });
 
-// node_modules/glob/node_modules/minimatch/dist/commonjs/unescape.js
+// node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/unescape.js
 var require_unescape = __commonJS({
-  "node_modules/glob/node_modules/minimatch/dist/commonjs/unescape.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/unescape.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.unescape = void 0;
@@ -42785,9 +42925,9 @@ var require_unescape = __commonJS({
   }
 });
 
-// node_modules/glob/node_modules/minimatch/dist/commonjs/ast.js
+// node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/ast.js
 var require_ast = __commonJS({
-  "node_modules/glob/node_modules/minimatch/dist/commonjs/ast.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/ast.js"(exports2) {
     "use strict";
     var _a3;
     Object.defineProperty(exports2, "__esModule", { value: true });
@@ -43407,9 +43547,9 @@ var require_ast = __commonJS({
   }
 });
 
-// node_modules/glob/node_modules/minimatch/dist/commonjs/escape.js
+// node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/escape.js
 var require_escape = __commonJS({
-  "node_modules/glob/node_modules/minimatch/dist/commonjs/escape.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/escape.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.escape = void 0;
@@ -43420,9 +43560,9 @@ var require_escape = __commonJS({
   }
 });
 
-// node_modules/glob/node_modules/minimatch/dist/commonjs/index.js
+// node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/index.js
 var require_commonjs3 = __commonJS({
-  "node_modules/glob/node_modules/minimatch/dist/commonjs/index.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/minimatch/dist/commonjs/index.js"(exports2) {
     "use strict";
     var __importDefault = exports2 && exports2.__importDefault || function(mod) {
       return mod && mod.__esModule ? mod : { "default": mod };
@@ -44242,9 +44382,9 @@ var require_commonjs3 = __commonJS({
   }
 });
 
-// node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js
+// node_modules/archiver-utils/node_modules/lru-cache/dist/commonjs/index.js
 var require_commonjs4 = __commonJS({
-  "node_modules/path-scurry/node_modules/lru-cache/dist/commonjs/index.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/lru-cache/dist/commonjs/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.LRUCache = void 0;
@@ -46514,9 +46654,9 @@ var require_commonjs5 = __commonJS({
   }
 });
 
-// node_modules/path-scurry/dist/commonjs/index.js
+// node_modules/archiver-utils/node_modules/path-scurry/dist/commonjs/index.js
 var require_commonjs6 = __commonJS({
-  "node_modules/path-scurry/dist/commonjs/index.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/path-scurry/dist/commonjs/index.js"(exports2) {
     "use strict";
     var __createBinding = exports2 && exports2.__createBinding || (Object.create ? (function(o, m, k, k2) {
       if (k2 === void 0) k2 = k;
@@ -48288,9 +48428,9 @@ var require_commonjs6 = __commonJS({
   }
 });
 
-// node_modules/glob/dist/commonjs/pattern.js
+// node_modules/archiver-utils/node_modules/glob/dist/commonjs/pattern.js
 var require_pattern = __commonJS({
-  "node_modules/glob/dist/commonjs/pattern.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/glob/dist/commonjs/pattern.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Pattern = void 0;
@@ -48462,9 +48602,9 @@ var require_pattern = __commonJS({
   }
 });
 
-// node_modules/glob/dist/commonjs/ignore.js
+// node_modules/archiver-utils/node_modules/glob/dist/commonjs/ignore.js
 var require_ignore = __commonJS({
-  "node_modules/glob/dist/commonjs/ignore.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/glob/dist/commonjs/ignore.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Ignore = void 0;
@@ -48559,9 +48699,9 @@ var require_ignore = __commonJS({
   }
 });
 
-// node_modules/glob/dist/commonjs/processor.js
+// node_modules/archiver-utils/node_modules/glob/dist/commonjs/processor.js
 var require_processor = __commonJS({
-  "node_modules/glob/dist/commonjs/processor.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/glob/dist/commonjs/processor.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Processor = exports2.SubWalks = exports2.MatchRecord = exports2.HasWalkedCache = void 0;
@@ -48792,9 +48932,9 @@ var require_processor = __commonJS({
   }
 });
 
-// node_modules/glob/dist/commonjs/walker.js
+// node_modules/archiver-utils/node_modules/glob/dist/commonjs/walker.js
 var require_walker = __commonJS({
-  "node_modules/glob/dist/commonjs/walker.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/glob/dist/commonjs/walker.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.GlobStream = exports2.GlobWalker = exports2.GlobUtil = void 0;
@@ -49132,9 +49272,9 @@ var require_walker = __commonJS({
   }
 });
 
-// node_modules/glob/dist/commonjs/glob.js
+// node_modules/archiver-utils/node_modules/glob/dist/commonjs/glob.js
 var require_glob = __commonJS({
-  "node_modules/glob/dist/commonjs/glob.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/glob/dist/commonjs/glob.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.Glob = void 0;
@@ -49345,9 +49485,9 @@ var require_glob = __commonJS({
   }
 });
 
-// node_modules/glob/dist/commonjs/has-magic.js
+// node_modules/archiver-utils/node_modules/glob/dist/commonjs/has-magic.js
 var require_has_magic = __commonJS({
-  "node_modules/glob/dist/commonjs/has-magic.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/glob/dist/commonjs/has-magic.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.hasMagic = void 0;
@@ -49366,9 +49506,9 @@ var require_has_magic = __commonJS({
   }
 });
 
-// node_modules/glob/dist/commonjs/index.js
+// node_modules/archiver-utils/node_modules/glob/dist/commonjs/index.js
 var require_commonjs7 = __commonJS({
-  "node_modules/glob/dist/commonjs/index.js"(exports2) {
+  "node_modules/archiver-utils/node_modules/glob/dist/commonjs/index.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.glob = exports2.sync = exports2.iterate = exports2.iterateSync = exports2.stream = exports2.streamSync = exports2.Ignore = exports2.hasMagic = exports2.Glob = exports2.unescape = exports2.escape = void 0;
